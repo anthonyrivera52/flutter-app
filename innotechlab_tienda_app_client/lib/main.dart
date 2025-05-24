@@ -21,10 +21,14 @@ class MyApp extends ConsumerWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Flutter App'),
-      ),
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
+      title: 'App Client',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      routerDelegate: router.routerDelegate,
+      routeInformationParser: router.routeInformationParser,
+      routeInformationProvider: router.routeInformationProvider,
     );
   }
 }
