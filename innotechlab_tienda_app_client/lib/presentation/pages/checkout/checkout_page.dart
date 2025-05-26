@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart'; // Import geolocator
+import 'package:mi_tienda/core/utils/from_validator.dart';
 import 'package:mi_tienda/presentation/providers/checkout_provider.dart';
 import 'package:mi_tienda/presentation/providers/cart_provider.dart';
 import 'package:mi_tienda/presentation/widgets/common/custom_button.dart';
@@ -174,7 +175,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                   ),
                   Text(
                     '\$${cartState.totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.accentColor),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.primaryColor),
                   ),
                 ],
               ),
@@ -187,8 +188,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               CustomTextField(
                 controller: _addressController,
                 labelText: 'Dirección de Envío',
-                maxLines: 2,
-                validator: FormValidators.validateEmpty,
+                validator: (value) => FormValidators.isValidateEmpty(value),
                 suffixIcon: _isLocating
                     ? const Padding(
                         padding: EdgeInsets.all(8.0),
@@ -203,7 +203,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               CustomTextField(
                 controller: _notesController,
                 labelText: 'Notas para la Entrega (opcional)',
-                maxLines: 3,
               ),
               const SizedBox(height: 30),
               checkoutState.isLoading

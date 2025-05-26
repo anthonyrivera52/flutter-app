@@ -38,7 +38,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   }
 
   void _sendOtp() async {
-    if (!FormValidators.isValidateEmail(_emailController.text)) {
+    if (FormValidators.isValidateEmail(_emailController.text) != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor, introduce un correo electrónico válido.')),
       );
@@ -125,7 +125,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   controller: _emailController,
                   labelText: 'Correo electrónico',
                   keyboardType: TextInputType.emailAddress,
-                  validator: FormValidators.validateEmail,
+                  validator: (value) => FormValidators.isValidateEmail(value),
                   readOnly: widget.email != null, // Make read-only if email is passed
                 ),
                 const SizedBox(height: 20),
@@ -133,7 +133,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   controller: _otpController,
                   labelText: 'Código OTP',
                   keyboardType: TextInputType.number,
-                  validator: FormValidators.validateOtp,
+                  validator: (value) => FormValidators.isValidateOtp(value),
+                  readOnly: authState.isLoading,
                 ),
                 const SizedBox(height: 30),
                 authState.isLoading

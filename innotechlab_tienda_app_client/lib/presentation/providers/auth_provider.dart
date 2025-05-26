@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mi_tienda/core/usecases/usecase.dart';
 
 import 'package:mi_tienda/data/repositories/auth_repository_impl.dart';
 import 'package:mi_tienda/domain/usecases/auth/sign_in_usecase.dart';
@@ -74,6 +75,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   String? get errorMessage => state.errorMessage;
+  
+  get ref => null;
 
   Future<void> _loadCurrentUser() async {
     state = state.copyWith(isLoading: true);
@@ -99,7 +102,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  Future<bool> signUp(String email, String password) async {
+  Future<bool> signUp(String email, String password, String? s) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     final result = await _signUpUseCase(SignUpParams(email: email, password: password));
     return result.fold(

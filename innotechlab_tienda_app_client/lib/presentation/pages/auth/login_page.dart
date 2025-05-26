@@ -87,14 +87,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   controller: _emailController,
                   labelText: 'Correo electrónico',
                   keyboardType: TextInputType.emailAddress,
-                  validator: FormValidators.validateEmail, // Usando validador
+                  // validator: FormValidators.validateEmail, // Usando validador
                 ),
                 const SizedBox(height: 20),
                 CustomTextField(
                   controller: _passwordController,
                   labelText: 'Contraseña',
                   obscureText: true,
-                  validator: FormValidators.validatePassword, // Usando validador
+                  // validator: FormValidators.validatePassword, // Usando validador
                 ),
                 const SizedBox(height: 30),
                 authState.isLoading

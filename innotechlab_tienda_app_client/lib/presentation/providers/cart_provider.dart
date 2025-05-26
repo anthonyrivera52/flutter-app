@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mi_tienda/core/errors/failures.dart';
+import 'package:mi_tienda/core/usecases/usecase.dart';
 import 'package:mi_tienda/domain/entities/cart_item.dart';
 import 'package:mi_tienda/domain/entities/product.dart';
 import 'package:mi_tienda/domain/usecases/cart/add_to_cart_usecase.dart';

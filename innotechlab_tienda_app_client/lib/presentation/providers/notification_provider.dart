@@ -63,7 +63,7 @@ class NotificationNotifier extends StateNotifier<AsyncValue<List<AppNotification
     _orderConfirmationChannel = _supabaseClient.channel('public:new_delivery_order');
 
     _orderConfirmationChannel.on(
-      RealtimeListenTypes.postgresChanges,
+      RealtimeListenType.postgresChanges,
       ChannelFilter(
         event: 'NEW_DELIVERY_ORDER', // Este es el evento de pg_notify
         schema: 'public',

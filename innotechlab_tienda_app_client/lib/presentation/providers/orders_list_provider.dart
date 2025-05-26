@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mi_tienda/domain/entities/order.dart';
-import 'package:mi_tienda/domain/usecases/order/get_user_orders_usecase.dart'; // Assuming this is the correct path
-import 'package:mi_tienda/core/usecases/usecase.dart'; // For NoParams
+import 'package:mi_tienda/core/usecases/usecase.dart';
+import 'package:mi_tienda/presentation/pages/order_confirmation/order_confirmation_page.dart'; // For NoParams
 
 // Part 1: State Definition
 class OrdersListState {
@@ -40,13 +40,13 @@ class OrdersListNotifier extends StateNotifier<OrdersListState> {
 
   Future<void> fetchOrders() async {
     state = state.copyWith(isLoading: true, clearErrorMessage: true);
-    final result = await _getUserOrdersUseCase.call(NoParams());
+    final result = await _getUserOrdersUseCase.call(const NoParams());
     result.fold(
       (failure) {
         state = state.copyWith(isLoading: false, errorMessage: failure.message);
       },
       (orders) {
-        state = state.copyWith(isLoading: false, orders: orders);
+        state = state.copyWith(isLoading: false, orders: orders.cast<Order>());
       },
     );
   }

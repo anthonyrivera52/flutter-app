@@ -39,14 +39,14 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       final authState = ref.read(authProvider); // Leer el estado actual
 
       await authNotifier.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        displayName: _displayNameController.text.trim().isEmpty ? null : _displayNameController.text.trim(),
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        _displayNameController.text.trim().isEmpty ? null : _displayNameController.text.trim(),
       );
 
       // Después del registro, verificar el estado para navegar o mostrar error
       final newState = ref.read(authProvider); // Leer el nuevo estado después de la operación
-      if (newState.isAuthenticated) {
+      if (newState.isLoading) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('¡Registro exitoso!')),

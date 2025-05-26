@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mi_tienda/domain/entities/order.dart';
+import 'package:mi_tienda/domain/repositories/order_repository.dart';
 import 'package:mi_tienda/domain/usecases/order/get_order_by_id_usecase.dart';
 // It's good practice to have a separate provider for the use case if it has dependencies.
 // For now, assuming GetOrderByIdUseCase can be instantiated directly or its provider is simple.

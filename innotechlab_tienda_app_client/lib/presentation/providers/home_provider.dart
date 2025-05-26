@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mi_tienda/core/errors/failures.dart';
+import 'package:mi_tienda/core/usecases/usecase.dart';
 import 'package:mi_tienda/domain/entities/product.dart';
 import 'package:mi_tienda/domain/usecases/product/get_all_products_usecase.dart';
 
@@ -41,7 +42,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   Future<void> fetchProducts() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-    final result = await _getAllProductsUseCase(NoParams());
+    final result = await _getAllProductsUseCase(const NoParams());
     result.fold(
       (failure) => state = state.copyWith(isLoading: false, errorMessage: _mapFailureToMessage(failure)),
       (products) => state = state.copyWith(isLoading: false, products: products),

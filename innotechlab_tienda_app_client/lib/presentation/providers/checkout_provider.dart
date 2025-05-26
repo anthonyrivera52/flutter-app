@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mi_tienda/core/usecases/usecase.dart';
+import 'package:mi_tienda/presentation/pages/cart/cart_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mi_tienda/domain/entities/cart_item.dart';
 import 'package:mi_tienda/domain/usecases/cart/clear_cart_usecase.dart';
@@ -102,7 +104,7 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
       }).eq('id', orderId);
 
       // 4. Limpiar el carrito local
-      await _clearCartUseCase(NoParams());
+      await _clearCartUseCase(const NoParams());
 
       state = state.copyWith(isLoading: false, cartItems: []);
       return true;
