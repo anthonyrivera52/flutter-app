@@ -31,11 +31,6 @@ class MyApp extends ConsumerWidget {
           child: Text('Hello, Riverpod!'),
         ),
       ),
-      // Aquí puedes definir las rutas de tu aplicación
-      // routes: {
-      //   '/login': (context) => LoginPage(),
-      //   '/dashboard': (context) => DashboardPage(),
-      // },
     );
   }
 }
