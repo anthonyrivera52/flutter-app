@@ -9,15 +9,20 @@ import 'package:mi_tienda/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:mi_tienda/presentation/pages/auth/login_page.dart';
 import 'package:mi_tienda/presentation/pages/auth/signup_page.dart';
 import 'package:mi_tienda/presentation/pages/auth/otp_verification_page.dart'; // NUEVO
-import 'package:mi_tienda/presentation/pages/home/home_page.dart';
+// Import the new DashboardPage
+import 'package:mi_tienda/presentation/pages/dashboard/dashboard_page.dart';
+// HomePage is no longer the direct target for '/', HomeTabPageContent is used by DashboardPage
+// import 'package:mi_tienda/presentation/pages/home/home_page.dart'; 
 import 'package:mi_tienda/presentation/pages/product_details/product_details_page.dart';
 import 'package:mi_tienda/presentation/pages/cart/cart_page.dart';
 import 'package:mi_tienda/presentation/pages/checkout/checkout_page.dart';
 import 'package:mi_tienda/presentation/pages/order_confirmation/order_confirmation_page.dart';
 import 'package:mi_tienda/presentation/pages/notifications/notifications_page.dart';
 import 'package:mi_tienda/presentation/pages/profile/profile_page.dart'; // NUEVO
+// Import for OrderDetailsPage
+import 'package:mi_tienda/presentation/pages/orders/order_details_page.dart';
 
-final routerProvider = Provider<GoRouter>((ref) {
+final appRouterProvider = Provider<GoRouter>((ref) { // Renamed to appRouterProvider
   final supabase = Supabase.instance.client;
   final cartLocalDataSource = CartLocalDataSource(sharedPreferences: ref.read(sharedPreferencesProvider));
 
@@ -51,9 +56,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/',
-        name: 'home',
-        builder: (context, state) => const HomePage(),
+        name: 'home', // Or rename to 'dashboard' if more appropriate
+        builder: (context, state) {
+          int? initialTabIndex;
+          if (state.extra is Map<String, dynamic>) {
+            initialTabIndex = (state.extra as Map<String, dynamic>)['initialTabIndex'] as int?;
+          }
+          return DashboardPage(initialTabIndex: initialTabIndex);
+        },
         routes: [
+          // Product details can be a sub-route of the home tab's content
           GoRoute(
             path: 'product/:id',
             name: 'product_details',
@@ -87,12 +99,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'profile',
             builder: (context, state) => const ProfilePage(),
           ),
+          // New route for OrderDetailsPage
+          GoRoute(
+            path: 'order-details/:orderId',
+            name: 'order_details',
+            builder: (context, state) {
+              final orderId = state.pathParameters['orderId']!;
+              return OrderDetailsPage(orderId: orderId);
+            },
+          ),
         ],
       ),
     ],
     redirect: (context, state) async {
       final loggedIn = supabase.auth.currentUser != null;
-      final onBoardingCompleted = await cartLocalDataSource.getOnboardingStatus();
+      final onBoardingCompleted = await cartLocalDataSource.isOnboardingCompleted(); // Corrected method name
 
       final goingToLogin = state.matchedLocation == '/login';
       final goingToSignup = state.matchedLocation == '/signup';

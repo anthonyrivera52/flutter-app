@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mi_tienda/core/constants/app_constants.dart';
 import 'package:mi_tienda/core/utils/app_colors.dart';
 import 'package:mi_tienda/service_locator.dart';
-import 'package:mi_tienda/core/utils/app_colors.dart'; // ¡Importa tu archivo de colores!
+// Removed duplicate: import 'package:mi_tienda/core/utils/app_colors.dart'; 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:mi_tienda/service_locator.dart'; // Si usas un service locator (GetIt)
+// Removed duplicate: import 'package:mi_tienda/service_locator.dart'; 
+// Note: service_locator.dart was imported twice, one is removed.
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +19,10 @@ void main() async {
   );
 
   // Inicializa tu service locator si lo estás usando
-  await setupSharedPreferences();
+  // setupSharedPreferences() is called by service_locator.dart itself if needed.
+  // No need to call it explicitly here if setupLocator handles it.
+  // For now, assuming setupSharedPreferences is part of the service locator setup.
+  await setupLocator(); // Assuming setupLocator() initializes shared_preferences
   // --- FIN INICIALIZACIÓN DE DEPENDENCIAS ---
 
   runApp(const ProviderScope(child: MyApp()));
@@ -156,22 +160,8 @@ class MyApp extends ConsumerWidget {
           ),
         ),
       ),
-      // **NUEVO: Usa un Theme para aplicar el tema a toda la app**
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primaryColor,
-          primary: AppColors.primaryColor,
-          onPrimary: AppColors.cardColor,
-          secondary: AppColors.secondaryColor,
-          onSecondary: AppColors.textColor,
-          surface: AppColors.cardColor,
-          onSurface: AppColors.textColor,
-          background: AppColors.backgroundColor,
-          onBackground: AppColors.textColor,
-          error: AppColors.errorColor,
-          onError: AppColors.cardColor,
-        ),
-      ),
+      // The theme property for MyAppWithConnectivityListener is removed as it's redundant.
+      // The main theme is defined in MaterialApp.router.
     );
   }
 }

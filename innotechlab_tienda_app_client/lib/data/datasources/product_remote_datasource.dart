@@ -1,4 +1,4 @@
-import 'package:mi_tienda/data/models/product_moles.dart';
+import 'package:mi_tienda/data/models/product_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class ProductRemoteDataSource {

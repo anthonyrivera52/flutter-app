@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:Maps_flutter/Maps_flutter.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart'; // Corrected import
 import 'package:mi_tienda/presentation/providers/order_confirmation_provider.dart';
 import 'package:mi_tienda/presentation/widgets/common/loading_indicator.dart';
 import 'package:mi_tienda/core/utils/app_colors.dart';
@@ -220,11 +220,8 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
                       CustomButton(
                         text: 'Ver Mis Pedidos',
                         onPressed: () {
-                          // Implement a page for listing all user orders
-                          // context.go('/my-orders');
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Página de "Mis Pedidos" (pendiente de implementar)')),
-                          );
+                          // Navigate to DashboardPage with Orders tab (index 1) selected
+                          context.go('/', extra: {'initialTabIndex': 1});
                         },
                       ),
                     ],
