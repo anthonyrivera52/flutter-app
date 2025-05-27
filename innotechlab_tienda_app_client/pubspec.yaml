@@ -1,29 +1,41 @@
-name: flutter_app
-description: "A new Flutter project."
-publish_to: 'none'
-version: 0.0.1
+name: mi_tienda
+description: Un MVP de una aplicación de tienda en Flutter.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.0
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  provider: ^6.1.2
-  flutter_lints: ^5.0.0
-  shared_preferences: ^2.2.0
-  get_it: ^7.6.0
-  flutter_riverpod: ^2.3.6
-  supabase_flutter: ^1.10.25
-  go_router: ^10.0.0
+  
+  cupertino_icons: ^1.0.2
+  go_router: ^14.0.0 # Para navegación
+  flutter_riverpod: ^2.5.1 # Para gestión de estado
+  supabase_flutter: ^2.5.0 # Para autenticación y base de datos
+  dartz: ^0.10.1 # Para manejo de errores (Either)
+  equatable: ^2.0.5 # Para comparar objetos por valor
+  shared_preferences: ^2.2.3 # Para almacenamiento local del carrito
+  connectivity_plus: ^6.0.0 # Para verificar la conectividad a internet
+  image_picker: ^1.1.2 # Para seleccionar imágenes de perfil
+  cached_network_image: ^3.3.1 # Para cargar imágenes de red eficientemente
+  shimmer: ^3.0.0 # Para efectos de skeleton loader
+  intl: ^0.19.0 # Para formateo de fechas y números
+  badges: ^3.1.2 # Para el contador del carrito
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
+
   assets:
-    - assets/images/
-    - assets/icons/
-    - assets/fonts/
+    - assets/images/login-images.jpg # Asegúrate de tener una imagen placeholder
+    # Si tienes imágenes para el onboarding, añádelas aquí
+    - assets/onboarding/onboarding1.png
+    - assets/onboarding/onboarding2.png
+    - assets/onboarding/onboarding3.png
