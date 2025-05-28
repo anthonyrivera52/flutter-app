@@ -17,6 +17,7 @@ dependencies:
   supabase_flutter: ^1.10.25
   go_router: ^10.0.0
 
+  equatable: ^2.0.7 # For value equality
 dev_dependencies:
   flutter_test:
     sdk: flutter
