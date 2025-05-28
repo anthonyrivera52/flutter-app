@@ -2,9 +2,13 @@
 import 'package:flutter_app/domain/entities/auth.dart';
 
 class AuthStateModel extends AuthState {
+  @override
   final bool isLoading;
+  @override
   final String? errorMessage;
+  @override
   final bool isPasswordObscured;
+  @override
   final bool isAuthenticated; // Para indicar si la autenticación fue exitosa
 
   AuthStateModel({
