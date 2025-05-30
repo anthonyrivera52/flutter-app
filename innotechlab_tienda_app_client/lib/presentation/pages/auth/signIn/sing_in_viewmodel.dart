@@ -1,11 +1,9 @@
-
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/data/model/auth_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final authViewModelProvider = StateNotifierProvider<AuthViewModel, AuthStateModel>(
+final authViewModel = StateNotifierProvider<AuthViewModel, AuthStateModel>(
   (ref) => AuthViewModel(),
 );
 
@@ -15,7 +13,7 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  Future<void> login(context) async {
+  Future<void> login() async {
     state = state.copyWith(isLoading: true, errorMessage: null, isAuthenticated: false);
 
     try {
@@ -41,7 +39,14 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
       }
 
       if (true) {
-        context.go('/otp-verification', extra: emailController.text.trim());
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: null,
+          isAuthenticated: true,
+          loggedInEmail: emailController.text.trim(),
+        );
+        emailController.clear();
+        passwordController.clear();
       }
 
       // final result = await AuthModel.login(

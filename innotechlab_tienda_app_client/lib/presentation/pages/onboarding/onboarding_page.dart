@@ -3,6 +3,7 @@ import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/onboarding_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
@@ -50,6 +51,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   void _completeOnboarding() async {
+    context.go('/signin'); // Redirigir a la página de inicio de sesión
     // final cartLocalDataSource = ref.read(cartLocalDataSourceProvider);
     // await cartLocalDataSource.setOnboardingCompleted(true);
     // if (mounted) {

@@ -1,6 +1,8 @@
 import 'package:flutter_app/presentation/pages/auth/OTP/opt_verification_page.dart';
-import 'package:flutter_app/presentation/pages/auth/signIn/singIn_page.dart';
+import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_page.dart';
+import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
+import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 import 'package:flutter_app/presentation/pages/detail_page.dart';
 import 'package:flutter_app/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:flutter_app/presentation/pages/splash_screen/splash_screen_page.dart';
@@ -27,9 +29,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const OnboardingPage(), // Cambia esto a tu página de onboarding
       ),
       GoRoute(
+        path: '/signin',
+        name: 'signin', // Nombre opcional para referenciar la ruta
+        builder: (context, state) => const SignInPage(),
+      ),
+      GoRoute(
         path: '/signup',
         name: 'signup',
-        builder: (context, state) => const SignInPage(),
+        builder: (context, state) => const SignUpPage(),
       ),
       GoRoute(
         path: '/otp-verification',
@@ -46,6 +53,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           }
           return DashboardPage(initialTabIndex: initialTabIndex);
         },
+        routes: [
+          // Ruta para la pestaña de perfil dentro del dashboard
+          GoRoute(
+            path: 'profile',
+            name: 'profile', // Nombre opcional para referenciar la ruta
+            builder: (context, state) => const ProfilePage(), // Cambia esto a tu página de perfil
+          ),
+        ],
       ),
       // Ruta para la página de detalles
       GoRoute(

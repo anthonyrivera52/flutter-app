@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/pages/auth/signIn/singIn_viewmodel.dart';
+import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_viewmodel.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
@@ -62,6 +62,16 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   // }
 
   void _verifyOtp() async {
+    if (_formKey.currentState?.validate() != true) {
+      return; // Si la validación falla, no continuar
+    }
+
+    if(_emailController.text.isEmpty || _otpController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, completa todos los campos')),
+      );
+      return;
+    }
     context.go('/'); // Redirigir a home si la verificación es exitosa
 
     // if (_formKey.currentState!.validate()) {
@@ -86,7 +96,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authViewModelProvider);
+    final authState = ref.watch(authViewModel);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -165,8 +175,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           ),
                           const SizedBox(height: 10),
                           TextButton(
-                            // onPressed: _sendOtp,
-                            onPressed: _verifyOtp,
+                            onPressed: () {}, // _sendOtp,
                             child: const Text(
                               'Reenviar OTP',
                               style: TextStyle(color: AppColors.primaryColor),

@@ -10,12 +10,14 @@ class AuthStateModel extends AuthState {
   final bool isPasswordObscured;
   @override
   final bool isAuthenticated; // Para indicar si la autenticación fue exitosa
+  final String? loggedInEmail; // Para almacenar el correo electrónico del usuario autenticado
 
   AuthStateModel({
     this.isLoading = false,
     this.errorMessage,
     this.isPasswordObscured = true,
     this.isAuthenticated = false,
+    this.loggedInEmail = "",
   });
 
   /// Crea una nueva instancia de AuthStateModel con valores actualizados.
@@ -23,13 +25,15 @@ class AuthStateModel extends AuthState {
     bool? isLoading,
     String? errorMessage,
     bool? isPasswordObscured,
-    bool? isAuthenticated, 
+    bool? isAuthenticated,
+    String? loggedInEmail,
   }) {
     return AuthStateModel(
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage, // Se pasa directamente para permitir null
       isPasswordObscured: isPasswordObscured ?? this.isPasswordObscured,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      loggedInEmail: loggedInEmail ?? this.loggedInEmail,
     );
   }
 }
