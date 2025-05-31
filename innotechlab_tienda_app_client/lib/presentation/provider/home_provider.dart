@@ -1,4 +1,4 @@
-import 'package:dartz/dartz.dart'; // Para Either
+// Para Either
 import 'package:flutter_app/config/mock/app_mock.dart';
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/domain/entities/product.dart';

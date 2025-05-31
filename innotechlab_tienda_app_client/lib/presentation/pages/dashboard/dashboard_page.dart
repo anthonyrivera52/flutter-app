@@ -4,7 +4,6 @@ import 'package:flutter_app/presentation/pages/dashboard/home/home.dart';
 import 'package:flutter_app/presentation/pages/dashboard/orders/order.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 // Import for GoRouter
-import 'package:go_router/go_router.dart';
 import 'package:motion_tab_bar/MotionTabBar.dart';
 import 'package:motion_tab_bar/MotionTabBarController.dart';
 // CartPage and NotificationsPage imports are not strictly needed if using path-based navigation
