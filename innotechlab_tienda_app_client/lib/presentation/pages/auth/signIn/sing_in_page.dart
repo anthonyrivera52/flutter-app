@@ -3,6 +3,7 @@ import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_viewmodel.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
+import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,8 +37,12 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       // and then true only on success.
       if (state.isAuthenticated) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('¡Inicio de sesión exitoso!')),
+          showInfoToast( // Usando InfoToast para el mensaje de éxito
+            context,
+            message: '¡Registro exitoso!',
+            backgroundColor: Colors.green,
+            icon: Icons.check_circle_outline,
+            isDismissible: true
           );
           // Redirect to the OTP verification page or main page
           // Ensure '/otp-verification' is defined in your GoRouter
@@ -55,9 +60,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       // in the state of _SignInPageState or rely on clearErrorMessage.
       if (state.errorMessage != null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage!)),
-          );
+          // Show the error message using InfoToast
+          showInfoToast( // Usando InfoToast para el mensaje de éxito
+              context,
+              message: state.errorMessage!,
+              backgroundColor: Colors.red,
+              icon: Icons.error_outline,
+              isDismissible: true
+            );
           // Clear the error message in the ViewModel after displaying it
           authVM.clearErrorMessage();
         }

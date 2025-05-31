@@ -3,8 +3,9 @@ import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_page.dart';
 import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
-import 'package:flutter_app/presentation/pages/detail_page.dart';
+import 'package:flutter_app/presentation/pages/products/detail_page.dart';
 import 'package:flutter_app/presentation/pages/onboarding/onboarding_page.dart';
+import 'package:flutter_app/presentation/pages/products/product_list_page.dart';
 import 'package:flutter_app/presentation/pages/splash_screen/splash_screen_page.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // Necesario para usar Provider en el router
@@ -60,13 +61,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: 'profile', // Nombre opcional para referenciar la ruta
             builder: (context, state) => const ProfilePage(), // Cambia esto a tu página de perfil
           ),
+          // Ruta para la página de detalles de producto (ejemplo)
+          GoRoute(
+            path: 'product/:productId', // Asumo que tienes una ruta de detalle de producto
+            name: 'product_detail',
+            builder: (context, state) {
+              final productId = state.pathParameters['productId']!;
+              // Aquí deberías pasar el productId a tu ProductDetailPage
+              return DetailPage(productId: productId); // Ejemplo: ProductDetailPage recibe productId
+            },
+          ),
+          // Ruta para la página de lista de productos por categoría o tipo
+          GoRoute(
+            path: 'products/:categoryId/:categoryName', // Rutas con parámetros
+            name: 'product_list', // Nombre para una navegación más fácil
+            builder: (context, state) {
+              final categoryId = state.pathParameters['categoryId']!;
+              final categoryName = state.pathParameters['categoryName']!;
+              return ProductListPage(
+                categoryId: categoryId,
+                categoryName: categoryName,
+              );
+            },
+          ),
         ],
-      ),
-      // Ruta para la página de detalles
-      GoRoute(
-        path: '/detail',
-        name: 'detail', // Nombre opcional
-        builder: (context, state) => const DetailPage(),
       ),
       // Puedes añadir más rutas aquí según sea necesario
     ],

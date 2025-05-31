@@ -26,3 +26,7 @@ class AuthFailure extends Failure {
 class NetworkFailure extends Failure {
   const NetworkFailure(super.message);
 }
+
+class ProductFailure extends Failure {
+  const ProductFailure(super.message);
+}

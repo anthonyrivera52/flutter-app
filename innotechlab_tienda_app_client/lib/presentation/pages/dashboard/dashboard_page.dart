@@ -46,6 +46,7 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
     'Profile', // For Profile tab
   ];
 
+  @override
   void dispose() {
     _motionTabBarController?.dispose(); // Dispose the controller if used
     super.dispose();

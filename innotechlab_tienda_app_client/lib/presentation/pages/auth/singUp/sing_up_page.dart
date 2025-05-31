@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_viewmodel.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
+import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'sing_up_viewmodel.dart';
 
 class SignUpPage extends ConsumerStatefulWidget {
   const SignUpPage({super.key});
@@ -16,8 +17,11 @@ class SignUpPage extends ConsumerStatefulWidget {
 
 class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _formKey = GlobalKey<FormState>();
+  // Estos estados locales de la UI para la visibilidad de la contraseña
+  // se mantienen aquí, ya que no se pidió moverlos al ViewModel.
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
   // Stores the function to remove the listener for authentication state
   late VoidCallback _removeAuthListener;
   // Stores the function to remove the listener for error messages
@@ -28,7 +32,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     super.initState();
 
     // Get the notifier instance for authViewModelProvider
-    final authVM = ref.read(authViewModel.notifier);
+    final authVM = ref.read(authViewModelProvider.notifier); // Usar authViewModelProvider
 
     // Listen to changes in the authentication state
     _removeAuthListener = authVM.addListener((state) {
@@ -38,8 +42,12 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       // and then true only on success.
       if (state.isAuthenticated) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('¡Inicio de sesión exitoso!')),
+          showInfoToast( // Usando InfoToast para el mensaje de éxito
+            context,
+            message: '¡Registro exitoso!',
+            backgroundColor: Colors.green,
+            icon: Icons.check_circle_outline,
+            isDismissible: true
           );
           // Redirect to the OTP verification page or main page
           // Ensure '/otp-verification' is defined in your GoRouter
@@ -51,14 +59,14 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     // Listen to changes in the error message state
     _removeErrorListener = authVM.addListener((state) {
       // Check if there's a new error message
-      // We need to compare with the previous state to avoid showing the same error repeatedly
-      // This is a common pattern when using addListener for SnackBar messages.
-      // For a more robust comparison, you might need to store the previous error message
-      // in the state of _SignInPageState or rely on clearErrorMessage.
       if (state.errorMessage != null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage!)),
+          showInfoToast( // Usando InfoToast para el mensaje de éxito
+            context,
+            message: state.errorMessage!,
+            backgroundColor: Colors.red,
+            icon: Icons.error_outline,
+            isDismissible: true
           );
           // Clear the error message in the ViewModel after displaying it
           authVM.clearErrorMessage();
@@ -78,17 +86,17 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     super.dispose();
   }
 
-  void _onSignUnButtonPressed() {
+  void _onSignUpButtonPressed() { // Renombrado para claridad
     if (_formKey.currentState?.validate() ?? false) {
-      // Llama al método de inicio de sesión del ViewModel
-      ref.read(authViewModel.notifier).signUp();
+      // Llama al método de registro del ViewModel
+      ref.read(authViewModelProvider.notifier).signUp(); // Usar authViewModelProvider
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authViewModel);
-    final authVM = ref.read(authViewModel.notifier);
+    final authState = ref.watch(authViewModelProvider); // Usar authViewModelProvider
+    final authVM = ref.read(authViewModelProvider.notifier); // Usar authViewModelProvider
 
     return Scaffold(
       appBar: AppBar(
@@ -189,6 +197,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     if (value == null || value.isEmpty) {
                       return 'Confirma tu contraseña';
                     }
+                    // La validación de coincidencia debe hacerse contra el texto del controlador de contraseña
                     if (value != authVM.passwordController.text) {
                       return 'Las contraseñas no coinciden';
                     }
@@ -200,7 +209,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                     ? const LoadingIndicator()
                     : CustomButton(
                         text: 'Registrarse',
-                        onPressed: () => _onSignUnButtonPressed,
+                        onPressed: _onSignUpButtonPressed, // CORREGIDO: Llama a la función directamente
                       ),
                 const SizedBox(height: 20),
                 TextButton(

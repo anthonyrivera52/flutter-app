@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart'; // Importa go_router para la navegaci
 
 /// Página de detalles simple a la que se navega desde la página de inicio.
 class DetailPage extends StatelessWidget {
-  const DetailPage({super.key});
+  const DetailPage({super.key, required String productId});
 
   @override
   Widget build(BuildContext context) {
