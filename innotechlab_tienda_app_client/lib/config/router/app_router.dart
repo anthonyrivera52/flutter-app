@@ -68,7 +68,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final productId = state.pathParameters['productId']!;
               // Aquí deberías pasar el productId a tu ProductDetailPage
-              return DetailPage(productId: productId); // Ejemplo: ProductDetailPage recibe productId
+              return ProductDetailsPage(productId: productId); // Ejemplo: ProductDetailPage recibe productId
             },
           ),
           // Ruta para la página de lista de productos por categoría o tipo

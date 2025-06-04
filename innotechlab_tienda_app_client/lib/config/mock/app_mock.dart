@@ -1,10 +1,7 @@
-// Mock de información de usuario para visualización
 import 'package:flutter_app/domain/entities/cartItem.dart';
 import 'package:flutter_app/domain/entities/category.dart';
 import 'package:flutter_app/domain/entities/order.dart';
 import 'package:flutter_app/domain/entities/product.dart';
-import 'package:flutter_app/domain/entities/recipe.dart';
-import 'package:flutter_app/domain/entities/shopt.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart'; // Para generar IDs únicos
 
@@ -14,21 +11,41 @@ const Uuid uuid = Uuid();
 /// Provides mock data for the grocery application.
 class MockData {
   // IDs especiales para categorías
-  static final String allProductsCategoryId = uuid.v4();
-  static final String discountedProductsCategoryId = uuid.v4();
+  static final String allProductsCategoryId = 'all_products_category_id';
+  static final String discountedProductsCategoryId = 'discounted_products_category_id';
 
-static List<Category> get mockCategories {
-    // IDs para categorías principales (puedes generarlos o definirlos estáticamente)
-    final String vegetablesId = uuid.v4();
-    final String fruitsId = uuid.v4();
-    final String meatId = uuid.v4();
-    final String drinksId = uuid.v4();
-    final String dairyId = uuid.v4();
-    final String bakeryId = uuid.v4();
+  // IDs para categorías principales
+  static final String vegetablesId = 'vegetables_category_id';
+  static final String fruitsId = 'fruits_category_id';
+  static final String meatId = 'meat_category_id';
+  static final String drinksId = 'drinks_category_id';
+  static final String dairyId = 'dairy_category_id';
+  static final String bakeryId = 'bakery_category_id';
 
-    // IDs para subcategorías (si necesitas referenciarlas directamente)
-    final String tomatoesId = uuid.v4(); // ID para la subcategoría Tomatoes
+  // IDs para subcategorías
+  static final String tomatoesId = 'tomatoes_subcategory_id';
+  static final String leafyGreensId = 'leafy_greens_subcategory_id';
+  static final String rootVegetablesId = 'root_vegetables_subcategory_id';
+  static final String peppersId = 'peppers_subcategory_id';
+  static final String broccoliCauliflowerId = 'broccoli_cauliflower_subcategory_id';
+  static final String applesId = 'apples_subcategory_id';
+  static final String bananasId = 'bananas_subcategory_id';
+  static final String berriesId = 'berries_subcategory_id';
+  static final String beefId = 'beef_subcategory_id';
+  static final String poultryId = 'poultry_subcategory_id';
+  static final String sodasId = 'sodas_subcategory_id';
+  static final String juicesId = 'juices_subcategory_id';
+  static final String waterId = 'water_subcategory_id';
+  static final String milkId = 'milk_subcategory_id';
+  static final String cheeseId = 'cheese_subcategory_id';
+  static final String yogurtId = 'yogurt_subcategory_id';
+  static final String breadId = 'bread_subcategory_id';
+  static final String pastriesId = 'pastries_subcategory_id';
 
+  // Initialize mockCategories once
+  static final List<Category> mockCategories = _initMockCategories();
+
+  static List<Category> _initMockCategories() {
     return [
       Category(id: allProductsCategoryId, name: 'All Products', imageUrl: 'https://placehold.co/100x100/CCCCCC/000000?text=All'),
       Category(
@@ -37,29 +54,32 @@ static List<Category> get mockCategories {
         imageUrl: 'https://placehold.co/100x100/A7D9B1/000000?text=V',
         subcategories: [
           Category(
-            id: tomatoesId, // Usar el ID que definiste para Tomatoes
+            id: tomatoesId,
             name: 'Tomatoes',
             imageUrl: 'https://placehold.co/100x100/FF6347/FFFFFF?text=T',
-            parentId: vegetablesId, // Referencia al padre
-            // Aquí podrían ir sub-subcategorías si fuera necesario, e.g., 'Cherry Tomatoes', 'Plum Tomatoes'
+            parentId: vegetablesId,
           ),
           Category(
-            name: 'Leafy Greens', // Nueva subcategoría
+            id: leafyGreensId,
+            name: 'Leafy Greens',
             imageUrl: 'https://placehold.co/100x100/38761D/FFFFFF?text=LG',
             parentId: vegetablesId,
           ),
           Category(
-            name: 'Root Vegetables', // Nueva subcategoría (para zanahorias, etc.)
+            id: rootVegetablesId,
+            name: 'Root Vegetables',
             imageUrl: 'https://placehold.co/100x100/B45F06/FFFFFF?text=RV',
             parentId: vegetablesId,
           ),
           Category(
-            name: 'Peppers', // Subcategoría para 'Red Peppers'
+            id: peppersId,
+            name: 'Peppers',
             imageUrl: 'https://placehold.co/100x100/FF5722/FFFFFF?text=P',
             parentId: vegetablesId,
           ),
           Category(
-            name: 'Broccoli & Cauliflower', // Subcategoría para 'Fresh Broccoli'
+            id: broccoliCauliflowerId,
+            name: 'Broccoli & Cauliflower',
             imageUrl: 'https://placehold.co/100x100/4CAF50/FFFFFF?text=BC',
             parentId: vegetablesId,
           ),
@@ -71,17 +91,20 @@ static List<Category> get mockCategories {
         imageUrl: 'https://placehold.co/100x100/FFD700/000000?text=F',
         subcategories: [
           Category(
+            id: applesId,
             name: 'Apples',
             imageUrl: 'https://placehold.co/100x100/FF0000/FFFFFF?text=Apls',
             parentId: fruitsId,
           ),
           Category(
+            id: bananasId,
             name: 'Bananas',
             imageUrl: 'https://placehold.co/100x100/FFFF00/000000?text=Bana',
             parentId: fruitsId,
           ),
           Category(
-            name: 'Berries', // Para 'Rewe Bio Beeren'
+            id: berriesId,
+            name: 'Berries',
             imageUrl: 'https://placehold.co/100x100/8B0000/FFFFFF?text=Bry',
             parentId: fruitsId,
           ),
@@ -93,11 +116,13 @@ static List<Category> get mockCategories {
         imageUrl: 'https://placehold.co/100x100/FF0000/FFFFFF?text=M',
         subcategories: [
           Category(
-            name: 'Beef', // Para 'Rinderfiletspitzen', 'Rinderfiletsteak'
+            id: beefId,
+            name: 'Beef',
             imageUrl: 'https://placehold.co/100x100/8B4513/FFFFFF?text=Beef',
             parentId: meatId,
           ),
           Category(
+            id: poultryId,
             name: 'Poultry',
             imageUrl: 'https://placehold.co/100x100/D2B48C/000000?text=Pltry',
             parentId: meatId,
@@ -107,19 +132,22 @@ static List<Category> get mockCategories {
       Category(
         id: drinksId,
         name: 'Drinks',
-        imageUrl: 'https://placehold.co/100x100/87CEEB/000000?text=D',
+        imageUrl: 'https://placehold.co/100x100/87CEEB/000000?text=Beer',
         subcategories: [
           Category(
-            name: 'Sodas', // Para 'Fritz-Kola', 'Coca Cola'
+            id: sodasId,
+            name: 'Sodas',
             imageUrl: 'https://placehold.co/100x100/000000/FFFFFF?text=Sod',
             parentId: drinksId,
           ),
           Category(
-            name: 'Juices', // Para 'Bravo TL Lorem'
-            imageUrl: 'https://placehold.co/100x100/FFEB3B/000000?text=Jce',
+            id: juicesId,
+            name: 'Juices',
+            imageUrl: 'https://placehold.co/100x100/FFEB3B/000000?text=Juice',
             parentId: drinksId,
           ),
           Category(
+            id: waterId,
             name: 'Water',
             imageUrl: 'https://placehold.co/100x100/ADD8E6/000000?text=Wtr',
             parentId: drinksId,
@@ -129,19 +157,22 @@ static List<Category> get mockCategories {
       Category(
         id: dairyId,
         name: 'Dairy',
-        imageUrl: 'https://placehold.co/100x100/F0E68C/000000?text=Da', // Cambiado el texto para diferenciar de Drinks
+        imageUrl: 'https://placehold.co/100x100/F0E68C/000000?text=Da',
         subcategories: [
           Category(
+            id: milkId,
             name: 'Milk',
             imageUrl: 'https://placehold.co/100x100/FFFFFF/000000?text=Milk',
             parentId: dairyId,
           ),
           Category(
+            id: cheeseId,
             name: 'Cheese',
             imageUrl: 'https://placehold.co/100x100/FFA500/000000?text=Chse',
             parentId: dairyId,
           ),
           Category(
+            id: yogurtId,
             name: 'Yogurt',
             imageUrl: 'https://placehold.co/100x100/F5F5DC/000000?text=Ygrt',
             parentId: dairyId,
@@ -154,11 +185,13 @@ static List<Category> get mockCategories {
         imageUrl: 'https://placehold.co/100x100/D2B48C/000000?text=B',
         subcategories: [
           Category(
+            id: breadId,
             name: 'Bread',
             imageUrl: 'https://placehold.co/100x100/DEB887/000000?text=Brd',
             parentId: bakeryId,
           ),
           Category(
+            id: pastriesId,
             name: 'Pastries',
             imageUrl: 'https://placehold.co/100x100/FFE4B5/000000?text=Pstry',
             parentId: bakeryId,
@@ -168,25 +201,23 @@ static List<Category> get mockCategories {
     ];
   }
 
- // Paso 3: Actualizar mockProducts para usar los IDs de las nuevas subcategorías
-  static List<Product> get mockProducts {
-    // Es crucial que los IDs de las categorías y subcategorías sean consistentes.
-    // Para simplificar, obtendremos las categorías y subcategorías de la lista mockCategories reestructurada.
+  // Initialize mockProducts once
+  static final List<Product> mockProducts = _initMockProducts();
 
+  static List<Product> _initMockProducts() {
     final categoriesWithSubcategories = mockCategories;
     final Map<String, String> categoryMap = {};
 
     void extractCategoryIds(List<Category> cats, String? parentId) {
       for (var cat in cats) {
-        categoryMap[cat.name] = cat.id; // Mapea el nombre de la categoría a su ID
+        categoryMap[cat.name] = cat.id;
         if (cat.subcategories != null) {
           extractCategoryIds(cat.subcategories!, cat.id);
         }
       }
     }
     extractCategoryIds(categoriesWithSubcategories, null);
-    // Ahora categoryMap contendrá los IDs de todas las categorías y subcategorías por su nombre.
-    // Ej: categoryMap['Tomatoes'] te dará el ID de la subcategoría 'Tomatoes'.
+    // print('Category Map: $categoryMap'); // Debug: You can keep this if needed for development
 
     return [
       Product(
@@ -196,7 +227,7 @@ static List<Category> get mockCategories {
         price: 3.24,
         imageUrl: 'https://placehold.co/150x150/FF6347/FFFFFF?text=Tomato1',
         unit: '300g (Pkt)',
-        categoryId: categoryMap['Tomatoes']!, // Asegúrate que 'Tomatoes' existe en tu categoryMap
+        categoryId: categoryMap['Tomatoes']!,
       ),
       Product(
         id: uuid.v4(),
@@ -228,22 +259,22 @@ static List<Category> get mockCategories {
       Product(
         id: uuid.v4(),
         name: 'Fresh Broccoli',
-        description: 'Healthy and fresh broccoli.',
-        price: 4.00,
-        discountedPrice: 3.40,
+        description: 'Healthy hot broccoli.',
+        price: 25.00,
+        discountedPrice: 20.00,
         imageUrl: 'https://placehold.co/150x150/4CAF50/FFFFFF?text=Broccoli',
-        unit: '1kg',
-        categoryId: categoryMap['Broccoli & Cauliflower']!, // Asignar a la nueva subcategoría
+        unit: 'Broccoli',
+        categoryId: categoryMap['Broccoli & Cauliflower']!,
       ),
       Product(
         id: uuid.v4(),
         name: 'Organic Carrots',
-        description: 'Sweet and crunchy organic carrots.',
+        description: 'Sweet and crunchy carrots.',
         price: 2.50,
         discountedPrice: 2.00,
         imageUrl: 'https://placehold.co/150x150/FF8C00/FFFFFF?text=Carrots',
         unit: '1kg',
-        categoryId: categoryMap['Root Vegetables']!, // Asignar a la nueva subcategoría
+        categoryId: categoryMap['Root Vegetables']!,
       ),
       Product(
         id: uuid.v4(),
@@ -252,8 +283,8 @@ static List<Category> get mockCategories {
         price: 2.80,
         discountedPrice: 2.30,
         imageUrl: 'https://placehold.co/150x150/FF5722/FFFFFF?text=RedPepper',
-        unit: '230g (Pkt)',
-        categoryId: categoryMap['Peppers']!, // Asignar a la nueva subcategoría
+        unit: '230g (Packet)',
+        categoryId: categoryMap['Peppers']!,
       ),
       Product(
         id: uuid.v4(),
@@ -263,16 +294,16 @@ static List<Category> get mockCategories {
         discountedPrice: 0.95,
         imageUrl: 'https://placehold.co/150x150/000000/FFFFFF?text=FritzKola',
         unit: '0.25 L',
-        categoryId: categoryMap['Sodas']!, // Asignar a la nueva subcategoría
+        categoryId: categoryMap['Sodas']!,
       ),
       Product(
         id: uuid.v4(),
-        name: 'Coca Cola 0.30 L',
+        name: 'Coca Cola 0.33 L',
         description: 'Classic Coca Cola.',
         price: 1.25,
         discountedPrice: 0.85,
-        imageUrl: 'https://placehold.co/150x150/FF0000/FFFFFF?text=CocaCola',
-        unit: '0.30 L',
+        imageUrl: 'https://placehold.co/150x150/FF000/FFFFFF?text=CocaCola',
+        unit: '0.33 L',
         categoryId: categoryMap['Sodas']!,
       ),
       Product(
@@ -280,10 +311,9 @@ static List<Category> get mockCategories {
         name: 'Bravo TL Lorem',
         description: 'A refreshing fruit juice.',
         price: 1.80,
-        discountedPrice: 1.60,
         imageUrl: 'https://placehold.co/150x150/FFEB3B/000000?text=Bravo',
         unit: '1 L',
-        categoryId: categoryMap['Juices']!, // Asignar a la nueva subcategoría
+        categoryId: categoryMap['Juices']!,
       ),
       Product(
         id: uuid.v4(),
@@ -293,11 +323,11 @@ static List<Category> get mockCategories {
         discountedPrice: 1.25,
         imageUrl: 'https://placehold.co/150x150/FF0000/FFFFFF?text=RedApple',
         unit: '900g',
-        categoryId: categoryMap['Apples']!, // Asignar a la nueva subcategoría
+        categoryId: categoryMap['Apples']!,
       ),
       Product(
         id: uuid.v4(),
-        name: 'Yellow Apple Text',
+        name: 'Yellow Apple',
         description: 'Sweet yellow apples.',
         price: 1.80,
         discountedPrice: 1.35,
@@ -307,23 +337,23 @@ static List<Category> get mockCategories {
       ),
       Product(
         id: uuid.v4(),
-        name: 'Banana Text here',
+        name: 'Banana Text',
         description: 'Fresh bananas.',
         price: 4.50,
-        discountedPrice: 2.80,
+        discountedPrice: 4.80,
         imageUrl: 'https://placehold.co/150x150/FFFF00/000000?text=Banana',
         unit: '500g',
-        categoryId: categoryMap['Bananas']!, // Asignar a la nueva subcategoría
+        categoryId: categoryMap['Bananas']!,
       ),
       Product(
         id: uuid.v4(),
         name: 'Rinderfiletspitzen',
         description: 'Premium beef tenderloin tips.',
-        price: 5.40,
+        price: 5.45,
         discountedPrice: 4.90,
-        imageUrl: 'https://placehold.co/150x150/8B4513/FFFFFF?text=BeefTips',
+        imageUrl: 'https://placehold.co/150x150/8B4513/000000?text=TBeef',
         unit: '400g',
-        categoryId: categoryMap['Beef']!, // Asignar a la nueva subcategoría
+        categoryId: categoryMap['Beef']!,
       ),
       Product(
         id: uuid.v4(),
@@ -331,7 +361,7 @@ static List<Category> get mockCategories {
         description: 'Juicy beef tenderloin steak.',
         price: 4.20,
         discountedPrice: 3.15,
-        imageUrl: 'https://placehold.co/150x150/A0522D/FFFFFF?text=BeefSteak',
+        imageUrl: 'https://placehold.co/150/150/A0522D/D',
         unit: '200g',
         categoryId: categoryMap['Beef']!,
       ),
@@ -341,19 +371,22 @@ static List<Category> get mockCategories {
         description: 'Organic berries.',
         price: 12.25,
         discountedPrice: 8.10,
-        imageUrl: 'https://placehold.co/150x150/8B0000/FFFFFF?text=Berries',
+        imageUrl: 'https://placehold.co/150x150/8B0080/FFFFFF?text=Berries',
         unit: '500g',
-        categoryId: categoryMap['Berries']!, // Asignar a la nueva subcategoría
+        categoryId: categoryMap['Berries']!,
       ),
     ];
   }
 
-static List<CartItem> get mockCartItems {
-    final products = mockProducts;
-    if (products.isEmpty) return []; // Guarda por si mockProducts está vacío temporalmente
+  // Initialize mockCartItems once
+  static final List<CartItem> mockCartItems = _initMockCartItems();
+
+  static List<CartItem> _initMockCartItems() {
+    final products = mockProducts; // Use the already initialized mockProducts
+    if (products.isEmpty) return [];
     return [
       CartItem(
-        productId: products[0].id, // Tomate Rojo
+        productId: products[0].id, // Red Tomatoes
         name: products[0].name,
         imageUrl: products[0].imageUrl,
         price: products[0].price,
@@ -361,7 +394,7 @@ static List<CartItem> get mockCartItems {
         quantity: 2,
       ),
       CartItem(
-        productId: products[1].id, // Tomate Cherry
+        productId: products[1].id, // Cherry Tomatoes
         name: products[1].name,
         imageUrl: products[1].imageUrl,
         price: products[1].price,
@@ -369,7 +402,7 @@ static List<CartItem> get mockCartItems {
         quantity: 1,
       ),
       CartItem(
-        productId: products[3].id, // Tomate VIP Español
+        productId: products[3].id, // Spanish VIP Tomatoes
         name: products[3].name,
         imageUrl: products[3].imageUrl,
         price: products[3].price,
@@ -379,11 +412,13 @@ static List<CartItem> get mockCartItems {
     ];
   }
 
-  static List<Order> get mockOrders {
-    final cartItems = mockCartItems;
-    final products = mockProducts;
-    if (products.length < 7) return []; // Guarda para evitar errores de índice
+  // Initialize mockOrders once
+  static final List<Order> mockOrders = _initMockOrders();
 
+  static List<Order> _initMockOrders() {
+    final cartItems = mockCartItems; // Use the already initialized mockCartItems
+    final products = mockProducts; // Use the already initialized mockProducts
+    if (products.length < 7) return [];
     return [
       Order(
         id: uuid.v4(),
@@ -403,63 +438,28 @@ static List<CartItem> get mockCartItems {
             productId: products[4].id, // Broccoli
             name: products[4].name,
             imageUrl: products[4].imageUrl,
-            price: products[4].discountedPrice ?? products[4].price, // Usar precio con descuento si existe
+            price: products[4].discountedPrice ?? products[4].price,
             unit: products[4].unit,
             quantity: 2,
           ),
           CartItem(
-            productId: products[6].id, // Pimiento Rojo
+            productId: products[6].id, // Red Peppers
             name: products[6].name,
             imageUrl: products[6].imageUrl,
-            price: products[6].discountedPrice ?? products[6].price, // Usar precio con descuento si existe
+            price: products[6].discountedPrice ?? products[6].price,
             unit: products[6].unit,
             quantity: 4,
           ),
         ],
-        totalAmount: ( (products[4].discountedPrice ?? products[4].price) * 2) +
-                     ( (products[6].discountedPrice ?? products[6].price) * 4),
+        totalAmount: ((products[4].discountedPrice ?? products[4].price) * 2) +
+                     ((products[6].discountedPrice ?? products[6].price) * 4),
         status: 'Processing',
         deliveryAddress: 'Avenida Siempre Viva 742, Springfield',
       ),
     ];
   }
 
-  // Mock Recipes
-  static List<Recipe> get mockRecipes => [
-        Recipe(
-          id: uuid.v4(),
-          title: 'Spaghetti with Pesto and Tomatoes',
-          description: 'A quick and delicious pasta dish.',
-          imageUrl: 'https://placehold.co/150x150/8BC34A/FFFFFF?text=Recipe1',
-          cookingTimeMinutes: 25,
-          price: 5.90,
-        ),
-        Recipe(
-          id: uuid.v4(),
-          title: 'Avocado Toast with Poached Egg',
-          description: 'Healthy breakfast or brunch option.',
-          imageUrl: 'https://placehold.co/150x150/FFD700/000000?text=Recipe2',
-          cookingTimeMinutes: 15,
-          price: 8.45,
-        ),
-        Recipe(
-          id: uuid.v4(),
-          title: 'Chicken Curry',
-          description: 'Spicy and flavorful chicken curry.',
-          imageUrl: 'https://placehold.co/150x150/FF9800/FFFFFF?text=Recipe3',
-          cookingTimeMinutes: 40,
-          price: 12.30,
-        ),
-      ];
-
-  // Mock Shops
-  static List<Shop> get mockShops => [
-        Shop(id: uuid.v4(), name: 'Rewe', logoUrl: 'https://placehold.co/100x50/FF0000/FFFFFF?text=Rewe'),
-        Shop(id: uuid.v4(), name: 'Edeka', logoUrl: 'https://placehold.co/100x50/007AFF/FFFFFF?text=Edeka'),
-        Shop(id: uuid.v4(), name: 'Lidl', logoUrl: 'https://placehold.co/100x50/00BFFF/FFFFFF?text=Lidl'),
-        Shop(id: uuid.v4(), name: 'Aldi', logoUrl: 'https://placehold.co/100x50/00A86B/FFFFFF?text=Aldi'),
-      ];
-  // Mock User for display purposes   
+  // Mock User for display purposes
   final mockUser = User(
     id: 'mock_user_id',
     email: 'admin.mock@example.com',
@@ -471,5 +471,4 @@ static List<CartItem> get mockCartItems {
     aud: 'authenticated',
     createdAt: DateTime.now().toIso8601String(),
   );
-
 }
