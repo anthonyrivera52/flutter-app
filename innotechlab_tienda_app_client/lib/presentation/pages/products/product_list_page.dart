@@ -200,14 +200,6 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
                       // This keeps ProductListPage on the navigation stack.
                       context.push('/product/${product.id}');
                     },
-                    onAddToCart: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${product.name} added to cart!'),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
                   );
                 },
               ),

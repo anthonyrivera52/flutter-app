@@ -294,7 +294,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
       if (currentSearchTermLower.isEmpty) {
         mainProductsGrid = allMockProducts;
       } else {
-        Category? subcategoryMatchingSearchTerm = uniqueSubcategoriesForChips.firstWhereOrNull(
+        Category? subcategoryMatchingSearchTerm = FirstWhereOrNullExtension(uniqueSubcategoriesForChips).firstWhereOrNull(
           (sub) => sub.name.toLowerCase() == currentSearchTermLower,
         );
 
@@ -338,7 +338,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                 _scrollToChip(_chipKeys['all_products_chip']!);
             }
         } else {
-            Category? subcategoryMatchingSearchTerm = uniqueSubcategoriesForChips.firstWhereOrNull(
+            Category? subcategoryMatchingSearchTerm = FirstWhereOrNullExtension(uniqueSubcategoriesForChips).firstWhereOrNull(
                 (sub) => sub.name.toLowerCase() == currentSearchTermLower,
             );
 
@@ -352,11 +352,11 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                     final firstProduct = mainProductsGrid.first;
                     Category? subcategoryOfFirstProduct;
                     if (uniqueSubcategoriesForChips.isNotEmpty) {
-                        subcategoryOfFirstProduct = uniqueSubcategoriesForChips.firstWhereOrNull(
+                        subcategoryOfFirstProduct = FirstWhereOrNullExtension(uniqueSubcategoriesForChips).firstWhereOrNull(
                             (sub) => sub.id == firstProduct.categoryId,
                         );
                         if (subcategoryOfFirstProduct == null) {
-                            subcategoryOfFirstProduct = uniqueSubcategoriesForChips.firstWhereOrNull(
+                            subcategoryOfFirstProduct = FirstWhereOrNullExtension(uniqueSubcategoriesForChips).firstWhereOrNull(
                                 (sub) => _getApplicableCategoryIds(sub.id, allCategoriesStructure).contains(firstProduct.categoryId),
                             );
                         }
@@ -571,11 +571,6 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                               return ProductCard(
                                 product: product,
                                 onTap: () => context.go('/product/${product.id}'),
-                                onAddToCart: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${product.name} added to cart!'), duration: const Duration(seconds: 1)),
-                                  );
-                                },
                               );
                             },
                           ),
@@ -758,11 +753,6 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                                 return ProductCard(
                                   product: product,
                                   onTap: () => context.go('/product/${product.id}'),
-                                  onAddToCart: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('${product.name} added to cart!'), duration: const Duration(seconds: 1)),
-                                    );
-                                  },
                                 );
                               },
                             ),
@@ -815,14 +805,6 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                                     product: product,
                                     onTap: () {
                                       context.go('/product/${product.id}');
-                                    },
-                                    onAddToCart: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('${product.name} added to cart!'),
-                                          duration: const Duration(seconds: 1),
-                                        ),
-                                      );
                                     },
                                   );
                                 },),

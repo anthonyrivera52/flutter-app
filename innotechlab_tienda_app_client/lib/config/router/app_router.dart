@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_app/presentation/pages/auth/OTP/opt_verification_page.dart';
 import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_page.dart';
 import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_page.dart';
+import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 import 'package:flutter_app/presentation/pages/products/detail_page.dart';
@@ -83,6 +85,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 categoryName: categoryName,
               );
             },
+          ),
+          GoRoute(
+            path: 'cart',
+            name: 'cart',
+            builder: (context, state) => const CartModalContent(),
+          ),
+          GoRoute(
+            path: 'checkout',
+            name: 'checkout',
+            builder: (context, state) => const SizedBox.shrink(),
           ),
         ],
       ),
