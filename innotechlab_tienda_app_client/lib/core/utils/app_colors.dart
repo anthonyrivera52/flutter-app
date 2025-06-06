@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
+  static const Color transparent = Colors.transparent;
   static const Color containerColor = Color(0xFFFAFAFA);
   static const Color primaryColor = Color(0xFF007BFF);
   static const Color primaryDarkColor = Color(0xFF0056B3);

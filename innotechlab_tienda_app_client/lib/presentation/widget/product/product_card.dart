@@ -145,17 +145,18 @@ class ProductCard extends ConsumerWidget { // Changed to ConsumerWidget
                           onPressed: () {
                             ref.read(cartProvider.notifier).addItemToCart(product);
                             productQuantityNotifier.state = 1; // Update local state to 1
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${product.name} agregado al carrito'),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
+                            // ScaffoldMessenger.of(context).showSnackBar(
+                            //   SnackBar(
+                            //     content: Text('${product.name} agregado al carrito'),
+                            //     duration: const Duration(seconds: 1),
+                            //   ),
+                            // );
                           },
                           tooltip: 'Añadir al carrito',
                         )
                       else // If quantity is > 0, show quantity selector
                         QuantitySelector(
+                          isTransparentBackground: true,
                           quantity: productQuantity,
                           onAdd: () {
                             ref.read(cartProvider.notifier).updateItemQuantity(product.id, productQuantity + 1);
@@ -169,12 +170,12 @@ class ProductCard extends ConsumerWidget { // Changed to ConsumerWidget
                             // This is called when quantity drops from 1 to 0
                             ref.read(cartProvider.notifier).removeItemFromCart(product.id);
                             productQuantityNotifier.state = 0; // Reset local state, will show "Add to Cart" icon
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${product.name} removido del carrito.'),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
+                            // ScaffoldMessenger.of(context).showSnackBar(
+                            //   SnackBar(
+                            //     content: Text('${product.name} removido del carrito.'),
+                            //     duration: const Duration(seconds: 1),
+                            //   ),
+                            // );
                           },
                         ),
                       // --- End of conditional rendering ---

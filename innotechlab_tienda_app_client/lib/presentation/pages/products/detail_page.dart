@@ -145,17 +145,18 @@ class ProductDetailsPage extends ConsumerWidget {
                                 onPressed: () {
                                   ref.read(cartProvider.notifier).addItemToCart(product);
                                   productQuantityNotifier.state = 1; // Update local state to 1
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('${product.name} agregado al carrito'),
-                                      duration: const Duration(seconds: 1),
-                                    ),
-                                  );
+                                  // ScaffoldMessenger.of(context).showSnackBar(
+                                  //   SnackBar(
+                                  //     content: Text('${product.name} agregado al carrito'),
+                                  //     duration: const Duration(seconds: 1),
+                                  //   ),
+                                  // );
                                 },
                               ),
                             )
                           else // If quantity is > 0, show quantity selector
                             QuantitySelector(
+                              isTransparentBackground: false,
                               quantity: productQuantity,
                               onAdd: () {
                                 ref.read(cartProvider.notifier).updateItemQuantity(product.id, productQuantity + 1);

@@ -15,6 +15,8 @@ class CustomTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final Widget? suffixIcon;
   final bool readOnly;
+  final int? maxLength;
+  final int? maxLines;
 
   const CustomTextField({
     super.key,
@@ -30,6 +32,8 @@ class CustomTextField extends StatelessWidget {
     this.textInputAction,
     this.suffixIcon,
     this.readOnly = false,
+    this.maxLines,
+    this.maxLength,
   });
 
   @override
@@ -43,6 +47,8 @@ class CustomTextField extends StatelessWidget {
       onEditingComplete: onEditingComplete,
       textInputAction: textInputAction,
       readOnly: readOnly,
+      maxLength: maxLength,
+      maxLines: maxLines,
       style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: labelText,

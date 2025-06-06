@@ -379,38 +379,38 @@ class MockData {
   }
 
   // Initialize mockCartItems once
-  static final List<CartItem> mockCartItems = _initMockCartItems();
+  static final List<CartItem> mockCartItems = List.empty();
 
-  static List<CartItem> _initMockCartItems() {
-    final products = mockProducts; // Use the already initialized mockProducts
-    if (products.isEmpty) return [];
-    return [
-      CartItem(
-        productId: products[0].id, // Red Tomatoes
-        name: products[0].name,
-        imageUrl: products[0].imageUrl,
-        price: products[0].price,
-        unit: products[0].unit,
-        quantity: 2,
-      ),
-      CartItem(
-        productId: products[1].id, // Cherry Tomatoes
-        name: products[1].name,
-        imageUrl: products[1].imageUrl,
-        price: products[1].price,
-        unit: products[1].unit,
-        quantity: 1,
-      ),
-      CartItem(
-        productId: products[3].id, // Spanish VIP Tomatoes
-        name: products[3].name,
-        imageUrl: products[3].imageUrl,
-        price: products[3].price,
-        unit: products[3].unit,
-        quantity: 3,
-      ),
-    ];
-  }
+  // static List<CartItem> _initMockCartItems() {
+  //   final products = mockProducts; // Use the already initialized mockProducts
+  //   if (products.isEmpty) return [];
+  //   return [
+  //     CartItem(
+  //       productId: products[0].id, // Red Tomatoes
+  //       name: products[0].name,
+  //       imageUrl: products[0].imageUrl,
+  //       price: products[0].price,
+  //       unit: products[0].unit,
+  //       quantity: 2,
+  //     ),
+  //     CartItem(
+  //       productId: products[1].id, // Cherry Tomatoes
+  //       name: products[1].name,
+  //       imageUrl: products[1].imageUrl,
+  //       price: products[1].price,
+  //       unit: products[1].unit,
+  //       quantity: 1,
+  //     ),
+  //     CartItem(
+  //       productId: products[3].id, // Spanish VIP Tomatoes
+  //       name: products[3].name,
+  //       imageUrl: products[3].imageUrl,
+  //       price: products[3].price,
+  //       unit: products[3].unit,
+  //       quantity: 3,
+  //     ),
+  //   ];
+  // }
 
   // Initialize mockOrders once
   static final List<Order> mockOrders = _initMockOrders();

@@ -3,6 +3,7 @@ import 'package:flutter_app/presentation/pages/auth/OTP/opt_verification_page.da
 import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_page.dart';
 import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_page.dart';
 import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
+import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 import 'package:flutter_app/presentation/pages/products/detail_page.dart';
@@ -94,7 +95,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'checkout',
             name: 'checkout',
-            builder: (context, state) => const SizedBox.shrink(),
+            builder: (context, state) => CheckoutPageModal(),
           ),
         ],
       ),

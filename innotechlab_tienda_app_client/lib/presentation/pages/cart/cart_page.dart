@@ -1,14 +1,14 @@
-// lib/presentation/widget/cart/cart_modal_content.dart
-// Or append this to your cart_page.dart file
-
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart'; // Ensure this path is correct
 import 'package:flutter_app/domain/entities/cartItem.dart'; // Ensure this path is correct
+import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/provider/cart_provider.dart'; // Ensure this path is correct
 import 'package:flutter_app/presentation/widget/cart_item_card.dart'; // Ensure this path is correct
 import 'package:flutter_app/presentation/widget/common/custom_button.dart'; // Ensure this path is correct
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart'; // Ensure this path is correct
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:slide_action/slide_action.dart';
 
 class CartModalContent extends ConsumerWidget {
   const CartModalContent({super.key});
@@ -18,20 +18,59 @@ class CartModalContent extends ConsumerWidget {
     final cartState = ref.watch(cartProvider);
     final cartNotifier = ref.read(cartProvider.notifier);
 
-    double totalAmount = cartState.cartItems.fold(0.0, (sum, item) => 
-      sum + item.totalPrice);
+    final double shippingAmount = 200.00; // Puedes hacer esto dinámico si es necesario
+    final double minimumAmountForFreeShipping = 210.00; // Monto mínimo para envío gratis
+    double subtotalAmount = cartState.cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
+    final double grandTotal = subtotalAmount + shippingAmount; // El valor total a pagar
+
+    // Define si el slide action debe estar habilitado o no
+    final bool isSlideActionEnabled = grandTotal >= minimumAmountForFreeShipping;
+
+    // Define el onPressed para el SlideAction, será null si está deshabilitado
+    VoidCallback? slideActionOnSlide() {
+      if (isSlideActionEnabled) {
+        return () {
+          // Lógica a ejecutar cuando se desliza el SlideAction (por ejemplo, ir a la pantalla de pago)
+          // Navigator.of(context).pop(); // Cierra el modal
+          // ScaffoldMessenger.of(context).showSnackBar(
+          //   SnackBar(content: Text('Pago iniciado por deslizamiento. Total: \$${grandTotal.toStringAsFixed(2)}')),
+          // );
+          
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true, // Allows the modal to be taller than half the screen
+            builder: (BuildContext context) {
+              return DraggableScrollableSheet(
+                initialChildSize: 0.75, // Initial height of the modal (75% of screen height)
+                minChildSize: 0.5, // Minimum height
+                maxChildSize: 0.95, // Maximum height
+                expand: false, // Do not expand to full screen by default
+                builder: (BuildContext context, ScrollController scrollController) {
+                  return CheckoutPageModal(); // Your cart content
+                },
+              );
+            },
+          );
+          // Navigator.push(
+          //   context,
+          //   MaterialPageRoute(
+          //     builder: (context) => CheckoutPageModal()
+          //   )
+          // );
+        };
+      }
+      return null; // Si es null, el SlideAction estará deshabilitado
+    }
 
     return Container(
-      // Optional: Add some padding or shape for the modal
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Theme.of(context).canvasColor, // Use canvasColor for modal background
+        color: Theme.of(context).canvasColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // Make the column take minimum vertical space
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Optional: A drag handle for the modal
           Container(
             height: 4,
             width: 40,
@@ -62,7 +101,7 @@ class CartModalContent extends ConsumerWidget {
           else
             Expanded(
               child: ListView.builder(
-                shrinkWrap: true, // Important for ListView inside Column
+                shrinkWrap: true,
                 itemCount: cartState.cartItems.length,
                 itemBuilder: (context, index) {
                   final item = cartState.cartItems[index];
@@ -70,10 +109,6 @@ class CartModalContent extends ConsumerWidget {
                     item: item,
                     onRemove: () {
                       cartNotifier.removeItemFromCart(item.productId);
-                      // Navigator.of(context).pop(); // Consider if you want to close modal on remove
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${item.name} removido del carrito.')),
-                      );
                     },
                     onAddQuantity: () {
                       cartNotifier.updateItemQuantity(item.productId, item.quantity + 1);
@@ -83,9 +118,6 @@ class CartModalContent extends ConsumerWidget {
                         cartNotifier.updateItemQuantity(item.productId, item.quantity - 1);
                       } else {
                         cartNotifier.removeItemFromCart(item.productId);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${item.name} removido del carrito.')),
-                        );
                       }
                     },
                   );
@@ -94,10 +126,30 @@ class CartModalContent extends ConsumerWidget {
             ),
           if (cartState.cartItems.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 16.0), // Add padding above the summary
+              padding: const EdgeInsets.only(top: 16.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Envío:',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textColor,
+                            ),
+                      ),
+                      Text(
+                        '\$${shippingAmount.toStringAsFixed(2)}',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: AppColors.primaryColor,
+                            ),
+                      ),
+                    ],
+                  ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -109,27 +161,76 @@ class CartModalContent extends ConsumerWidget {
                             ),
                       ),
                       Text(
-                        '\$${totalAmount.toStringAsFixed(2)}',
+                        '\$${grandTotal.toStringAsFixed(2)}', // Usa el grandTotal calculado
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppColors.secondaryColor,
+                              color: AppColors.primaryColor,
                             ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  CustomButton(
-                    text: 'Proceder al Pago',
-                    onPressed: () {
-                      Navigator.of(context).pop(); // Close the modal
-                      // You can then navigate to a payment page or trigger checkout
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Funcionalidad de pago aún no implementada.')),
-                      );
-                      // If you have a specific payment route
-                      // context.go('/checkout'); // Example using GoRouter
-                    },
+                  Center(
+                    child: SlideAction(
+                      trackBuilder: (context, state) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            color: isSlideActionEnabled ? AppColors.backgroundColor : AppColors.greyLight, // Color del fondo del track
+                            boxShadow: isSlideActionEnabled
+                                ? const [BoxShadow(color: Colors.black26, blurRadius: 8)]
+                                : null, // Sin sombra si está deshabilitado
+                          ),
+                          child: Center(
+                            child: Text(
+                              isSlideActionEnabled ? "Desliza para pagar" : "Pago mínimo \$${minimumAmountForFreeShipping.toStringAsFixed(2)}",
+                              style: TextStyle(
+                                color: isSlideActionEnabled ? AppColors.primaryColor : AppColors.greyDark,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      thumbBuilder: (context, state) {
+                        return Container(
+                          margin: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: isSlideActionEnabled ? AppColors.primaryColor : AppColors.greyDark, // Color del pulgar
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.chevron_right,
+                              color: isSlideActionEnabled ? AppColors.backgroundColor : AppColors.textLightColor, // Color del icono
+                            ),
+                          ),
+                        );
+                      },
+                      action: slideActionOnSlide(), // Aquí se pasa la acción o null
+                    ),
                   ),
+                  const SizedBox(height: 16), // Espacio entre el SlideAction y el CustomButton
+                  // CustomButton(
+                  //   // El CustomButton se puede mantener o eliminar si solo quieres el SlideAction
+                  //   backgroundColor: isSlideActionEnabled ? AppColors.primaryColor : AppColors.greyLight,
+                  //   foregroundColor: isSlideActionEnabled ? AppColors.backgroundColor : AppColors.textLightColor,
+                  //   isLoading: cartState.isLoading,
+                  //   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  //   fontSize: 16,
+                  //   fontWeight: FontWeight.bold,
+                  //   borderRadius: 10.0,
+                  //   text: 'Proceder al Pago',
+                  //   onPressed: () => isSlideActionEnabled
+                  //       ? () {
+                  //           Navigator.of(context).pop(); // Cierra el modal
+                  //           ScaffoldMessenger.of(context).showSnackBar(
+                  //             SnackBar(content: Text('Pago iniciado por botón. Total: \$${grandTotal.toStringAsFixed(2)}')),
+                  //           );
+                  //           // context.go('/checkout'); // Ejemplo con GoRouter
+                  //         }
+                  //       : null, // Si es null, el botón estará deshabilitado
+                  // ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
@@ -146,12 +247,7 @@ class CartModalContent extends ConsumerWidget {
                             TextButton(
                               onPressed: () {
                                 cartNotifier.clearCart();
-                                Navigator.of(ctx).pop(); // Close the confirmation dialog
-                                // You might want to keep the modal open or close it
-                                // Navigator.of(context).pop(); // Close the cart modal too
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Carrito vaciado.')),
-                                );
+                                Navigator.of(ctx).pop();
                               },
                               child: const Text('Vaciar', style: TextStyle(color: Colors.red)),
                             ),

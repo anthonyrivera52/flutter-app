@@ -4,6 +4,7 @@ import 'package:flutter_app/core/utils/app_colors.dart'; // Ensure this path is 
 
 class QuantitySelector extends StatelessWidget {
   final int quantity;
+  final isTransparentBackground;
   final VoidCallback onAdd;
   final VoidCallback onRemove; // For decreasing quantity
   final VoidCallback onZeroQuantity; // Callback when quantity becomes 0
@@ -14,15 +15,17 @@ class QuantitySelector extends StatelessWidget {
     required this.onAdd,
     required this.onRemove,
     required this.onZeroQuantity,
+    required this.isTransparentBackground,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      padding: isTransparentBackground ? const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0) : const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       decoration: BoxDecoration(
-        color: AppColors.greyLight,
+        color: isTransparentBackground ? AppColors.transparent : AppColors.greyLight,
         borderRadius: BorderRadius.circular(20),
+        // Add border
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
