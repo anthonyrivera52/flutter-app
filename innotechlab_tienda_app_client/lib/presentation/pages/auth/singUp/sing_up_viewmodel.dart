@@ -47,7 +47,7 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
 
       // Simulación de un error o éxito para login
       await Future.delayed(const Duration(seconds: 1)); // Simula una llamada a la API
-      if (true) {
+      if (emailController.text.trim() == "admin@mail.com" && passwordController.text.trim() == "123456") {
         state = state.copyWith(
           isLoading: false,
           errorMessage: null,

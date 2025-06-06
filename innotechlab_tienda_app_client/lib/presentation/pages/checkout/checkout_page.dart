@@ -1,6 +1,5 @@
 // presentation/pages/checkout/checkout_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_app/core/usecases/usecase.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/provider/cart_provider.dart';
 import 'package:flutter_app/presentation/provider/checkout_provider.dart';
@@ -24,7 +23,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
   final TextEditingController _notesController = TextEditingController();
   double? _userLatitude;
   double? _userLongitude;
-  bool _isLocating = false;
 
   bool _callWhenArrive = false;
   bool _leaveAtDoor = true; // Default as checked
@@ -39,7 +37,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
 
   Future<void> _getCurrentLocation() async {
     setState(() {
-      _isLocating = true;
     });
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -52,7 +49,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                     'Permiso de ubicación denegado. No se puede obtener la ubicación.')),
           );
           setState(() {
-            _isLocating = false;
           });
           return;
         }
@@ -65,7 +61,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                   'Permiso de ubicación denegado permanentemente. Habilita desde la configuración.')),
         );
         setState(() {
-          _isLocating = false;
         });
         return;
       }
@@ -88,7 +83,6 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
       );
     } finally {
       setState(() {
-        _isLocating = false;
       });
     }
   }
@@ -103,9 +97,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
         return;
       }
 
-      final checkoutNotifier = ref.read(checkoutProvider.notifier);
+      ref.read(checkoutProvider.notifier);
       final cartItems = ref.read(cartProvider).cartItems;
-      final totalAmount = ref.read(cartProvider).cartItems.fold(
+      ref.read(cartProvider).cartItems.fold(
             0.0,
             (total, item) => total + (item.quantity * item.price),
           );

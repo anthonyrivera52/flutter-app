@@ -4,10 +4,8 @@ import 'package:flutter_app/domain/entities/cartItem.dart'; // Ensure this path 
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/provider/cart_provider.dart'; // Ensure this path is correct
 import 'package:flutter_app/presentation/widget/cart_item_card.dart'; // Ensure this path is correct
-import 'package:flutter_app/presentation/widget/common/custom_button.dart'; // Ensure this path is correct
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart'; // Ensure this path is correct
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:slide_action/slide_action.dart';
 
 class CartModalContent extends ConsumerWidget {

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_app/presentation/pages/auth/OTP/opt_verification_page.dart';
 import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_page.dart';
 import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_page.dart';
