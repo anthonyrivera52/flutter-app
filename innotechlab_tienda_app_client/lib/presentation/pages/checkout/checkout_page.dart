@@ -5,6 +5,7 @@ import 'package:flutter_app/presentation/provider/cart_provider.dart';
 import 'package:flutter_app/presentation/provider/checkout_provider.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
+import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -29,42 +30,40 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
   bool _dontRingBell = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Puedes inicializar la dirección con un valor por defecto o dejarla vacía.
+    _addressController.text = 'Oderstrasse 12A, 12030, Berlin'; // Dirección por defecto
+  }
+
+  @override
   void dispose() {
     _addressController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
+  /// Handles getting the current user's location using Geolocator.
+  /// Requests permissions if not granted and updates the address controller.
   Future<void> _getCurrentLocation() async {
-    setState(() {
-    });
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'Permiso de ubicación denegado. No se puede obtener la ubicación.')),
-          );
-          setState(() {
-          });
+          _showSnackBar(
+              'Permiso de ubicación denegado. No se puede obtener la ubicación.');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Permiso de ubicación denegado permanentemente. Habilita desde la configuración.')),
-        );
-        setState(() {
-        });
+        _showSnackBar(
+            'Permiso de ubicación denegado permanentemente. Habilita desde la configuración.');
         return;
       }
 
+      // Get the current position with high accuracy
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -74,27 +73,38 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
         _addressController.text =
             'Lat: ${_userLatitude!.toStringAsFixed(4)}, Lon: ${_userLongitude!.toStringAsFixed(4)} (Ubicación GPS)';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ubicación obtenida con éxito!')),
-      );
+      _showSnackBar('Ubicación obtenida con éxito!');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al obtener ubicación: $e')),
-      );
-    } finally {
-      setState(() {
-      });
+      _showSnackBar('Error al obtener ubicación: $e');
     }
   }
 
+  /// Shows a SnackBar message at the bottom of the screen.
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  /// Handles the order placement logic.
+  /// Validates the form and cart, then simulates a successful order.
   void _placeOrder() async {
     if (_formKey.currentState!.validate()) {
-      if (_userLatitude == null || _userLongitude == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Por favor, obtén tu ubicación o ingresa una dirección completa.')),
-        );
+      if (_addressController.text.isEmpty) {
+        _showSnackBar('Por favor, ingresa una dirección o obtén tu ubicación.');
         return;
+      }
+
+      // If the user hasn't used GPS but has manually entered the address,
+      // _userLatitude and _userLongitude will be null.
+      // You can decide how to handle this:
+      // 1. Always require GPS.
+      // 2. Attempt to geocode the manual address to lat/lon (would require a geocoding service).
+      // 3. Simply use the text address for the order.
+      // For now, if lat/lon are null, only the text address will be used.
+      if (_userLatitude == null || _userLongitude == null) {
+        print(
+            'Advertencia: La orden se realizará con la dirección de texto, no con coordenadas GPS.');
       }
 
       ref.read(checkoutProvider.notifier);
@@ -105,22 +115,27 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
           );
 
       if (cartItems.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('El carrito está vacío. Agrega productos antes de pagar.')),
-        );
+        _showSnackBar('El carrito está vacío. Agrega productos antes de pagar.');
         return;
       }
 
       // Simulate a successful order for now
-      final success = true;
+      final success = true; // In a real app, this would be the result of your order API call
 
       if (success) {
         ref.read(cartProvider.notifier).clearCart(); // Clear cart after successful order
-        context.go('/order-confirmation', extra: {
-          'userLatitude': _userLatitude,
-          'userLongitude': _userLongitude,
-        }); // Pass data to order confirmation
+        showInfoToast(
+          context, 
+          message: "Orden Creada.",
+          backgroundColor: AppColors.infoColor,
+          isDismissible: success,
+          icon: Icons.payment,
+          );
+        // context.go('/order-confirmation', extra: {
+        //   'address': _addressController.text, // Pass the text address
+        //   'userLatitude': _userLatitude,
+        //   'userLongitude': _userLongitude,
+        // }); // Pass data to order confirmation
       }
     }
   }
@@ -147,19 +162,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
         ),
         title: const Text('Checkout'),
         centerTitle: true,
-        actions: [
-          // IconButton(
-          //   icon: const Icon(Icons.close),
-          //   onPressed: () => context.pop(),
-          // ),
-        ],
       ),
-      body: Container( // Envuelve el SingleChildScrollView en un Container
+      body: Container(
+        // Wraps SingleChildScrollView in a Container for styling
         decoration: BoxDecoration(
-          color: Theme.of(context).canvasColor, // Usa el color del canvas del tema, normalmente blanco
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), // Aplica el borderRadius superior
+          color: Theme.of(context).canvasColor,
+          // Uses the theme's canvas color, usually white
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(20)), // Applies top border radius
         ),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
             key: _formKey,
@@ -168,54 +180,84 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
               children: [
                 // Address Section
                 const Text(
-                  'Address',
+                  'Dirección',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _addressController.text.isEmpty
-                              ? 'Oderstrasse 12A, 12030, Berlin' // Placeholder from image
-                              : _addressController.text,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          // Implement address edit functionality or GPS lookup
-                          _getCurrentLocation();
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomTextField(
+                        controller: _addressController,
+                        hintText: 'Ingresa tu dirección',
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'La dirección no puede estar vacía';
+                          }
+                          return null;
                         },
-                        child: Text(
-                          'Edit',
-                          style: TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        // Shows a BottomSheet with address editing options
+                        showModalBottomSheet(
+                          context: context,
+                          builder: (BuildContext bc) {
+                            return SafeArea(
+                              child: Wrap(
+                                children: <Widget>[
+                                  ListTile(
+                                    leading: const Icon(Icons.my_location),
+                                    title: const Text('Usar mi ubicación actual'),
+                                    onTap: () {
+                                      _getCurrentLocation();
+                                      Navigator.pop(context); // Closes the bottom sheet
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.map),
+                                    title: const Text('Ver/Editar en el mapa'),
+                                    onTap: () {
+                                      Navigator.pop(context); // Closes the bottom sheet
+                                      _showSnackBar('Integración con mapa (Google Maps) en desarrollo.');
+                                      // Here would be the logic to open a map or navigate to a map screen.
+                                      // For example: context.push('/map_picker');
+                                    },
+                                  ),
+                                  ListTile(
+                                    leading: const Icon(Icons.edit_location),
+                                    title: const Text('Establecer manualmente (Cerrar)'),
+                                    onTap: () {
+                                      Navigator.pop(context); // Closes the bottom sheet
+                                      // Does nothing, allows the user to edit the text
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                      child: Text(
+                        'Editar',
+                        style: TextStyle(
+                          color: AppColors.primaryColor,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
 
                 // Details Section
                 const Text(
-                  'Details',
+                  'Detalles',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -223,7 +265,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                 ),
                 const SizedBox(height: 8),
                 _buildDetailRow(
-                  'Call when you arrive',
+                  'Llamar al llegar',
                   _callWhenArrive,
                   (bool? value) {
                     setState(() {
@@ -232,7 +274,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                   },
                 ),
                 _buildDetailRow(
-                  'Leave at the door',
+                  'Dejar en la puerta',
                   _leaveAtDoor,
                   (bool? value) {
                     setState(() {
@@ -241,7 +283,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                   },
                 ),
                 _buildDetailRow(
-                  "Don't ring the bell",
+                  "No tocar el timbre",
                   _dontRingBell,
                   (bool? value) {
                     setState(() {
@@ -252,14 +294,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _notesController,
-                  hintText: 'Here you can add notes for the driver...',
+                  hintText: 'Aquí puedes añadir notas para el repartidor...',
                   validator: null, // No validation needed for notes
                 ),
                 const SizedBox(height: 24),
 
                 // Orden Schedule Section
                 const Text(
-                  'Orden schedule',
+                  'Programar Orden',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -280,7 +322,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                       Icon(Icons.access_time, color: Colors.grey[600]),
                       const SizedBox(width: 8),
                       Text(
-                        'Add delivery date and time',
+                        'Añadir fecha y hora de entrega',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                     ],
@@ -290,7 +332,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
 
                 // Vouchers Section
                 const Text(
-                  'Vouchers',
+                  'Cupones',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -311,7 +353,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                       Icon(Icons.add, color: Colors.grey[600]),
                       const SizedBox(width: 8),
                       Text(
-                        'Add voucher code',
+                        'Añadir código de cupón',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                     ],
@@ -321,7 +363,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
 
                 // Add a tip Section
                 const Text(
-                  'Add a tip',
+                  'Añadir una propina',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -342,7 +384,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                 Align(
                   alignment: Alignment.center,
                   child: Text(
-                    'Say Thank You with a tip. 100% is for the riders.',
+                    'Agradece con una propina. El 100% es para los repartidores.',
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ),
@@ -350,7 +392,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
 
                 // Payment Method Section
                 const Text(
-                  'Payment method',
+                  'Método de pago',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -366,17 +408,17 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                     color: Colors.grey[200],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
                       Icon(Icons.apple, size: 24), // Placeholder for Apple Pay icon
-                      const SizedBox(width: 8),
-                      const Expanded(
+                      SizedBox(width: 8),
+                      Expanded(
                         child: Text(
                           'Apple Pay',
                           style: TextStyle(fontSize: 16),
                         ),
                       ),
-                      const Icon(Icons.arrow_forward_ios, size: 16),
+                      Icon(Icons.arrow_forward_ios, size: 16),
                     ],
                   ),
                 ),
@@ -384,7 +426,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
 
                 // Orden Summary Section
                 const Text(
-                  'Orden summary',
+                  'Resumen del pedido',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -394,7 +436,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Orden nr:'),
+                    const Text('Número de pedido:'),
                     Text(
                       '#582394',
                       style: TextStyle(color: AppColors.primaryColor),
@@ -421,16 +463,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                       ),
                     )),
                 // Static items from the image for demonstration
-                _buildSummaryRow('2 × Broccoli Lorem Ipsum', '2,80 €'),
-                _buildSummaryRow('1 × Carrots Lorem Ipsum', '1,60 €'),
+                _buildSummaryRow('2 × Brócoli Lorem Ipsum', '2,80 €'),
+                _buildSummaryRow('1 × Zanahorias Lorem Ipsum', '1,60 €'),
                 _buildSummaryRow('2 × Coca-Cola 0,30 L', '5,40 €'),
-                _buildSummaryRow('2 × Eggplant text here', '2,20 €'),
+                _buildSummaryRow('2 × Berenjena texto aquí', '2,20 €'),
                 const SizedBox(height: 16),
                 const Divider(),
                 const SizedBox(height: 8),
-                _buildSummaryRow('Payment method', 'Apple Pay', isBold: true),
-                _buildSummaryRow('Delivery', '${deliveryFee.toStringAsFixed(2)} €'),
-                _buildSummaryRow('Tip', '${tipAmount.toStringAsFixed(2)} €'),
+                _buildSummaryRow('Método de pago', 'Apple Pay', isBold: true),
+                _buildSummaryRow('Envío', '${deliveryFee.toStringAsFixed(2)} €'),
+                _buildSummaryRow('Propina', '${tipAmount.toStringAsFixed(2)} €'),
                 const SizedBox(height: 8),
                 const Divider(),
                 const SizedBox(height: 8),
@@ -438,7 +480,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total incl. VAT',
+                      'Total incl. IVA',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     Text(
@@ -455,23 +497,23 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                   text: TextSpan(
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     children: [
-                      const TextSpan(text: 'By placing your order you agree to our '),
+                      const TextSpan(text: 'Al realizar tu pedido, aceptas nuestros '),
                       TextSpan(
-                        text: 'Terms and Conditions',
+                        text: 'Términos y Condiciones',
                         style: TextStyle(
                             color: AppColors.primaryColor,
                             decoration: TextDecoration.underline),
                       ),
-                      const TextSpan(text: ' and confirm that you have read our '),
+                      const TextSpan(text: ' y confirmas que has leído nuestros '),
                       TextSpan(
-                        text: 'rights of Withdrawal',
+                        text: 'derechos de desistimiento',
                         style: TextStyle(
                             color: AppColors.primaryColor,
                             decoration: TextDecoration.underline),
                       ),
-                      const TextSpan(text: ' and our '),
+                      const TextSpan(text: ' y nuestra '),
                       TextSpan(
-                        text: 'Policy',
+                        text: 'Política de Privacidad',
                         style: TextStyle(
                             color: AppColors.primaryColor,
                             decoration: TextDecoration.underline),
@@ -502,7 +544,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
         child: checkoutState.isLoading
             ? const LoadingIndicator()
             : CustomButton(
-                text: 'Confirm and Pay ${totalInclVAT.toStringAsFixed(2)} €',
+                text: 'Confirmar y Pagar ${totalInclVAT.toStringAsFixed(2)} €',
                 onPressed: _placeOrder,
                 icon: const Icon(
                   Icons.credit_card,
@@ -514,6 +556,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
     );
   }
 
+  /// Helper widget to build detail rows with a checkbox.
   Widget _buildDetailRow(String text, bool value, ValueChanged<bool?> onChanged) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -540,6 +583,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
     );
   }
 
+  /// Helper widget to build tip options.
   Widget _buildTipOption(String tip, {bool isSelected = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -557,6 +601,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
     );
   }
 
+  /// Helper widget to build summary rows.
   Widget _buildSummaryRow(String label, String value, {bool isBold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),

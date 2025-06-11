@@ -4,7 +4,10 @@ import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_page.dart';
 import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
+import 'package:flutter_app/presentation/pages/dashboard/orders/order_details.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
+import 'package:flutter_app/presentation/pages/notifications/notifications_page.dart';
+import 'package:flutter_app/presentation/pages/orden_confirmation/orden_confirmation_page.dart';
 import 'package:flutter_app/presentation/pages/products/detail_page.dart';
 import 'package:flutter_app/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:flutter_app/presentation/pages/products/product_list_page.dart';
@@ -95,6 +98,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'checkout',
             name: 'checkout',
             builder: (context, state) => CheckoutPageModal(),
+          ),
+          GoRoute(
+            path: 'order-confirmation',
+            name: 'order_confirmation',
+            builder: (context, state) => OrderConfirmationPage(),
+          ),
+          GoRoute(
+            path: 'notifications',
+            name: 'notifications',
+            builder: (context, state) => const NotificationsPage(), 
+          ),
+          // New route for OrderDetailsPage
+          GoRoute(
+            path: 'order-details/:orderId',
+            name: 'order_details',
+            builder: (context, state) {
+              final orderId = state.pathParameters['orderId']!;
+              return OrderDetailsPage(orderId: orderId);
+            },
           ),
         ],
       ),
