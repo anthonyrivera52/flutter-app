@@ -3,14 +3,14 @@ import 'package:flutter_app/core/usecases/usecase.dart'; // Ensure UseCase and N
 import 'package:flutter_app/domain/entities/cartItem.dart';
 import 'package:flutter_app/domain/entities/product.dart'; // Corrected from .h to .dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:mi_tienda/service_locator.dart'; // Comment out or remove this if you only want mocks
+// import 'package:flutter_app/service_locator.dart'; // Comment out or remove this if you only want mocks
 
 // Import for MockData and Either (from dartz)
 import 'package:flutter_app/config/mock/app_mock.dart'; // Assuming MockData is here
 import 'package:dartz/dartz.dart'; // Needed for Either
 
 // --- Define your UseCase abstract classes and Params if they are not already defined ---
-// Assuming these are in your 'mi_tienda/domain/usecases/cart/' directory or similar.
+// Assuming these are in your 'flutter_app/domain/usecases/cart/' directory or similar.
 // I'm re-adding them here for completeness of this single file, but in a real project,
 // you'd import them from their respective files.
 

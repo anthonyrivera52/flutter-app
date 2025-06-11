@@ -253,15 +253,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                 CustomTextField(
                   controller: _notesController,
                   hintText: 'Here you can add notes for the driver...',
-                  maxLines: 2,
-                  maxLength: 50,
                   validator: null, // No validation needed for notes
                 ),
                 const SizedBox(height: 24),
 
-                // Order Schedule Section
+                // Orden Schedule Section
                 const Text(
-                  'Order schedule',
+                  'Orden schedule',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -384,9 +382,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                 ),
                 const SizedBox(height: 24),
 
-                // Order Summary Section
+                // Orden Summary Section
                 const Text(
-                  'Order summary',
+                  'Orden summary',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -396,7 +394,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Order nr:'),
+                    const Text('Orden nr:'),
                     Text(
                       '#582394',
                       style: TextStyle(color: AppColors.primaryColor),

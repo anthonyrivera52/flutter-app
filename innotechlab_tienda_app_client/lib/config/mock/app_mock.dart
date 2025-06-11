@@ -1,6 +1,7 @@
 import 'package:flutter_app/domain/entities/cartItem.dart';
 import 'package:flutter_app/domain/entities/category.dart';
-import 'package:flutter_app/domain/entities/order.dart';
+import 'package:flutter_app/domain/entities/orden.dart';
+import 'package:flutter_app/domain/entities/orden_item.dart';
 import 'package:flutter_app/domain/entities/product.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart'; // Para generar IDs únicos
@@ -413,48 +414,113 @@ class MockData {
   // }
 
   // Initialize mockOrders once
-  static final List<Order> mockOrders = _initMockOrders();
+  static final List<Orden> mockOrders = _initMockOrders();
 
-  static List<Order> _initMockOrders() {
+  static List<Orden> _initMockOrders() {
     final cartItems = mockCartItems; // Use the already initialized mockCartItems
     final products = mockProducts; // Use the already initialized mockProducts
     if (products.length < 7) return [];
     return [
-      Order(
+      Orden(
         id: uuid.v4(),
-        userId: 'user_123',
-        orderDate: DateTime.now().subtract(const Duration(days: 5)),
-        items: cartItems,
-        totalAmount: cartItems.fold(0.0, (sum, item) => sum + (item.price * item.quantity)),
-        status: 'Delivered',
-        deliveryAddress: 'Calle Falsa 123, Ciudad Ficticia',
-      ),
-      Order(
-        id: uuid.v4(),
-        userId: 'user_123',
-        orderDate: DateTime.now().subtract(const Duration(days: 1)),
+        userId: 'mock_user_id',
+        totalAmount: 25.00,
+        status: 'pending',
+        shippingAddress: '123 Mock St, Mock City, MC 12345',
+        shippingLatitude: 40.7128,
+        shippingLongitude: -74.0060,
+        storeLatitude: 40.7128,
+        storeLongitude: -74.0060,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
         items: [
-          CartItem(
-            productId: products[4].id, // Broccoli
-            name: products[4].name,
-            imageUrl: products[4].imageUrl,
-            price: products[4].discountedPrice ?? products[4].price,
-            unit: products[4].unit,
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[0],
+            quantity: 1,
+            priceAtPurchase: products[0].price,
+          ),
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[1],
             quantity: 2,
+            priceAtPurchase: products[1].price,
           ),
-          CartItem(
-            productId: products[6].id, // Red Peppers
-            name: products[6].name,
-            imageUrl: products[6].imageUrl,
-            price: products[6].discountedPrice ?? products[6].price,
-            unit: products[6].unit,
-            quantity: 4,
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[2],
+            quantity: 1,
+            priceAtPurchase: products[2].price,
           ),
-        ],
-        totalAmount: ((products[4].discountedPrice ?? products[4].price) * 2) +
-                     ((products[6].discountedPrice ?? products[6].price) * 4),
-        status: 'Processing',
-        deliveryAddress: 'Avenida Siempre Viva 742, Springfield',
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[3],
+            quantity: 3,
+            priceAtPurchase: products[3].price,
+          ),
+        ]
+      ),
+      Orden(
+        id: uuid.v4(),
+        userId: 'mock_user_id',
+        totalAmount: 15.00,
+        status: 'completed',
+        shippingAddress: '456 Mock Ave, Mock City, MC 67890',
+        shippingLatitude: 34.0522,
+        shippingLongitude: -118.2437,
+        storeLatitude: 34.0522,
+        storeLongitude: -118.2437,
+        createdAt: DateTime.now().subtract(const Duration(days: 2)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+        items: [
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[0],
+            quantity: 2,
+            priceAtPurchase: products[0].price,
+          ),
+        ]
+      ),
+      Orden(
+        id: uuid.v4(),
+        userId: 'mock_user_id',
+        totalAmount: 30.00,
+        status: 'cancelled',
+        shippingAddress: '789 Mock Blvd, Mock City, MC 10112',
+        shippingLatitude: 51.5074,
+        shippingLongitude: -0.1278,
+        storeLatitude: 51.5074,
+        storeLongitude: -0.1278,
+        createdAt: DateTime.now().subtract(const Duration(days: 5)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 3)),
+        items: [
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[1],
+            quantity: 1,
+            priceAtPurchase: products[1].price,
+          ),
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[2],
+            quantity: 2,
+            priceAtPurchase: products[2].price,
+          ),
+          OrderItem(
+            id: uuid.v4(),
+            orderId: uuid.v4(),
+            product: products[3],
+            quantity: 1,
+            priceAtPurchase: products[3].price,
+          ),
+        ]
       ),
     ];
   }
