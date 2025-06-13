@@ -131,6 +131,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPageModal> {
           isDismissible: success,
           icon: Icons.payment,
           );
+          context.go('/order-list');
         // context.go('/order-confirmation', extra: {
         //   'address': _addressController.text, // Pass the text address
         //   'userLatitude': _userLatitude,

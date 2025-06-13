@@ -4,6 +4,7 @@ class AppColors {
   static const Color transparent = Colors.transparent;
   static const Color containerColor = Color(0xFFFAFAFA);
   static const Color primaryColor = Color(0xFF007BFF);
+  static const Color accentColor = Color(0xFFFFC107); // Amber
   static const Color primaryDarkColor = Color(0xFF0056B3);
   static const Color primaryLightColor = Color(0xFFCCE5FF);
 

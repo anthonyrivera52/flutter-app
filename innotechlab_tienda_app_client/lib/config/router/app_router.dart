@@ -5,6 +5,7 @@ import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/orders/order_details.dart';
+import 'package:flutter_app/presentation/pages/dashboard/orders/order_list.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 import 'package:flutter_app/presentation/pages/notifications/notifications_page.dart';
 import 'package:flutter_app/presentation/pages/orden_confirmation/orden_confirmation_page.dart';
@@ -108,6 +109,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'notifications',
             name: 'notifications',
             builder: (context, state) => const NotificationsPage(), 
+          ),
+          // New route for Orders
+          GoRoute(
+            path: 'order-list',
+            name: 'order',
+            builder: (context, state) => const OrdersListPage(),
           ),
           // New route for OrderDetailsPage
           GoRoute(

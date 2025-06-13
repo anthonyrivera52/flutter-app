@@ -3,6 +3,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/core/usecases/usecase.dart';
+import 'package:flutter_app/data/repositories/orden_repository_impl.dart';
 import 'package:flutter_app/domain/entities/cartItem.dart';
 import 'package:flutter_app/domain/repositories/orden_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ class PlaceOrderUseCase implements UseCase<void, PlaceOrderParams> {
 
   @override
   Future<Either<Failure, void>> call(PlaceOrderParams params) async {
+    // Assuming the repository has a method called placeOrder
     return await repository.placeOrder(
       cartItems: params.cartItems,
       totalAmount: params.totalAmount,
@@ -42,6 +44,6 @@ class PlaceOrderParams {
   });
 }
 
-final placeOrderUseCaseProvider = Provider<PlaceOrderUseCase>((ref) {
-  return PlaceOrderUseCase(ref.read(orderRepositoryProvider));
-});
+// final placeOrderUseCaseProvider = Provider<PlaceOrderUseCase>((ref) {
+//   return PlaceOrderUseCase(ref.read(ordenRepositoryProvider));
+// });
