@@ -1,4 +1,4 @@
-name: flutter_app
+name: delivery_app_mvvm
 description: "A new Flutter project."
 publish_to: 'none'
 version: 0.0.1
@@ -14,8 +14,14 @@ dependencies:
   shared_preferences: ^2.2.0
   get_it: ^7.6.0
   flutter_riverpod: ^2.3.6
-  supabase_flutter: ^1.10.25
+  supabase_flutter: ^2.9.1
   go_router: ^10.0.0
+  cupertino_icons: ^1.0.2
+  google_maps_flutter: ^2.5.0 # Para mapas
+  geolocator: ^11.0.0       # Para obtener la ubicación actual (simulado con mocks)
+  url_launcher: ^6.2.1      # Para abrir llamadas y chats
+  flutter_local_notifications: ^17.0.0 # O la última versión estable
+  rxdart: ^0.28.0 # Necesario para manejar streams de notificaciones
 
 dev_dependencies:
   flutter_test:
