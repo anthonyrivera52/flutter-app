@@ -13,10 +13,40 @@ dependencies:
   flutter_lints: ^5.0.0
   shared_preferences: ^2.2.0
   get_it: ^7.6.0
-  flutter_riverpod: ^2.3.6
-  supabase_flutter: ^1.10.25
-  go_router: ^10.0.0
+  
+  intl: ^0.19.0 # For currency formatting
+  # Supabase
+  supabase_flutter: ^2.9.0
 
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  go_router: ^10.0.0
+  motion_tab_bar: ^2.0.4
+
+  equatable: ^2.0.7 # For value equality
+  shimmer: ^3.0.0 # Para efectos de skeleton loader
+  
+  # Image Picker for Profile
+  image_picker: ^1.1.2 # ADD THIS LINE
+  
+  uuid: ^4.5.1
+  badges: ^3.1.2
+  info_toast: ^1.0.0
+  dartz: ^0.10.1
+
+  slide_action: ^0.0.2
+
+  # Connectivity
+  connectivity_plus: ^6.0.0 # Asegúrate de usar la última versión estable
+
+  #Image Caching
+  cached_network_image: ^3.3.1 # Añade esta línea
+
+  # Geolocation and Maps
+  geolocator: ^12.0.0 # For getting user location
+  google_maps_flutter: ^2.6.1 # For displaying maps
 dev_dependencies:
   flutter_test:
     sdk: flutter
