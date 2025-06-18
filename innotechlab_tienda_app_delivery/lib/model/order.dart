@@ -15,7 +15,7 @@ class Order {
   final int estimatedTimeMinutes;
   final double distanceKm;
   List<String>? items; // Para pedidos de supermercado/farmacia
-
+  final double totalAmount;
   // Estado del pedido desde la perspectiva del repartidor
   String status; // Ej: "pending", "accepted", "picking_up", "delivering", "delivered"
 
@@ -34,7 +34,28 @@ class Order {
     required this.distanceKm,
     this.items,
     this.status = 'pending', // Estado inicial
+    this.totalAmount = 0
   });
+
+    factory Order.fromJson(Map<String, dynamic> json) {
+      return Order(
+        id: json['id'] as String,
+        customerName: json['customer_name'] as String,
+        restaurantName: json['restaurantName'] as String,
+        restaurantAddress: json['restaurantAddress'] as String,
+        restaurantLocation: json['restaurantLocation'] as LatLng,
+        customerAddress: json['customerAddress'] as String,
+        customerPhone: json['customerPhone'] as String,
+        customerLocation: json['customerLocation'] as LatLng,
+        orderType: json['orderType'] as String,
+        estimatedEarnings: json['estimatedEarnings'] as double,
+        estimatedTimeMinutes: json['estimatedTimeMinutes'] as int,
+        distanceKm: json['distanceKm'] as double,
+        items: json['items'] as List<String>,
+        status: json['status'] as String,
+        totalAmount: json['totalAmount'] as double,
+      );
+  }
 
   // Método para crear una copia de la orden con un nuevo estado
   Order copyWith({String? status}) {
@@ -53,6 +74,7 @@ class Order {
       distanceKm: distanceKm,
       items: items,
       status: status ?? this.status,
+      totalAmount: totalAmount,
     );
   }
 }

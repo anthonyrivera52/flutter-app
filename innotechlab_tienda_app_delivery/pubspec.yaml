@@ -9,23 +9,25 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.6
   provider: ^6.1.2
-  flutter_lints: ^5.0.0
   shared_preferences: ^2.2.0
   get_it: ^7.6.0
   flutter_riverpod: ^2.3.6
-  supabase_flutter: ^2.9.1
+  supabase_flutter: ^2.5.0
   go_router: ^10.0.0
-  cupertino_icons: ^1.0.2
   google_maps_flutter: ^2.5.0 # Para mapas
   geolocator: ^11.0.0       # Para obtener la ubicación actual (simulado con mocks)
   url_launcher: ^6.2.1      # Para abrir llamadas y chats
   flutter_local_notifications: ^17.0.0 # O la última versión estable
   rxdart: ^0.28.0 # Necesario para manejar streams de notificaciones
+  flutter_polyline_points: ^2.0.0 # Para dibujar rutas en el mapa
+  http: ^1.2.1 # Para hacer peticiones a la API de Google Directions
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.1
 
 flutter:
   uses-material-design: true
