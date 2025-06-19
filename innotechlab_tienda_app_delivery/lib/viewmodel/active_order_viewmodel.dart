@@ -73,6 +73,12 @@ class ActiveOrderViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+ void clearActiveOrder() {
+    _activeOrder = null;
+    notifyListeners();
+    debugPrint('Active order cleared.');
+  }
+
   @override
   void dispose() {
     _locationSubscription?.cancel(); // Cancela la suscripción al stream para evitar fugas de memoria

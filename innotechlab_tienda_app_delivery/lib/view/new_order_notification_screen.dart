@@ -200,7 +200,7 @@ class NewOrderNotificationScreen extends StatelessWidget {
                                   final accepted = await newOrderViewModel.acceptOrder(order.id);
                                   if (accepted) {
                                     activeOrderViewModel.setActiveOrder(order); // Pasa la orden al ViewModel de orden activa
-                                    newOrderViewModel.clearCurrentOrder(); // Limpia la orden del ViewModel de nueva orden
+                                    newOrderViewModel.clearCurrentNewOrder(); // Limpia la orden del ViewModel de nueva orden
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(

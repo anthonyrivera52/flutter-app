@@ -1,42 +1,65 @@
+// lib/viewmodel/new_order_viewmodel.dart
+
 import 'dart:async';
 
-import 'package:delivery_app_mvvm/main.dart';
-import 'package:flutter/material.dart';
 import 'package:delivery_app_mvvm/model/order.dart';
-import 'package:delivery_app_mvvm/service/order_service.dart';
-import 'package:delivery_app_mvvm/service/mock_order_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Usamos el mock
+import 'package:delivery_app_mvvm/service/notification_service.dart';
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ViewModel para la pantalla de notificación de nueva orden
 class NewOrderViewModel extends ChangeNotifier {
-  final OrderService _orderService = MockOrderService(); // Inyecta tu servicio
-  Order? _currentNewOrder;
-  bool _isLoading = false;
-  String? _errorMessage;
+  final SupabaseClient _supabaseClient;
+  StreamSubscription? _orderSubscription;
+  final NotificationService notificationService; // Asegúrate de que esto se inyecte
 
+  Order? _currentNewOrder;
   Order? get currentNewOrder => _currentNewOrder;
+
+  bool _isLoading = false;
   bool get isLoading => _isLoading;
+
+  String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-
-  // ignore: unused_field
-  StreamSubscription<List<Map<String, dynamic>>>? _orderSubscription;
-  final SupabaseClient _supabaseClient = Supabase.instance.client;
-
   // Constructor
-  NewOrderViewModel() {
-    // Puedes iniciar la búsqueda de órdenes aquí o cuando la vista lo pida
-    fetchNewOrder();
+  NewOrderViewModel(this._supabaseClient, this.notificationService) {
+    _listenForNewOrders(); // Inicia la escucha al construir el ViewModel
   }
 
-  // En tu NewOrderViewModel
-Future<void> fetchNewOrder() async { // O _listenForNewOrders()
-  _isLoading = true;
-  _errorMessage = null;
-  notifyListeners();
+  Future<bool> acceptOrder(String orderId) async {
+    debugPrint('Attempting to accept order: $orderId');
+    await updateOrderStatus(orderId, 'accepted'); // Update status in Supabase
+    // The Realtime listener should automatically clear _currentNewOrder if the filter excludes 'accepted'
+    // But we can also manually clear it if preferred for immediate UI response.
+    clearCurrentNewOrder(); // Clear the alert from the UI
+    return true;
+  }
 
-  try {
-    debugPrint('--> Initiating Supabase stream for orders...');
+  Future<bool> rejectOrder(String orderId) async {
+    debugPrint('Attempting to reject order: $orderId');
+    await updateOrderStatus(orderId, 'rejected'); // Update status in Supabase
+    clearCurrentNewOrder(); // Clear the alert from the UI
+    return true;
+  }
+
+  // Método para buscar una nueva orden (realmente, inicia el listener)
+  Future<void> fetchNewOrder() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    // Si ya hay una suscripción, la cancelamos para iniciar una nueva
+    // (Útil si se llama fetchNewOrder más de una vez, aunque _listenForNewOrders
+    // ya debería manejar esto si solo se llama en el constructor)
+    _orderSubscription?.cancel();
+    _listenForNewOrders(); // Reinicia la escucha
+
+    _isLoading = false; // El loading se desactiva una vez que el setup se completa
+    notifyListeners();
+  }
+
+  void _listenForNewOrders() {
+    debugPrint('--> Initializing Supabase Realtime listener for orders...');
     _orderSubscription = _supabaseClient
         .from('orders')
         .stream(primaryKey: ['id'])
@@ -44,86 +67,77 @@ Future<void> fetchNewOrder() async { // O _listenForNewOrders()
         .order('created_at', ascending: false)
         .limit(1)
         .listen((List<Map<String, dynamic>> data) {
-          debugPrint('--> Supabase stream data received: $data'); // <--- ¡MIRAR ESTO EN LA CONSOLA!
+          debugPrint('--> Supabase Realtime - Data received: $data');
           if (data.isNotEmpty) {
             final newOrderData = data.first;
             final Order newOrder = Order.fromJson(newOrderData);
 
-            // Aquí puedes añadir un debugPrint para la orden antes de la notificación
-            debugPrint('--> Parsed Order: ID=${newOrder.id}, Customer=${newOrder.customerName}, Status=${newOrder.status}');
-
+            // Solo actualiza y notifica si es una nueva orden o si el estado cambia de una forma que queramos
             if (_currentNewOrder == null || _currentNewOrder!.id != newOrder.id) {
-              notifyListeners();
-              _currentNewOrder = newOrder;
+              _currentNewOrder = newOrder; // Establece el nuevo pedido
+              notifyListeners(); // Notifica a los listeners (HomeScreen) para que se redibujen
+
+              // Dispara la notificación del sistema (banner)
               notificationService.showNotification(
-                id: 0,
+                id: 0, // Un ID único para la notificación
                 title: '¡Nuevo Pedido Recibido!',
                 body: 'Pedido para ${newOrder.customerName} a ${newOrder.customerAddress}. Total: \$${newOrder.totalAmount.toStringAsFixed(2)}',
                 payload: newOrder.id,
               );
-              debugPrint('--> Notification triggered for order: ${newOrder.id}');
+              debugPrint('Notification triggered for order: ${newOrder.id}');
             } else {
-              debugPrint('--> Order ${newOrder.id} already processed or is the same, skipping notification.');
+              debugPrint('--> Duplicate order ID received, skipping UI update and system notification: ${newOrder.id}');
             }
           } else {
-            debugPrint('--> Supabase stream received empty data or no matching pending orders.');
+            // Si el stream devuelve una lista vacía (ej. ya no hay pedidos pendientes)
+            // y actualmente hay un pedido mostrado, lo limpiamos de la UI.
+            if (_currentNewOrder != null) {
+              _currentNewOrder = null;
+              notifyListeners();
+              debugPrint('--> No pending orders currently matching filter. Clearing current order from UI.');
+            } else {
+              debugPrint('--> Supabase Realtime - No pending orders currently matching filter (UI already clear).');
+            }
           }
         }, onError: (error) {
           _errorMessage = 'Error en Realtime de Supabase: $error';
-          debugPrint('--> Supabase Stream ERROR: $error'); // <--- ¡MIRAR ESTO EN LA CONSOLA!
+          debugPrint('--> Supabase Realtime - ERROR: $error');
           _isLoading = false;
           notifyListeners();
         }, onDone: () {
-          debugPrint('--> Supabase Stream: Listener completed. (This should not happen for a continuous stream)');
+          debugPrint('--> Supabase Realtime - Stream finished.');
         });
-  } catch (e) {
-    _errorMessage = 'Error al iniciar la suscripción: $e';
-    debugPrint('--> Supabase Stream Setup ERROR: $e');
-  } finally {
-    _isLoading = false; // El loading se desactiva una vez que el setup se completa, no cuando llegan datos
-    notifyListeners();
-  }
-}
-
-  // Método para aceptar una orden
-  Future<bool> acceptOrder(String orderId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-    try {
-      await _orderService.updateOrderStatus(orderId, 'accepted');
-      _currentNewOrder = _currentNewOrder?.copyWith(status: 'accepted');
-      return true;
-    } catch (e) {
-      _errorMessage = 'Error al aceptar orden: $e';
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
-  // Método para rechazar una orden
-  Future<bool> rejectOrder(String orderId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-    try {
-      await _orderService.updateOrderStatus(orderId, 'rejected');
-      _currentNewOrder = null; // Limpiamos la orden actual
-      return true;
-    } catch (e) {
-      _errorMessage = 'Error al rechazar orden: $e';
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Limpiar la orden actual (ej. después de aceptar/rechazar y navegar)
-  void clearCurrentOrder() {
+  // Método para limpiar el pedido actual de la UI después de ser aceptado/declinado
+  Future<void> clearCurrentNewOrder() async {
     _currentNewOrder = null;
     notifyListeners();
+  }
+
+  // Método para actualizar el estado del pedido en Supabase
+  // DEBES IMPLEMENTAR ESTO EN TU REPOSITORIO DE ÓRDENES O AQUÍ SI LO MANEJAS DIRECTO
+  Future<void> updateOrderStatus(String orderId, String newStatus) async {
+    try {
+      await _supabaseClient
+          .from('orders')
+          .update({'status': newStatus})
+          .eq('id', orderId);
+      debugPrint('Order $orderId status updated to $newStatus in Supabase.');
+      // Importante: Si actualizas el estado a algo que no sea 'pending',
+      // el listener de Realtime lo detectará y el pedido desaparecerá
+      // automáticamente de currentNewOrder si el filtro lo excluye.
+    } catch (e) {
+      debugPrint('Error updating order status in Supabase: $e');
+      _errorMessage = 'No se pudo actualizar el estado del pedido: $e';
+      notifyListeners();
+    }
+  }
+
+
+  @override
+  void dispose() {
+    _orderSubscription?.cancel();
+    super.dispose();
   }
 }

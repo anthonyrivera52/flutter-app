@@ -38,22 +38,40 @@ class Order {
   });
 
     factory Order.fromJson(Map<String, dynamic> json) {
+      String locationString = json['restaurant_location'] as String;
+      // Elimina los paréntesis y divide por la coma
+      locationString = locationString.replaceAll('(', '').replaceAll(')', '');
+      List<String> parts = locationString.split(',');
+
+      // Convierte a double
+      double latitude = double.parse(parts[0]);
+      double longitude = double.parse(parts[1]);
+
+      String locationCustomer = json['customer_location'] as String;
+      // Elimina los paréntesis y divide por la coma
+      locationCustomer = locationCustomer.replaceAll('(', '').replaceAll(')', '');
+      List<String> partsCustomer = locationCustomer.split(',');
+
+      // Convierte a double
+      double latitudeCustomer = double.parse(partsCustomer[0]);
+      double longitudeCustomer = double.parse(partsCustomer[1]);
+      
       return Order(
         id: json['id'] as String,
         customerName: json['customer_name'] as String,
-        restaurantName: json['restaurantName'] as String,
-        restaurantAddress: json['restaurantAddress'] as String,
-        restaurantLocation: json['restaurantLocation'] as LatLng,
-        customerAddress: json['customerAddress'] as String,
-        customerPhone: json['customerPhone'] as String,
-        customerLocation: json['customerLocation'] as LatLng,
-        orderType: json['orderType'] as String,
-        estimatedEarnings: json['estimatedEarnings'] as double,
-        estimatedTimeMinutes: json['estimatedTimeMinutes'] as int,
-        distanceKm: json['distanceKm'] as double,
-        items: json['items'] as List<String>,
+        restaurantName: json['restaurant_name'] as String,
+        restaurantAddress: json['restaurant_address'] as String,
+        restaurantLocation: LatLng(latitude, longitude),
+        customerAddress: json['customer_address'] as String,
+        customerPhone: json['customer_phone'] as String,
+        customerLocation: LatLng(latitudeCustomer, longitudeCustomer),
+        orderType: json['order_type'] as String,
+        estimatedEarnings: json['estimated_earnings'] as double,
+        estimatedTimeMinutes: json['estimated_time_minutes'] as int,
+        distanceKm: json['distance_km'] as double,
+        items: List<String>.from(json['items']),
         status: json['status'] as String,
-        totalAmount: json['totalAmount'] as double,
+        totalAmount: json['total_amount'] as double,
       );
   }
 

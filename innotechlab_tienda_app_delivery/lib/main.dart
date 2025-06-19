@@ -30,7 +30,12 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => NewOrderViewModel()),
+        ChangeNotifierProvider(
+          create: (context) => NewOrderViewModel(
+            Supabase.instance.client,
+            NotificationService(), // Asegúrate de que NotificationService esté inicializado y sea una instancia válida
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => ActiveOrderViewModel()),
         // Puedes añadir más ViewModels aquí
       ],

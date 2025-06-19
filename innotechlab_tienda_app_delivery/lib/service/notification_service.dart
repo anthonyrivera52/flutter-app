@@ -17,16 +17,18 @@ class NotificationService {
     // Configuración para Android: especifica el nombre del icono en la carpeta mipmap
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('app_icon'); // Asegúrate que 'app_icon' exista en mipmap
-
-    // Configuración para iOS: solicita permisos al usuario
-    const DarwinInitializationSettings initializationSettingsIOS =
+    
+    // Configuración para iOS: solicita permisos al usuario y permite presentación en primer plano
+    final DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
+      // --- ¡AÑADE ESTAS LÍNEAS! ---
+      onDidReceiveLocalNotification: _onDidReceiveLocalNotification, // Necesario para iOS
     );
 
-    const InitializationSettings initializationSettings = InitializationSettings(
+    final InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
       iOS: initializationSettingsIOS,
     );
@@ -56,6 +58,26 @@ class NotificationService {
         );
   }
 
+  // --- ¡AÑADE ESTA FUNCIÓN DENTRO DE LA CLASE NotificationService! ---
+  // Manejador específico para iOS para controlar la presentación en primer plano
+  Future<void> _onDidReceiveLocalNotification(
+    int id, String? title, String? body, String? payload) async {
+    // Aquí puedes decidir cómo presentar la notificación si la app está en primer plano.
+    // Esto es lo que le dice a iOS que SÍ la muestre con banner/sonido.
+    _flutterLocalNotificationsPlugin.show(
+      id,
+      title,
+      body,
+      _notificationDetails(), // Reutiliza tus detalles de notificación
+      payload: payload,
+    );
+    // Opcional: También puedes añadir el payload a tu stream si quieres que la UI
+    // reaccione de la misma manera que cuando se toca una notificación:
+    if (payload != null) {
+      onNotifications.add(payload);
+    }
+    debugPrint('iOS foreground notification received: $title - $body - Payload: $payload');
+  }
   // Define los detalles de la notificación (cómo se verá en Android e iOS)
   NotificationDetails _notificationDetails() {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
@@ -76,7 +98,7 @@ class NotificationService {
       presentSound: true,  // Reproducir sonido
     );
     return const NotificationDetails(
-      // android: androidPlatformChannelChannelSpecifics,
+      android: androidPlatformChannelSpecifics,
       iOS: iosPlatformChannelSpecifics,
     );
   }
