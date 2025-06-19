@@ -163,22 +163,14 @@ class NewOrderNotificationScreen extends StatelessWidget {
                           onPressed: newOrderViewModel.isLoading
                               ? null
                               : () async {
-                                  final accepted = await newOrderViewModel.rejectOrder(order.id);
-                                  if (accepted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Pedido rechazado.')),
-                                    );
-                                    Navigator.pop(context); // Vuelve a la pantalla principal
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content: Text(
-                                              newOrderViewModel.errorMessage ??
-                                                  'Error al rechazar.')),
-                                    );
-                                  }
-                                },
+                                await newOrderViewModel.rejectOrder(order.id);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Pedido rechazado.')),
+                                );
+                                Navigator.pop(context); // Vuelve a la pantalla principal
+                              
+                              },
                           style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.red,
                               padding: const EdgeInsets.symmetric(vertical: 15),
@@ -197,24 +189,15 @@ class NewOrderNotificationScreen extends StatelessWidget {
                           onPressed: newOrderViewModel.isLoading
                               ? null
                               : () async {
-                                  final accepted = await newOrderViewModel.acceptOrder(order.id);
-                                  if (accepted) {
-                                    activeOrderViewModel.setActiveOrder(order); // Pasa la orden al ViewModel de orden activa
-                                    newOrderViewModel.clearCurrentNewOrder(); // Limpia la orden del ViewModel de nueva orden
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              ActiveOrderScreen()),
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content: Text(
-                                              newOrderViewModel.errorMessage ??
-                                                  'Error al aceptar.')),
-                                    );
-                                  }
+                                  await newOrderViewModel.acceptOrder(order.id);
+                                  activeOrderViewModel.setActiveOrder(order); // Pasa la orden al ViewModel de orden activa
+                                  newOrderViewModel.clearCurrentNewOrder(); // Limpia la orden del ViewModel de nueva orden
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const ActiveOrderScreen()),
+                                  );
                                 },
                           style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,

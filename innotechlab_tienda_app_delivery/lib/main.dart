@@ -1,22 +1,14 @@
+// main.dart
 import 'package:delivery_app_mvvm/service/notification_service.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Para gestionar el estado
-
-// Importa tus ViewModels aquí
-import 'package:delivery_app_mvvm/viewmodel/new_order_viewmodel.dart';
-import 'package:delivery_app_mvvm/viewmodel/active_order_viewmodel.dart';
-
-// Importa tus vistas
 import 'package:delivery_app_mvvm/view/home_screen.dart';
-import 'package:delivery_app_mvvm/view/new_order_notification_screen.dart';
+import 'package:delivery_app_mvvm/viewmodel/active_order_viewmodel.dart';
+import 'package:delivery_app_mvvm/viewmodel/new_order_viewmodel.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Instancia global del servicio de notificaciones
-final NotificationService notificationService = NotificationService();
-
 Future<void> main() async {
-
-  WidgetsFlutterBinding.ensureInitialized(); // Asegura que Flutter esté inicializado
+  WidgetsFlutterBinding.ensureInitialized();
 
   // Inicializa Supabase
   await Supabase.initialize(
@@ -24,66 +16,47 @@ Future<void> main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9menN3bnFqcWdqaXdzYnZ5Ym91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxMzUwMjcsImV4cCI6MjA2MzcxMTAyN30.orFqPDhX3xMKT2jra7ZVKNUcwwpOO3_mGQf9hKBZprE'
   );
 
-  // Inicializa el servicio de notificaciones
-  await notificationService.init();
+  final NotificationService notificationService = NotificationService();
+  await notificationService.init(); // Initialize notification service once
 
   runApp(
     MultiProvider(
       providers: [
+        // NewOrderViewModel needs SupabaseClient and NotificationService
         ChangeNotifierProvider(
           create: (context) => NewOrderViewModel(
             Supabase.instance.client,
-            NotificationService(), // Asegúrate de que NotificationService esté inicializado y sea una instancia válida
+            notificationService, // Pass the initialized instance
           ),
+          lazy: false, // Ensures ViewModel is created immediately and starts listening
         ),
-        ChangeNotifierProvider(create: (_) => ActiveOrderViewModel()),
-        // Puedes añadir más ViewModels aquí
+        // ActiveOrderViewModel (if it needs Supabase, pass it here too)
+        ChangeNotifierProvider(
+          create: (context) => ActiveOrderViewModel(),
+        ),
       ],
       child: const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-
-  @override
-  void initState() {
-    super.initState();
-    // Escucha las respuestas de las notificaciones para navegar
-    notificationService.onNotifications.listen((payload) {
-      if (payload != null && navigatorKey.currentState != null) {
-        // Navega a la ruta especificada en el payload (que será el ID de la orden)
-        // Usamos pushNamedAndRemoveUntil para limpiar el stack de navegación
-        // y asegurar que la pantalla de detalles sea la principal después de la notificación.
-        navigatorKey.currentState!.pushNamedAndRemoveUntil(
-          '/order_details',
-          (route) => route.isFirst, // Vuelve a la primera ruta del stack
-          arguments: payload, // Pasa el ID de la orden como argumento
-        );
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Delivery App MVVM',
+      title: 'Delivery App',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        useMaterial3: true,
       ),
-      home: const HomeScreen(), // La pantalla inicial de tu app
-      routes: {
-        '/new_order': (context) => NewOrderNotificationScreen(),
-      },
+      home: const HomeScreen(), // Your main screen
+      // Add routes if you're using them (e.g., for navigation from notifications)
+      // routes: {
+      //   '/order_details': (context) => OrderDetailsScreen(),
+      // },
+      navigatorKey: navigatorKey, // From your notification_service.dart
     );
   }
 }

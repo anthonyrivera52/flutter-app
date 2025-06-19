@@ -1,5 +1,7 @@
 // lib/view/home_screen.dart
 
+import 'dart:ui';
+
 import 'package:delivery_app_mvvm/widget/new_order_alert_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -7,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:delivery_app_mvvm/viewmodel/new_order_viewmodel.dart';
 import 'package:delivery_app_mvvm/viewmodel/active_order_viewmodel.dart';
 import 'package:delivery_app_mvvm/model/location_data.dart';
+import 'package:delivery_app_mvvm/view/active_order_screen.dart'; // <--- IMPORT YOUR ACTIVE ORDER SCREEN
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,8 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
 
-  bool isActiveDevliery = true;
-  bool isSearchDelivery = false; // Estado para controlar la visibilidad del "Esperando nuevos pedidos..." o la alerta.
+  // Controls the driver's online/offline status and visibility of "Esperando..." / Alert
+  bool isSearchDelivery = false;
 
   static const CameraPosition _kInitialCameraPosition = CameraPosition(
     target: LatLng(6.195618, -75.575971), // Sabaneta, Antioquia, Colombia
@@ -30,11 +33,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Asegúrate de que los ViewModels estén suscritos al iniciar.
-    // El stream de NewOrderViewModel se iniciará en su constructor,
-    // pero si lo necesitas iniciar por un botón "Start", lo haces en el onPressed.
   }
 
+  /// Called when the Google Map is created.
+  /// Sets the map controller and animates the camera to the driver's current location if available.
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
     final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context, listen: false);
@@ -45,6 +47,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Updates the driver's location marker on the map.
+  /// Clears existing markers and adds a new one for the driver's position.
+  /// Animates the camera to the new location.
   void _updateDriverLocationMarker(LocationData? driverLocation) {
     _markers.clear();
     if (driverLocation != null) {
@@ -56,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
       );
+      // Animates camera only if map controller is available
       _mapController?.animateCamera(
         CameraUpdate.newLatLng(driverLocation.toLatLng()),
       );
@@ -64,77 +70,161 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Access view models using Provider
     final newOrderViewModel = Provider.of<NewOrderViewModel>(context);
     final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context);
 
-    // --- ¡ELIMINA ESTE BLOQUE DE CÓDIGO! ---
-    // Muestra la pantalla de notificación de nueva orden si hay una disponible
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   if (newOrderViewModel.currentNewOrder != null &&
-    //       newOrderViewModel.currentNewOrder!.status == 'pending') {
-    //     Navigator.pushNamed(context, '/new_order');
-    //     newOrderViewModel.clearCurrentNewOrder();
-    //   }
-    // });
-    // -------------------------------------
-
-    // Actualiza el marcador del repartidor cada vez que la ubicación cambie
+    // Update the driver's marker whenever the location changes
     _updateDriverLocationMarker(activeOrderViewModel.currentDriverLocation);
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Delivery App - Repartidor'),
-        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0, // No shadow for a flat design
+        title: Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Welcome message for the driver
+                Text(
+                  'Bienvenido: Admin',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.black,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 3.0), // Spacing
+                Row(
+                  children: [
+                    // Status indicator circle (red for inactive, green for active)
+                    Container(
+                      width: 10.0,
+                      height: 10.0,
+                      decoration: BoxDecoration(
+                        color: !isSearchDelivery ? Colors.red : Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8.0), // Spacing
+                    // Status text
+                    Text(
+                      !isSearchDelivery ? 'Estado: Inactivo' : 'Estado: Activo',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Colors.black,
+                            fontSize: 18,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3.0), // Spacing
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          // "Detener" button visible when the driver is online
+          Visibility(
+            visible: isSearchDelivery,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    isSearchDelivery = false; // Go offline
+                    newOrderViewModel.clearCurrentNewOrder(); // Clear any pending orders
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red[700], // Red color for stopping
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20), // Rounded corners
+                  ),
+                  elevation: 5, // Subtle shadow
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                icon: const Icon(Icons.stop), // Stop icon
+                label: const Text('Detener'), // Text label
+              ),
+            ),
+          ),
+          // "Ver Orden Activa" icon button visible only if there's an active order
+          Visibility(
+            visible: activeOrderViewModel.activeOrder != null,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: IconButton(
+                icon: const Icon(Icons.delivery_dining, color: Colors.blueAccent, size: 30),
+                onPressed: () {
+                  // Navigate to the ActiveOrderScreen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ActiveOrderScreen(),
+                    ),
+                  );
+                },
+                tooltip: 'Ver Orden Activa', // Tooltip for accessibility
+              ),
+            ),
+          ),
+        ],
       ),
-      body: Stack( 
-        // Mantén el Stack aquí para la superposición
+      body: Stack(
         children: [
-          // Sección del mapa (ocupa todo el espacio disponible)
+          // Google Map section, occupying the full background
           GoogleMap(
             onMapCreated: _onMapCreated,
             initialCameraPosition: _kInitialCameraPosition,
             markers: _markers,
-            myLocationButtonEnabled: true,
-            zoomControlsEnabled: true,
-            myLocationEnabled: true,
+            myLocationButtonEnabled: true, // Shows the button to center on user's location
+            zoomControlsEnabled: true, // Shows zoom in/out controls
+            myLocationEnabled: true, // Shows the blue dot for user's location
           ),
-
-          // --- UI de control y alerta de nueva orden ---
-          // Usaremos Align para posicionar esta sección en la parte inferior de la pantalla.
+          // Bottom aligned UI for controls and new order alerts
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Consumer<NewOrderViewModel>(
                 builder: (context, vm, child) {
-                  // Si hay un pedido nuevo, muestra la alerta
+                  // --- Display New Order Alert Widget ---
                   if (vm.currentNewOrder != null && vm.currentNewOrder!.status == 'pending') {
-                    // Si el estado es "pending", mostramos la alerta de nuevo pedido
                     return NewOrderAlertWidget(
                       order: vm.currentNewOrder!,
                       onAccept: () async {
                         debugPrint('Orden Aceptada: ${vm.currentNewOrder!.id}');
-                        // Actualiza el estado en Supabase
                         await vm.updateOrderStatus(vm.currentNewOrder!.id, 'accepted');
-                        // Mueve el pedido a la orden activa
                         activeOrderViewModel.setActiveOrder(vm.currentNewOrder!);
-                        // Limpiamos el pedido actual del newOrderViewModel (desaparece la alerta)
-                        vm.clearCurrentNewOrder();
+                        vm.clearCurrentNewOrder(); // Clear the pending order alert
+                        // Navigate to the ActiveOrderScreen
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ActiveOrderScreen(),
+                          ),
+                        );
                       },
                       onDecline: () async {
                         debugPrint('Orden Declinada: ${vm.currentNewOrder!.id}');
-                        // Actualiza el estado en Supabase
                         await vm.updateOrderStatus(vm.currentNewOrder!.id, 'rejected');
-                        // Limpiamos el pedido actual del newOrderViewModel (desaparece la alerta)
-                        vm.clearCurrentNewOrder();
+                        vm.clearCurrentNewOrder(); // Clear the pending order alert
                       },
                     );
-                  } else if (vm.errorMessage != null) {
-                    // Si hay un error, muestra un mensaje de error
+                  }
+                  // --- Display Connection Error Message ---
+                  else if (vm.errorMessage != null) {
                     return Card(
-                      color: Colors.red[50],
+                      color: Colors.red[50], // Light red background
                       margin: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15), // Rounded corners for the card
+                      ),
+                      elevation: 5, // Shadow for depth
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
@@ -142,100 +232,151 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               'Error de Conexión: ${vm.errorMessage!}',
-                              style: TextStyle(color: Colors.red[700], fontSize: 16),
+                              style: TextStyle(color: Colors.red[700], fontSize: 16, fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 10),
                             ElevatedButton.icon(
                               onPressed: () {
-                                vm.fetchNewOrder(); // Intenta reconectar
+                                vm.fetchNewOrder(); // Retry fetching orders
                               },
                               icon: const Icon(Icons.refresh),
                               label: const Text('Reintentar'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue[700], // Blue for action
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30), // Pill-shaped button
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
                     );
                   }
-                  // Si no hay pedidos nuevos y no hay error, muestra el estado de espera
-                  // o el botón "Start"
-                  return Column(
-                    mainAxisSize: MainAxisSize.min, // Que ocupe el mínimo espacio
-                    children: [
-                      // El botón "Start" solo se muestra si no estamos buscando (isSearchDelivery == false)
-                      Visibility(
-                        visible: !isSearchDelivery && activeOrderViewModel.activeOrder == null,
-                        child: ElevatedButton.icon(
-                          onPressed: vm.isLoading
-                              ? null
-                              : () {
-                                  setState(() {
-                                    isSearchDelivery = true; // Activa la búsqueda
-                                    // isActiveDelivery se puede omitir si isSearchDelivery es suficiente
-                                  });
-                                  vm.fetchNewOrder(); // Inicia la escucha de órdenes
-                                },
-                          icon: const Icon(Icons.play_arrow),
-                          label: const Text('Start Searching Orders'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                            textStyle: const TextStyle(fontSize: 18),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(50),
-                            ),
-                            elevation: 5,
-                          ),
-                        ),
+                  // --- Display Active Order Details ---
+                  else if (activeOrderViewModel.activeOrder != null) {
+                    return Card(
+                      color: Colors.lightBlue[50], // Light blue background
+                      margin: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15), // Rounded corners
                       ),
-                      // El mensaje "Esperando nuevos pedidos..." solo si estamos buscando
-                      // y no hay una orden activa ni una nueva orden pendiente.
-                      Visibility(
-                        visible: isSearchDelivery && vm.currentNewOrder == null && activeOrderViewModel.activeOrder == null,
+                      elevation: 5, // Shadow
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.access_time, size: 50.0, color: Colors.grey),
-                            const SizedBox(height: 10),
-                            Text(
-                              vm.isLoading ? 'Buscando órdenes...' : 'Esperando nuevos pedidos...',
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 5),
                             const Text(
-                              'Mantente en línea para recibir notificaciones.',
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                              textAlign: TextAlign.center,
+                              'Orden Activa',
+                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
                             ),
-                            const SizedBox(height: 30),
+                            const SizedBox(height: 10),
+                            Text('Cliente: ${activeOrderViewModel.activeOrder!.customerName}', style: const TextStyle(fontSize: 16)),
+                            Text('Dirección: ${activeOrderViewModel.activeOrder!.customerAddress}', style: const TextStyle(fontSize: 16)),
+                            const SizedBox(height: 10),
+                            ElevatedButton(
+                              onPressed: () {
+                                // Navigate to the ActiveOrderScreen
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ActiveOrderScreen(),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue[700],
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                elevation: 3,
+                              ),
+                              child: const Text('Ver Detalles de Orden Activa'),
+                            ),
                           ],
                         ),
                       ),
-                      // Mostrar información de la orden activa si la hay
-                      if (activeOrderViewModel.activeOrder != null)
-                        Card(
-                          color: Colors.lightBlue[50],
-                          margin: EdgeInsets.zero,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Orden Activa',
-                                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
-                                ),
-                                const SizedBox(height: 10),
-                                Text('Cliente: ${activeOrderViewModel.activeOrder!.customerName}'),
-                                Text('Dirección: ${activeOrderViewModel.activeOrder!.customerAddress}'),
-                                // Puedes añadir más detalles de la orden activa y botones de acción (ej. "Navegar", "Completar")
-                              ],
+                    );
+                  }
+                  // --- Display "¡CONECTARSE!" button or "Esperando..." state ---
+                  else {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isSearchDelivery)
+                          // "¡CONECTARSE!" button when driver is offline
+                          ElevatedButton.icon(
+                            onPressed: vm.isLoading // Disable button if currently loading
+                                ? null
+                                : () {
+                                    setState(() {
+                                      isSearchDelivery = true; // Set driver status to online
+                                    });
+                                    vm.fetchNewOrder(); // Start fetching for new orders
+                                  },
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('¡CONECTARSE!'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green[700], // Green for positive action
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                              textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(50), // Fully rounded button
+                              ),
+                              elevation: 8, // Prominent shadow
+                            ),
+                          )
+                        else
+                          // "Esperando nuevas órdenes..." display when driver is online and waiting
+                          Card(
+                            color: Colors.white,
+                            margin: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            elevation: 5,
+                            child: Padding(
+                              padding: const EdgeInsets.all(20.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Show loading indicator or search icon
+                                  if (vm.isLoading)
+                                    const CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                                    )
+                                  else
+                                    const Icon(Icons.search, size: 40, color: Colors.blueGrey),
+                                  const SizedBox(height: 15),
+                                  Text(
+                                    'Esperando nuevas órdenes...',
+                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                          color: Colors.blueGrey[700],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Te avisaremos cuando haya una entrega disponible.',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: Colors.grey[600],
+                                        ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                  );
+                      ],
+                    );
+                  }
                 },
               ),
             ),
