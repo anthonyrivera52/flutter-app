@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:delivery_app_mvvm/viewmodel/active_order_viewmodel.dart';
 import 'package:delivery_app_mvvm/model/order.dart';
 import 'package:delivery_app_mvvm/model/location_data.dart';
+import 'dart:math';
 
 class ActiveOrderScreen extends StatefulWidget {
   const ActiveOrderScreen({super.key});
@@ -14,9 +15,10 @@ class ActiveOrderScreen extends StatefulWidget {
 }
 
 class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
-  late GoogleMapController _mapController;
+  GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   List<bool> _itemChecked = [];
+  final TextEditingController _codeController = TextEditingController();
 
   @override
   void initState() {
@@ -26,29 +28,47 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _codeController.dispose();
+    _mapController?.dispose();
+    super.dispose();
+  }
+
   void _initializeOrderDetails() {
     final activeOrderViewModel =
         Provider.of<ActiveOrderViewModel>(context, listen: false);
     final order = activeOrderViewModel.activeOrder;
     if (order != null) {
-      if (order.items != null) {
+      if (order.items != null && order.items!.isNotEmpty) {
         _itemChecked = List<bool>.filled(order.items!.length, false);
+      } else {
+        _itemChecked = [];
       }
-      // No es necesario llamar a _updateMarkers aquí, ya lo hará el Consumer en build.
     }
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
-    final activeOrderViewModel =
-        Provider.of<ActiveOrderViewModel>(context, listen: false);
-    final order = activeOrderViewModel.activeOrder;
-    if (order != null) {
-      _fitMapToAllMarkers(order, activeOrderViewModel.currentDriverLocation);
+    if (mounted) {
+      final activeOrderViewModel =
+          Provider.of<ActiveOrderViewModel>(context, listen: false);
+      final order = activeOrderViewModel.activeOrder;
+      final driverLocation = activeOrderViewModel.currentDriverLocation;
+
+      // Update markers immediately after map creation and data is available
+      if (order != null) { // We update markers even if driverLocation is null, just without driver marker
+         _updateMarkers(order, driverLocation);
+      }
+
+      // Fit map to markers only if controller is ready and initial data is there
+      if (order != null && driverLocation != null) {
+        _fitMapToAllMarkers(order, driverLocation);
+      }
     }
   }
 
-  // Actualiza este método para aceptar LocationData
+  // REMOVE setState() from here!
   void _updateMarkers(Order order, LocationData? driverLocation) {
     _markers.clear();
     _markers.add(
@@ -71,73 +91,142 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       _markers.add(
         Marker(
           markerId: const MarkerId('currentLocation'),
-          position:
-              driverLocation.toLatLng(), // Usar la ubicación del repartidor
+          position: driverLocation.toLatLng(),
           infoWindow: const InfoWindow(title: 'Tu Ubicación'),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
       );
     }
+    // DO NOT call setState() here.
+    // The Consumer in the build method will rebuild this widget when
+    // ActiveOrderViewModel notifies, causing GoogleMap to refresh with
+    // the updated _markers set.
   }
 
-  // Actualiza este método para aceptar LocationData
   void _fitMapToAllMarkers(Order order, LocationData? driverLocation) {
-    // Solo intenta ajustar el mapa si hay una ubicación de repartidor válida
-    if (_mapController == null || driverLocation == null) return;
+    if (_mapController == null || !mounted) {
+      debugPrint("Map controller not ready or widget not mounted for fitting bounds.");
+      return;
+    }
+
+    if (driverLocation == null) {
+      debugPrint("Driver location is null, cannot fit all markers.");
+      // If driver location is null, maybe just fit to restaurant/customer?
+      // Or simply return if driver location is essential for the bounds.
+      return;
+    }
 
     double minLat = driverLocation.latitude;
     double maxLat = driverLocation.latitude;
     double minLon = driverLocation.longitude;
     double maxLon = driverLocation.longitude;
 
-    if (order.restaurantLocation.latitude < minLat) {
-      minLat = order.restaurantLocation.latitude;
-    }
-    if (order.restaurantLocation.latitude > maxLat) {
-      maxLat = order.restaurantLocation.latitude;
-    }
-    if (order.restaurantLocation.longitude < minLon) {
-      minLon = order.restaurantLocation.longitude;
-    }
-    if (order.restaurantLocation.longitude > maxLon) {
-      maxLon = order.restaurantLocation.longitude;
-    }
+    minLat = min(minLat, order.restaurantLocation.latitude);
+    maxLat = max(maxLat, order.restaurantLocation.latitude);
+    minLon = min(minLon, order.restaurantLocation.longitude);
+    maxLon = max(maxLon, order.restaurantLocation.longitude);
 
-    if (order.customerLocation.latitude < minLat) {
-      minLat = order.customerLocation.latitude;
-    }
-    if (order.customerLocation.latitude > maxLat) {
-      maxLat = order.customerLocation.latitude;
-    }
-    if (order.customerLocation.longitude < minLon) {
-      minLon = order.customerLocation.longitude;
-    }
-    if (order.customerLocation.longitude > maxLon) {
-      maxLon = order.customerLocation.longitude;
-    }
+    minLat = min(minLat, order.customerLocation.latitude);
+    maxLat = max(maxLat, order.customerLocation.latitude);
+    minLon = min(minLon, order.customerLocation.longitude);
+    maxLon = max(maxLon, order.customerLocation.longitude);
 
     final LatLngBounds bounds = LatLngBounds(
       southwest: LatLng(minLat, minLon),
       northeast: LatLng(maxLat, maxLon),
     );
-    _mapController.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100.0));
+
+    // Ensure camera animation happens after the frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _mapController != null) {
+        _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100.0));
+      }
+    });
   }
+
 
   Future<void> _makePhoneCall(String phoneNumber) async {
     final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo realizar la llamada a $phoneNumber')),
-      );
+      _showSnackBar('No se pudo realizar la llamada a $phoneNumber');
     }
   }
 
   Future<void> _openChat(String phoneNumber) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Abriendo chat con el cliente...')),
+    _showSnackBar('Abriendo chat con el cliente...');
+    // Implement chat opening logic (e.g., WhatsApp)
+  }
+
+  Future<void> _showPickupCodeModal(BuildContext context, Order order) async {
+    _codeController.clear();
+    final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context, listen: false);
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Ingresar Código de Recogida'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Por favor, ingresa el código proporcionado por ${order.restaurantName} para recoger el pedido.'),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _codeController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Código',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              child: activeOrderViewModel.isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.greenAccent,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('Confirmar'),
+              onPressed: activeOrderViewModel.isLoading
+                  ? null
+                  : () async {
+                      if (_codeController.text == '1234') { // order.pickupCode) {
+                        await activeOrderViewModel.updateOrderStatus("picking_up");
+                        if (mounted) Navigator.of(dialogContext).pop();
+                        _showSnackBar('Código validado. ¡Listo para recoger!');
+                      } else {
+                        _showSnackBar('Código incorrecto. Intenta de nuevo.');
+                      }
+                    },
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  void _showSnackBar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -147,24 +236,21 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         final order = viewModel.activeOrder;
         final driverLocation = viewModel.currentDriverLocation;
 
-        // **Manejo inmediato de la orden nula:**
-        // Si la orden es null, significa que ya ha sido completada y no hay nada que mostrar.
-        // Se regresa a la pantalla anterior sin intentar renderizar nada más.
         if (order == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            // Verifica si la pantalla ya está desmontada para evitar errores
             if (mounted) {
               Navigator.pop(context);
             }
           });
-          // Retorna un widget vacío o un Scaffold con un indicador de carga
-          // mientras se procesa la navegación.
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // **Asegúrate de que driverLocation no sea null antes de usarlo en _updateMarkers**
+        // Call _updateMarkers directly here.
+        // It modifies _markers, and since _markers is part of the state,
+        // and this build method is being called because the ViewModel changed,
+        // the GoogleMap will pick up the new _markers naturally.
         _updateMarkers(order, driverLocation);
 
         return Scaffold(
@@ -184,11 +270,10 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                 child: GoogleMap(
                   onMapCreated: _onMapCreated,
                   initialCameraPosition: CameraPosition(
-                    // Fallback si driverLocation es null (ej. al inicio)
                     target: driverLocation?.toLatLng() ?? order.restaurantLocation,
                     zoom: 14.0,
                   ),
-                  markers: _markers,
+                  markers: _markers, // This uses the _markers set
                   myLocationButtonEnabled: true,
                   myLocationEnabled: true,
                 ),
@@ -201,7 +286,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Estado: ${order.status}',
+                        'Estado: ${_getActionButtonText(order.status)}',
                         style: const TextStyle(
                             fontSize: 20, fontWeight: FontWeight.bold),
                       ),
@@ -213,6 +298,12 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                       _buildSectionTitle('Destino: ${order.customerName}'),
                       Text(order.customerAddress,
                           style: const TextStyle(fontSize: 16)),
+                      const SizedBox(height: 10),
+                      _buildSectionTitle('Tipo de Pedido: ${order.orderType}'),
+                      Text(
+                        'Pago: \$${order.totalAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -253,8 +344,9 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: order.items!.length,
                               itemBuilder: (context, index) {
+                                final item = order.items![index];
                                 return CheckboxListTile(
-                                  title: Text(order.items![index]),
+                                  title: Text('${item.name} x${item.quantity}'),
                                   value: _itemChecked[index],
                                   onChanged: (bool? value) {
                                     setState(() {
@@ -273,21 +365,27 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                           onPressed: viewModel.isLoading
                               ? null
                               : () async {
-                                  String nextStatus = _getNextStatus(order.status);
-                                  if (nextStatus == 'delivered') {
-                                    await viewModel.updateOrderStatus(nextStatus);
+                                  String? nextStatus = _getNextStatus(order.status);
+
+                                  if (nextStatus == 'arrived_at_restaurant') {
+                                    await viewModel.updateOrderStatus(nextStatus!);
+                                    _showPickupCodeModal(context, order);
+                                  } else if (nextStatus == 'picked_up') {
+                                    if (order.items != null && order.items!.isNotEmpty && _itemChecked.contains(false)) {
+                                      _showSnackBar('Por favor, marca todos los artículos como recogidos.');
+                                      return;
+                                    }
+                                    await viewModel.updateOrderStatus(nextStatus!);
+                                    _showSnackBar('¡Pedido recogido! En camino al cliente.');
+                                  } else if (nextStatus == 'delivered') {
+                                    await viewModel.updateOrderStatus(nextStatus!);
                                     viewModel.completeActiveOrder();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('¡Pedido entregado con éxito!')),
-                                    );
-                                    // No es necesario el Future.delayed aquí,
-                                    // el `Navigator.pop` en el `if (order == null)`
-                                    // se encargará de la navegación.
-                                  } else {
+                                    _showSnackBar('¡Pedido entregado con éxito!');
+                                  } else if (nextStatus != null) {
                                     await viewModel.updateOrderStatus(nextStatus);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Estado actualizado a: $nextStatus')),
-                                    );
+                                    _showSnackBar('Estado actualizado a: $nextStatus');
+                                  } else {
+                                    _showSnackBar('No hay un siguiente estado definido o la acción no es válida.');
                                   }
                                 },
                           style: ElevatedButton.styleFrom(
@@ -326,8 +424,11 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
 
   String _getActionButtonText(String status) {
     switch (status) {
+      case "pending":
       case "accepted":
-        return "En camino a recoger";
+        return "Iendo al Restaurante";
+      case "arrived_at_restaurant":
+        return "Marcar como Recogido";
       case "picking_up":
         return "Marcar como Recogido";
       case "picked_up":
@@ -339,10 +440,13 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     }
   }
 
-  String _getNextStatus(String currentStatus) {
+  String? _getNextStatus(String currentStatus) {
     switch (currentStatus) {
+      case "pending":
       case "accepted":
-        return "picking_up";
+        return "arrived_at_restaurant";
+      case "arrived_at_restaurant":
+        return "picked_up";
       case "picking_up":
         return "picked_up";
       case "picked_up":
@@ -350,7 +454,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       case "delivering":
         return "delivered";
       default:
-        return currentStatus;
+        return null;
     }
   }
 }

@@ -14,7 +14,7 @@ class Order {
   final double estimatedEarnings;
   final int estimatedTimeMinutes;
   final double distanceKm;
-  List<String>? items; // Para pedidos de supermercado/farmacia
+  List<OrderItem>? items; // Para pedidos de supermercado/farmacia
   final double totalAmount;
   // Estado del pedido desde la perspectiva del repartidor
   String status; // Ej: "pending", "accepted", "picking_up", "delivering", "delivered"
@@ -69,7 +69,21 @@ class Order {
         estimatedEarnings: json['estimated_earnings'] as double,
         estimatedTimeMinutes: json['estimated_time_minutes'] as int,
         distanceKm: json['distance_km'] as double,
-        items: List<String>.from(json['items']),
+        items: (json['items'] as List<dynamic>?)
+            ?.map((itemJson) {
+              if (itemJson is Map<String, dynamic>) {
+                return OrderItem.fromJson(itemJson);
+              } else if (itemJson is String) {
+                // Ejemplo: "Acetaminofen x1"
+                final parts = itemJson.split(' x');
+                final name = parts[0];
+                final quantity = parts.length > 1 ? int.tryParse(parts[1]) ?? 1 : 1;
+                return OrderItem(name: name, quantity: quantity, price: 0, unit: '');
+              } else {
+                throw Exception('Formato de item desconocido: '
+                    '[31m$itemJson[0m');
+              }
+            }).toList() ?? [],
         status: json['status'] as String,
         totalAmount: json['total_amount'] as double,
       );
@@ -93,6 +107,24 @@ class Order {
       items: items,
       status: status ?? this.status,
       totalAmount: totalAmount,
+    );
+  }
+}
+
+// Assuming you have an OrderItem model
+class OrderItem {
+  final String name;
+  final int quantity;
+  final double price;
+
+  OrderItem({required this.name, required this.quantity, required this.price, required String unit});
+
+  factory OrderItem.fromJson(Map<String, dynamic> json) {
+    return OrderItem(
+      name: json['name'] as String,
+      quantity: json['quantity'] as int,
+      price: (json['price'] as num).toDouble(),
+      unit: json['unit'] as String,
     );
   }
 }

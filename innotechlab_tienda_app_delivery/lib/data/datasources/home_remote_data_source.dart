@@ -21,7 +21,7 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     // Simulate API call to go online
     await Future.delayed(const Duration(seconds: 2));
     // Assume success for now
-    return UserStatus(status: UserConnectionStatus.online, message: "You're Online");
+    return UserStatus(status: UserConnectionStatus.online, message: "Listening for orders");
   }
 
   @override

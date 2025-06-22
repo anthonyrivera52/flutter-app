@@ -1,30 +1,39 @@
-import 'dart:async'; // Necesario para StreamSubscription
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:delivery_app_mvvm/model/order.dart';
-import 'package:delivery_app_mvvm/model/location_data.dart'; // Importa LocationData
+import 'package:delivery_app_mvvm/model/location_data.dart';
 import 'package:delivery_app_mvvm/service/order_service.dart';
 import 'package:delivery_app_mvvm/service/mock_order_service.dart';
-import 'package:delivery_app_mvvm/service/location_service.dart'; // Importa la interfaz del servicio de ubicación
-import 'package:delivery_app_mvvm/service/mock_location_service.dart'; // Importa el servicio mock de ubicación
+import 'package:delivery_app_mvvm/service/location_service.dart';
+import 'package:delivery_app_mvvm/service/mock_location_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart'; // Import provider to access other view models
+import 'package:delivery_app_mvvm/viewmodel/home_view_model.dart'; // Import HomeViewModel
 
 class ActiveOrderViewModel extends ChangeNotifier {
+  final SupabaseClient _supabaseClient;
   final OrderService _orderService = MockOrderService();
-  final LocationService _locationService = MockLocationService(); // Inyecta el servicio de ubicación
+  final LocationService _locationService = MockLocationService();
 
   Order? _activeOrder;
   bool _isLoading = false;
   String? _errorMessage;
-  LocationData? _currentDriverLocation; // Nueva propiedad para la ubicación del repartidor
+  LocationData? _currentDriverLocation;
 
-  StreamSubscription<LocationData>? _locationSubscription; // Suscripción para el stream de ubicación
+  List<bool> _itemChecked = []; // New property for item checks
+  List<bool> get itemChecked => _itemChecked;
+
+  StreamSubscription<LocationData>? _locationSubscription;
 
   Order? get activeOrder => _activeOrder;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  LocationData? get currentDriverLocation => _currentDriverLocation; // Getter para la ubicación
+  LocationData? get currentDriverLocation => _currentDriverLocation;
 
-  // Constructor
-  ActiveOrderViewModel() {
+  // Add BuildContext to the constructor to allow accessing HomeViewModel
+  final BuildContext _context; // Store context
+
+  ActiveOrderViewModel(this._supabaseClient, this._context) {
     _startListeningToLocation();
   }
 
@@ -32,7 +41,7 @@ class ActiveOrderViewModel extends ChangeNotifier {
     _locationSubscription = _locationService.getLocationStream().listen(
       (location) {
         _currentDriverLocation = location;
-        notifyListeners(); // Notifica a los listeners cada vez que la ubicación cambia
+        notifyListeners();
       },
       onError: (error) {
         _errorMessage = 'Error en el stream de ubicación: $error';
@@ -41,14 +50,31 @@ class ActiveOrderViewModel extends ChangeNotifier {
     );
   }
 
-  // Establece la orden que está actualmente activa para el repartidor
   void setActiveOrder(Order order) {
     _activeOrder = order;
-    // Si la orden cambia, podrías querer centrar el mapa, etc.
+    if (_activeOrder != null && _activeOrder!.items != null) {
+      initializeItemChecked(_activeOrder!.items!.length);
+    } else {
+      _itemChecked = []; // Clear if no active order or no items
+    }
+    notifyListeners();
+  }
+  
+  // Method to initialize item checked state when an order is set
+  void initializeItemChecked(int itemCount) {
+    _itemChecked = List<bool>.filled(itemCount, false);
     notifyListeners();
   }
 
-  // Actualiza el estado de la orden (ej. 'picking_up', 'delivering', 'delivered')
+    // Method to update a single item's checked state
+  void setItemChecked(int index, bool value) {
+    if (index >= 0 && index < _itemChecked.length) {
+      _itemChecked[index] = value;
+      notifyListeners();
+    }
+  }
+
+
   Future<void> updateOrderStatus(String newStatus) async {
     if (_activeOrder == null) return;
 
@@ -57,8 +83,15 @@ class ActiveOrderViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _orderService.updateOrderStatus(_activeOrder!.id, newStatus);
-      _activeOrder = _activeOrder!.copyWith(status: newStatus); // Actualiza el estado local
+      await _supabaseClient
+          .from('orders')
+          .update({'status': newStatus})
+          .eq('id', _activeOrder!.id);
+
+      debugPrint('Order $_activeOrder status updated to $newStatus in Supabase.');
+
+      _activeOrder = _activeOrder!.copyWith(status: newStatus);
+
     } catch (e) {
       _errorMessage = 'Error al actualizar estado: $e';
     } finally {
@@ -67,22 +100,24 @@ class ActiveOrderViewModel extends ChangeNotifier {
     }
   }
 
-  // Simula la finalización de una orden activa
-  void completeActiveOrder() {
+  Future<void>  completeActiveOrder() async {
     _activeOrder = null;
     notifyListeners();
   }
 
- void clearActiveOrder() {
+  Future<void> clearActiveOrder(String newStatus) async {
     _activeOrder = null;
+    await _supabaseClient
+      .from('orders')
+      .update({'status': newStatus})
+      .eq('id', _activeOrder!.id);
     notifyListeners();
-    debugPrint('Active order cleared.');
   }
 
   @override
   void dispose() {
-    _locationSubscription?.cancel(); // Cancela la suscripción al stream para evitar fugas de memoria
-    (_locationService as MockLocationService).dispose(); // Llama al dispose del mock
+    _locationSubscription?.cancel();
+    (_locationService as MockLocationService).dispose();
     super.dispose();
   }
 }

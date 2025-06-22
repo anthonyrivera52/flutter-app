@@ -34,10 +34,10 @@ class MockOrderService implements OrderService {
       estimatedTimeMinutes: 40,
       distanceKm: 7.5,
       items: [
-        'Leche entera x1',
-        'Pan tajado x1',
-        'Huevos x12',
-        'Manzanas rojas x3',
+        OrderItem(name: 'Leche entera', quantity: 1, unit: 'x1', price: 0),
+        OrderItem(name: 'Pan tajado', quantity: 1, unit: 'x1', price: 0),
+        OrderItem(name: 'Huevos', quantity: 12, unit: 'x12', price: 0),
+        OrderItem(name: 'Manzanas rojas', quantity: 3, unit: 'x3', price: 0),
       ],
       customerPhone: ''
     ),
@@ -54,9 +54,9 @@ class MockOrderService implements OrderService {
       estimatedTimeMinutes: 30,
       distanceKm: 5.0,
       items: [
-        'Acetaminofén x1',
-        'Vitamina C x1',
-        'Alcohol antiséptico x1',
+        OrderItem(name: 'Acetaminofén', quantity: 1, unit: 'x1', price: 0),
+        OrderItem(name: 'Vitamina C', quantity: 1, unit: 'x1', price: 0),
+        OrderItem(name: 'Alcohol antiséptico', quantity: 1, unit: 'x1', price: 0),
       ],
       customerPhone: ''
     ),

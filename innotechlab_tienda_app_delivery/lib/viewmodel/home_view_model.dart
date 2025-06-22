@@ -1,5 +1,6 @@
 // lib/viewmodel/home_view_model.dart
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/error/failures.dart';
 import '../domain/entities/user_status.dart';
 import '../domain/usecases/get_user_online_status.dart';
@@ -7,10 +8,14 @@ import '../domain/usecases/go_offline.dart';
 import 'auth_view_model.dart'; // Import AuthViewModel
 
 class HomeViewModel extends ChangeNotifier {
+  final SupabaseClient _supabaseClient;
   final GetUserOnlineStatus _getUserOnlineStatus;
   final GoOnline _goOnline;
   final GoOffline _goOffline;
   final AuthViewModel _authViewModel; // New dependency
+
+  // New property for total earnings
+  double _totalEarnings = 0.0;
 
   UserStatus _userStatus = UserStatus(status: UserConnectionStatus.offline, message: "You're Offline");
   UserStatus get userStatus => _userStatus;
@@ -20,12 +25,14 @@ class HomeViewModel extends ChangeNotifier {
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+  
+  double get totalEarnings => _totalEarnings; // Getter for total earnings
 
-  HomeViewModel({
+  HomeViewModel(this._supabaseClient,{
     required GetUserOnlineStatus getUserOnlineStatus,
     required GoOnline goOnline,
     required GoOffline goOffline,
-    required AuthViewModel authViewModel, // New: Require AuthViewModel
+    required AuthViewModel authViewModel,
   })  : _getUserOnlineStatus = getUserOnlineStatus,
         _goOnline = goOnline,
         _goOffline = goOffline,
@@ -61,7 +68,28 @@ class HomeViewModel extends ChangeNotifier {
       (status) => _setUserStatus(status),
     );
     _setLoading(false);
+    _loadInitialEarnings(); // Load earnings when ViewModel is created
   }
+
+  Future<void> _loadInitialEarnings() async {
+    try {
+      final response = await _supabaseClient
+          .from('profiles') // Assuming you have a 'profiles' table linked to users
+          .select('total_earnings')
+          .eq('id', _supabaseClient.auth.currentUser!.id)
+          .single();
+
+      if (response.isNotEmpty && response['total_earnings'] != null) {
+        _totalEarnings = (response['total_earnings'] as num).toDouble();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error loading initial earnings: $e");
+      // Optionally set an error message
+    }
+  }
+
+
 
   Future<void> attemptGoOnline() async {
     if (!_authViewModel.isAuthenticated) {
@@ -97,6 +125,28 @@ class HomeViewModel extends ChangeNotifier {
     _userStatus = status;
     _errorMessage = null; // Clear any previous errors on success
     notifyListeners();
+  }
+
+    // Method to add to total earnings
+  void addEarnings(double amount) {
+    _totalEarnings += amount;
+    notifyListeners();
+    // Optionally, persist this value (e.g., to SharedPreferences or Supabase)
+    _persistEarnings(_totalEarnings);
+  }
+
+    // Persist earnings to storage
+  Future<void> _persistEarnings(double earnings) async {
+    try {
+      await _supabaseClient
+          .from('profiles') // Assuming you have a 'profiles' table
+          .update({'total_earnings': earnings})
+          .eq('id', _supabaseClient.auth.currentUser!.id);
+      debugPrint("Earnings persisted: $earnings");
+      print("Earnings persisted: $earnings");
+    } catch (e) {
+      debugPrint("Error persisting earnings: $e");
+    }
   }
 
   void _setLoading(bool loading) {

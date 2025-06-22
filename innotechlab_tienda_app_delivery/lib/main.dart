@@ -146,6 +146,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<HomeViewModel>(
           create: (context) {
             return HomeViewModel(
+              context.read<SupabaseClient>(),
               getUserOnlineStatus: context.read<GetUserOnlineStatus>(),
               goOnline: context.read<GoOnline>(),
               goOffline: context.read<GoOffline>(),
@@ -164,7 +165,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ActiveOrderViewModel>(
           create: (context) {
-            return ActiveOrderViewModel();
+            return ActiveOrderViewModel(Supabase.instance.client, context);
           },
         ),
       ],
