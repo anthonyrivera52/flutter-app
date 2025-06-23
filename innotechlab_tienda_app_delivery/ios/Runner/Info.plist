@@ -50,8 +50,14 @@
 		<string>_dartobservatory._udp</string>
 		<string>_flutter._tcp</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Esta aplicación necesita acceso a tu ubicación para mostrar tu posición en el mapa y para las entregas.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Esta aplicación necesita acceso continuo a tu ubicación para rastrear el progreso de tus entregas, incluso cuando la aplicación está en segundo plano.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Esta aplicación necesita acceso a tu ubicación en todo momento para rastrear tu progreso en segundo plano durante las entregas.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Tu aplicación necesita acceder a la red local para descubrir dispositivos y servicios, lo cual es necesario para el desarrollo y depuración.</string>
+	<string>Esta aplicación necesita acceder a la red local para comunicarse con el servicio de desarrollo y para funciones en tiempo real.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

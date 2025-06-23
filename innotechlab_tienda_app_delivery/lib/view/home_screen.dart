@@ -1,4 +1,4 @@
-import 'dart:async'; 
+import 'dart:async';
 import 'dart:ui';
 import 'package:delivery_app_mvvm/view/auth_screen.dart';
 import 'package:delivery_app_mvvm/widget/order_action_buttons_carousel.dart';
@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart'; // Import for location services
 
 // ViewModels
 import 'package:delivery_app_mvvm/viewmodel/home_view_model.dart';
@@ -21,10 +22,6 @@ import 'package:delivery_app_mvvm/domain/entities/user_status.dart';
 // Widgets
 import 'package:delivery_app_mvvm/widget/new_order_alert_widget.dart';
 
-// --- No longer needed as it's integrated:
-// import 'package:delivery_app_mvvm/view/active_order_screen.dart';
-// import 'package:delivery_app_mvvm/view/auth_screen.dart'; // AuthScreen will be handled via modal
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -35,11 +32,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
-
-  // State specific to active order management, now within HomeScreenState
+  Set<Polyline> _polylines = {}; // New set for polylines
   List<bool> _itemChecked = [];
   final TextEditingController _pickupCodeController = TextEditingController();
   final TextEditingController _deliveryCodeController = TextEditingController();
+
+  StreamSubscription<Position>? _positionStreamSubscription; // For real-time location updates
 
   static const CameraPosition _kInitialCameraPosition = CameraPosition(
     target: LatLng(6.195618, -75.575971), // Sabaneta, Antioquia, Colombia
@@ -49,8 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize item checked list when an order becomes active.
-    // This will be handled reactively in the build method or in a listener.
+    _checkLocationPermissionAndStartStream();
   }
 
   @override
@@ -58,7 +55,53 @@ class _HomeScreenState extends State<HomeScreen> {
     _mapController?.dispose();
     _pickupCodeController.dispose();
     _deliveryCodeController.dispose();
+    _positionStreamSubscription?.cancel(); // Cancel location stream
     super.dispose();
+  }
+
+  // Method to check location permission and start stream
+  Future<void> _checkLocationPermissionAndStartStream() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showSnackBar('Location services are disabled. Please enable them.');
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showSnackBar('Location permissions are denied.');
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _showSnackBar('Location permissions are permanently denied, we cannot request permissions.');
+      return;
+    }
+
+    // [MODIFIED] Reduced location update frequency and improved accuracy
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high, // [MODIFIED] Use high accuracy for more precise initial fix, but filtering below
+        distanceFilter: 20, // [MODIFIED] Update only when moved 20 meters, helps stabilize
+        timeLimit: Duration(seconds: 5) // [NEW] Add a time limit to prevent constant updates if distanceFilter isn't met
+      ),
+    ).listen((Position position) {
+      final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context, listen: false);
+      activeOrderViewModel.updateDriverLocation(LocationData(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: position.speed, // Pass speed if available
+        accuracy: position.accuracy, // Pass accuracy if available
+      ));
+      // Trigger map update based on new driver location
+      _updateMapForLocationChange(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
+    });
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -71,6 +114,22 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     });
+  }
+
+  // Modified: Separated marker and polyline updates for clarity and better control
+  void _updateMapForLocationChange(Order? order, LocationData? driverLocation) {
+    _updateMarkers(order, driverLocation);
+    _updatePolylines(order, driverLocation);
+    // [MODIFIED] Zoom the map to fit all markers when an order is active
+    if (order != null && driverLocation != null) {
+      _fitMapToAllMarkers(order, driverLocation);
+    } else if (driverLocation != null) {
+      // If no active order, just center on driver's location with a reasonable zoom
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(driverLocation.toLatLng(), 16.0),
+      );
+    }
+    // No need to call setState here, as the view models' notifyListeners will rebuild the map.
   }
 
   void _updateMarkers(Order? order, LocationData? driverLocation) {
@@ -108,40 +167,79 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         ),
       );
-
-      // Animate camera to driver location if active order is null,
-      // otherwise, _fitMapToAllMarkers will handle camera.
-      if (_mapController != null && mounted && order == null) {
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLng(driverLocation.toLatLng()),
-        );
-      }
     }
   }
 
+  // Method to update polylines
+  void _updatePolylines(Order? order, LocationData? driverLocation) {
+    _polylines.clear();
+
+    if (order == null || driverLocation == null) {
+      return;
+    }
+
+    // Polyline from driver to restaurant when pending/accepted/arrived_at_restaurant/picking_up
+    if (order.status == "pending" ||
+        order.status == "accepted" ||
+        order.status == "arrived_at_restaurant" ||
+        order.status == "picking_up") {
+      _polylines.add(
+        Polyline(
+          polylineId: const PolylineId('driverToRestaurant'),
+          points: [driverLocation.toLatLng(), order.restaurantLocation],
+          color: Colors.red,
+          width: 5,
+        ),
+      );
+    }
+
+    // Polyline from driver to customer when picked_up/delivering
+    if (order.status == "picked_up" || order.status == "delivering") {
+      _polylines.add(
+        Polyline(
+          polylineId: const PolylineId('driverToCustomer'),
+          points: [driverLocation.toLatLng(), order.customerLocation],
+          color: Colors.blue,
+          width: 5,
+        ),
+      );
+    }
+    // To ensure the map rebuilds with new polylines and markers, call setState
+    // This is important because _polylines and _markers are state variables.
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // [MODIFIED] Adjusted padding for map bounds and added more explicit checks
   void _fitMapToAllMarkers(Order order, LocationData? driverLocation) {
     if (_mapController == null || !mounted) {
       debugPrint("Map controller not ready or widget not mounted for fitting bounds.");
       return;
     }
 
-    // Initialize with restaurant and customer locations
-    double minLat = order.restaurantLocation.latitude;
-    double maxLat = order.restaurantLocation.latitude;
-    double minLon = order.restaurantLocation.longitude;
-    double maxLon = order.restaurantLocation.longitude;
-
-    minLat = _min(minLat, order.customerLocation.latitude);
-    maxLat = _max(maxLat, order.customerLocation.latitude);
-    minLon = _min(minLon, order.customerLocation.longitude);
-    maxLon = _max(maxLon, order.customerLocation.longitude);
-
-    // Include driver location if available
+    // Collect all relevant coordinates
+    List<LatLng> points = [
+      order.restaurantLocation,
+      order.customerLocation,
+    ];
     if (driverLocation != null) {
-      minLat = _min(minLat, driverLocation.latitude);
-      maxLat = _max(maxLat, driverLocation.latitude);
-      minLon = _min(minLon, driverLocation.longitude);
-      maxLon = _max(maxLon, driverLocation.longitude);
+      points.add(driverLocation.toLatLng());
+    }
+
+    if (points.isEmpty) return; // Nothing to fit if no points
+
+    // Calculate bounds
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLon = points.first.longitude;
+    double maxLon = points.first.longitude;
+
+    for (var point in points) {
+      minLat = _min(minLat, point.latitude);
+      maxLat = _max(maxLat, point.latitude);
+      minLon = _min(minLon, point.longitude);
+      maxLon = _max(maxLon, point.longitude);
     }
 
     final LatLngBounds bounds = LatLngBounds(
@@ -149,15 +247,14 @@ class _HomeScreenState extends State<HomeScreen> {
       northeast: LatLng(maxLat, maxLon),
     );
 
-    // Ensure camera animation happens after the frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _mapController != null) {
-        _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100.0));
+        // [MODIFIED] Increased padding for better visibility after zoom
+        _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 120.0));
       }
     });
   }
 
-  // Helper functions for min/max
   double _min(double a, double b) => a < b ? a : b;
   double _max(double a, double b) => a > b ? a : b;
 
@@ -222,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: activeOrderViewModel.isLoading
                   ? null
                   : () async {
-                      if (_pickupCodeController.text == '1234') {// order.pickupCode) {
+                      if (_pickupCodeController.text == '1234') {
                         await activeOrderViewModel.updateOrderStatus("picking_up");
                         if (mounted) Navigator.of(dialogContext).pop();
                         _showSnackBar('Código validado. ¡Listo para recoger!');
@@ -237,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-    Future<void> _showDeliveryCodeModal(BuildContext context, Order order) async {
+  Future<void> _showDeliveryCodeModal(BuildContext context, Order order) async {
     _deliveryCodeController.clear();
     final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context, listen: false);
 
@@ -284,12 +381,11 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: activeOrderViewModel.isLoading
                   ? null
                   : () async {
-                      if (_deliveryCodeController.text == '0000') { // order.pickupCode
+                      if (_deliveryCodeController.text == '0000') {
                         if (mounted) Navigator.of(dialogContext).pop();
                         final homeViewModel = Provider.of<HomeViewModel>(context, listen: false);
-                        // Use totalAmount from the order to add to earnings
                         homeViewModel.addEarnings(order.totalAmount);
-                        print('Added \\${order.totalAmount} to total earnings.');
+                        print('Added \$${order.totalAmount} to total earnings.');
                         await activeOrderViewModel.completeActiveOrder();
                       } else {
                         _showSnackBar('Código incorrecto. Intenta de nuevo.');
@@ -314,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (status) {
       case "pending":
       case "accepted":
-        return "Iendo al Restaurante";
+        return "Llegada al Restaurante";
       case "arrived_at_restaurant":
         return "Marcar como Recogido";
       case "picking_up":
@@ -346,34 +442,30 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-    // New: Modal for selecting items (replaces inline ListView.builder)
   Future<void> _showPickupItemsModal(BuildContext context, Order order, ActiveOrderViewModel viewModel) async {
-    // Ensure _itemChecked is initialized to the correct size when opening the modal
-    // A local state for the modal would be even cleaner if this were a separate widget.
-    // For simplicity, we use _itemChecked from _HomeScreenState.
     if (order.items != null && order.items!.isNotEmpty) {
       setState(() {
         _itemChecked = List<bool>.filled(order.items!.length, false);
       });
     } else {
-      _itemChecked = []; // No items
+      _itemChecked = [];
     }
 
     return showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the modal to be full height
+      isScrollControlled: true,
       builder: (BuildContext dialogContext) {
-        return StatefulBuilder( // Use StatefulBuilder to manage inner state of the modal
+        return StatefulBuilder(
           builder: (BuildContext context, StateSetter setStateModal) {
             return Container(
               padding: EdgeInsets.only(
                 top: 16,
                 left: 16,
                 right: 16,
-                bottom: MediaQuery.of(dialogContext).viewInsets.bottom + 16, // Adjust for keyboard
+                bottom: MediaQuery.of(dialogContext).viewInsets.bottom + 16,
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min, // Keep column size minimal
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
@@ -398,10 +490,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (order.items != null && order.items!.isNotEmpty)
-                    Flexible( // Use Flexible to prevent ListView.builder from overflowing
+                    Flexible(
                       child: ListView.builder(
-                        shrinkWrap: true, // Important for wrapping content
-                        physics: const ClampingScrollPhysics(), // Prevent excessive scrolling
+                        shrinkWrap: true,
+                        physics: const ClampingScrollPhysics(),
                         itemCount: order.items!.length,
                         itemBuilder: (context, index) {
                           final item = order.items![index];
@@ -409,7 +501,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             title: Text('${item.name} x${item.quantity}'),
                             value: _itemChecked[index],
                             onChanged: (bool? value) {
-                              setStateModal(() { // Use setStateModal to update dialog's state
+                              setStateModal(() {
                                 _itemChecked[index] = value!;
                               });
                             },
@@ -428,7 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _showSnackBar('Por favor, marca todos los artículos como recogidos.');
                               } else {
                                 await viewModel.updateOrderStatus("picked_up");
-                                if (mounted) Navigator.of(dialogContext).pop(); // Close modal
+                                if (mounted) Navigator.of(dialogContext).pop();
                                 _showSnackBar('¡Pedido recogido! En camino al cliente.');
                               }
                             },
@@ -456,21 +548,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to all relevant ViewModels
     final newOrderViewModel = Provider.of<NewOrderViewModel>(context);
     final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context);
     final authViewModel = Provider.of<AuthViewModel>(context);
     final homeViewModel = Provider.of<HomeViewModel>(context);
 
-    // Update markers based on whether an active order exists or just driver location
+    // Update markers and polylines based on view model changes
+    // This part ensures map elements are always up-to-date.
+    // It's crucial for the map to re-render with new data.
     _updateMarkers(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
+    _updatePolylines(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
 
-    // If there's an active order, fit the map to include all relevant points
+    // [MODIFIED] Ensure map fits markers only if there's an active order or specific reason
+    // This prevents unwanted re-zooming if driver just moves slightly without order.
     if (activeOrderViewModel.activeOrder != null && activeOrderViewModel.currentDriverLocation != null) {
       _fitMapToAllMarkers(activeOrderViewModel.activeOrder!, activeOrderViewModel.currentDriverLocation);
     } else if (activeOrderViewModel.activeOrder == null && activeOrderViewModel.currentDriverLocation != null) {
-      // If no active order but we have driver location, ensure map is centered on driver
       if (_mapController != null && mounted) {
+        // If no active order, just center on driver's location at a standard zoom
         _mapController!.animateCamera(
           CameraUpdate.newLatLngZoom(activeOrderViewModel.currentDriverLocation!.toLatLng(), 16.0),
         );
@@ -478,12 +573,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Initialize _itemChecked when an active order is set for the first time
-    // or when the order changes (e.g., if a new order becomes active)
     if (activeOrderViewModel.activeOrder != null &&
         (_itemChecked.isEmpty || _itemChecked.length != activeOrderViewModel.activeOrder!.items?.length)) {
       if (activeOrderViewModel.activeOrder!.items != null && activeOrderViewModel.activeOrder!.items!.isNotEmpty) {
-        // Use WidgetsBinding.instance.addPostFrameCallback to delay setState
-        // and avoid "setState during build" if this is triggered by a provider update
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
@@ -501,35 +593,24 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
-    
-    final driverLocation = activeOrderViewModel.currentDriverLocation;
 
+    final driverLocation = activeOrderViewModel.currentDriverLocation;
     return Scaffold(
       body: Stack(
         children: [
           // Background Map
-          Positioned(
-            child: activeOrderViewModel.activeOrder != null ?
-            Expanded(
-            flex: 2,
+          Positioned.fill( // Use Positioned.fill to make the map take all available space
             child: GoogleMap(
               onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(
-                target: driverLocation?.toLatLng() ?? activeOrderViewModel.activeOrder!.restaurantLocation,
-                zoom: 14.0,
-              ),
-              markers: _markers, // This uses the _markers set
-              myLocationButtonEnabled: true,
-              myLocationEnabled: true,
-            ),
-          )
-          : GoogleMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: _kInitialCameraPosition,
+              // Initial camera position is based on driver location or default
+              initialCameraPosition: driverLocation != null
+                  ? CameraPosition(target: driverLocation.toLatLng(), zoom: 14.0)
+                  : _kInitialCameraPosition,
               markers: _markers,
+              polylines: _polylines, // Add polylines here
               myLocationButtonEnabled: true,
-              zoomControlsEnabled: true,
               myLocationEnabled: true,
+              zoomControlsEnabled: true,
             ),
           ),
           // Top Bar elements (always visible, regardless of auth state)
@@ -572,18 +653,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       const Text(
                         '\$',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.green, fontSize: 20),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 20),
                       ),
                       Text(
-                        // Display total earnings from HomeViewModel
                         homeViewModel.totalEarnings.toStringAsFixed(2),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                       ),
                     ],
                   ),
                 ),
-                Container()
+                Container() // Placeholder to balance the row if needed, or remove if not.
               ],
             ),
           ),
@@ -599,9 +678,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       onAccept: () async {
                         debugPrint('Orden Aceptada: ${newOrderViewModel.currentNewOrder!.id}');
                         await newOrderViewModel.updateOrderStatus(newOrderViewModel.currentNewOrder!.id, 'accepted');
-                        // Set the accepted order as the active order
                         activeOrderViewModel.setActiveOrder(newOrderViewModel.currentNewOrder!);
-                        newOrderViewModel.clearCurrentNewOrder(); // Clear the new order alert
+                        newOrderViewModel.clearCurrentNewOrder();
+                        // [NEW] Trigger map zoom immediately after accepting the order
+                        if (activeOrderViewModel.currentDriverLocation != null && activeOrderViewModel.activeOrder != null) {
+                          _fitMapToAllMarkers(activeOrderViewModel.activeOrder!, activeOrderViewModel.currentDriverLocation);
+                        }
                       },
                       onDecline: () async {
                         debugPrint('Orden Declinada: ${newOrderViewModel.currentNewOrder!.id}');
@@ -610,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     );
                   }
-                  return const SizedBox.shrink(); // Hide if no new order
+                  return const SizedBox.shrink();
                 },
               ),
             ),
@@ -626,12 +708,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 } else if (homeViewModel.isLoading) {
                   return _buildLoadingBanner();
                 } else if (activeOrderViewModel.activeOrder != null) {
-                  // Display Active Order Panel if an order is active
                   return _buildActiveOrderPanel(context, activeOrderViewModel);
                 } else if (homeViewModel.userStatus.status == UserConnectionStatus.offline) {
                   return _buildOfflineBanner(context, homeViewModel);
-                } else { // User is authenticated and online, but no active order
-                  return _buildOnlineWaitingBanner(context, homeViewModel); // Modified to be specific
+                } else {
+                  return _buildOnlineWaitingBanner(context, homeViewModel);
                 }
               },
             ),
@@ -644,9 +725,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // --- Widget Builders for different states of the bottom panel ---
 
   Widget _buildLoginRequiredBanner(BuildContext context) {
-    final authViewModel = Provider.of<AuthViewModel>(context); // Asegura que escuche cambios
+    final authViewModel = Provider.of<AuthViewModel>(context);
     return Material(
-      color: Colors.white, // Fondo blanco para el modal
+      color: Colors.white,
       borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(20),
         topRight: Radius.circular(20),
@@ -667,9 +748,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              authViewModel.isAuthenticated
-                  ? '¡Bienvenido!'
-                  : 'You are not logged in.',
+              authViewModel.isAuthenticated ? '¡Bienvenido!' : 'You are not logged in.',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
@@ -797,7 +876,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.calendar_today),
                       onPressed: () {
-                        // Handle calendar button press
                         _showSnackBar("Calendar feature not implemented yet.");
                       },
                     ),
@@ -835,7 +913,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.filter_list),
                       onPressed: () {
-                        // Handle filter button press
                         _showSnackBar("Filter feature not implemented yet.");
                       },
                     ),
@@ -909,7 +986,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.calendar_today),
                       onPressed: () {
-                        // Handle calendar button press
                         _showSnackBar("Calendar feature not implemented yet.");
                       },
                     ),
@@ -947,7 +1023,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.filter_list),
                       onPressed: () {
-                        // Handle filter button press
                         _showSnackBar("Filter feature not implemented yet.");
                       },
                     ),
@@ -962,9 +1037,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-   Widget _buildActiveOrderPanel(BuildContext context, ActiveOrderViewModel viewModel) {
+  Widget _buildActiveOrderPanel(BuildContext context, ActiveOrderViewModel viewModel) {
     final order = viewModel.activeOrder!;
-
     return DraggableScrollableSheet(
       initialChildSize: 0.25,
       minChildSize: 0.20,
@@ -976,8 +1050,7 @@ class _HomeScreenState extends State<HomeScreen> {
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
           ),
-          // --- CORRECTED: Use a Column directly here, not a Row with double.infinity ---
-          child: Container( // This Container provides the background and shadow
+          child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -990,7 +1063,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: SingleChildScrollView(
               controller: scrollController,
-              padding: const EdgeInsets.all(16.0), // Apply padding here once
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,

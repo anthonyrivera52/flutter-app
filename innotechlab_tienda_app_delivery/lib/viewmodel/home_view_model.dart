@@ -2,22 +2,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/error/failures.dart';
-import '../domain/entities/user_status.dart';
 import '../domain/usecases/get_user_online_status.dart';
 import '../domain/usecases/go_offline.dart';
-import 'auth_view_model.dart'; // Import AuthViewModel
+import '../domain/entities/user_status.dart'; // This is the CORRECT UserStatus
+import 'auth_view_model.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final SupabaseClient _supabaseClient;
   final GetUserOnlineStatus _getUserOnlineStatus;
   final GoOnline _goOnline;
   final GoOffline _goOffline;
-  final AuthViewModel _authViewModel; // New dependency
+  final AuthViewModel _authViewModel;
 
-  // New property for total earnings
   double _totalEarnings = 0.0;
 
-  UserStatus _userStatus = UserStatus(status: UserConnectionStatus.offline, message: "You're Offline");
+  // Use the UserStatus from '../domain/entities/user_status.dart'
+  UserStatus _userStatus = UserStatus.offline("You're Offline"); // Using factory constructor
   UserStatus get userStatus => _userStatus;
 
   bool _isLoading = false;
@@ -26,7 +26,7 @@ class HomeViewModel extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
   
-  double get totalEarnings => _totalEarnings; // Getter for total earnings
+  double get totalEarnings => _totalEarnings;
 
   HomeViewModel(this._supabaseClient,{
     required GetUserOnlineStatus getUserOnlineStatus,
@@ -37,27 +37,24 @@ class HomeViewModel extends ChangeNotifier {
         _goOnline = goOnline,
         _goOffline = goOffline,
         _authViewModel = authViewModel {
-    // Listen to AuthViewModel's changes
     _authViewModel.addListener(_onAuthStatusChanged);
+    _onAuthStatusChanged(); // Call it once to set initial status
   }
 
   void _onAuthStatusChanged() {
+    debugPrint("HomeViewModel: Auth status changed. Is authenticated: ${_authViewModel.isAuthenticated}");
     if (_authViewModel.isAuthenticated) {
-      // If user becomes authenticated, attempt to go online or initialize status
-      // Only do this if the user was previously offline OR if this is the initial load
-      if (_userStatus.status == UserConnectionStatus.offline) {
-        initializeStatus(); // Re-evaluate status upon login
+      if (_userStatus.status == UserConnectionStatus.offline || _userStatus.status == UserConnectionStatus.error) {
+        initializeStatus();
       }
     } else {
-      // If user logs out, force offline status
-      _setUserStatus(UserStatus(status: UserConnectionStatus.offline, message: "You're Offline (Logged Out)"));
+      _setUserStatus(UserStatus.offline("You're Offline (Logged Out)")); // Using factory constructor
     }
   }
 
   Future<void> initializeStatus() async {
-    // Only attempt to get online status if authenticated
     if (!_authViewModel.isAuthenticated) {
-      _setUserStatus(UserStatus(status: UserConnectionStatus.offline, message: "Please log in to go online."));
+      _setUserStatus(UserStatus.offline("Please log in to go online.")); // Using factory constructor
       return;
     }
 
@@ -65,16 +62,26 @@ class HomeViewModel extends ChangeNotifier {
     final result = await _getUserOnlineStatus();
     result.fold(
       (failure) => _setErrorMessage(_mapFailureToMessage(failure)),
-      (status) => _setUserStatus(status),
+      (status) {
+        // [FIX] Removed the explicit 'as UserStatus' cast.
+        // The 'status' parameter here is already correctly typed as UserStatus
+        // by the 'Right' side of the 'Either' from the use case.
+        debugPrint("HomeViewModel: Status from GetUserOnlineStatus: ${status.status} - ${status.message}");
+        _setUserStatus(status);
+      },
     );
     _setLoading(false);
-    _loadInitialEarnings(); // Load earnings when ViewModel is created
+    _loadInitialEarnings();
   }
 
   Future<void> _loadInitialEarnings() async {
+    if (!_authViewModel.isAuthenticated || _supabaseClient.auth.currentUser == null) {
+      debugPrint("HomeViewModel: Cannot load earnings, user not authenticated.");
+      return;
+    }
     try {
       final response = await _supabaseClient
-          .from('profiles') // Assuming you have a 'profiles' table linked to users
+          .from('profiles')
           .select('total_earnings')
           .eq('id', _supabaseClient.auth.currentUser!.id)
           .single();
@@ -82,68 +89,73 @@ class HomeViewModel extends ChangeNotifier {
       if (response.isNotEmpty && response['total_earnings'] != null) {
         _totalEarnings = (response['total_earnings'] as num).toDouble();
         notifyListeners();
+        debugPrint("HomeViewModel: Initial earnings loaded: $_totalEarnings");
+      } else {
+         debugPrint("HomeViewModel: No initial earnings found or response empty.");
       }
     } catch (e) {
       debugPrint("Error loading initial earnings: $e");
-      // Optionally set an error message
     }
   }
 
-
-
   Future<void> attemptGoOnline() async {
     if (!_authViewModel.isAuthenticated) {
-      _setErrorMessage("You must be logged in to go online.");
+      _setErrorMessage("Please log in to go online.");
       return;
     }
-
     _setLoading(true);
     final result = await _goOnline();
     result.fold(
       (failure) => _setErrorMessage(_mapFailureToMessage(failure)),
-      (status) => _setUserStatus(status),
+      (_) {
+        _setUserStatus(UserStatus.online("Online. Waiting for orders...")); // Using factory constructor
+        _errorMessage = null;
+      },
     );
     _setLoading(false);
   }
 
   Future<void> attemptGoOffline() async {
     if (!_authViewModel.isAuthenticated) {
-      _setErrorMessage("You must be logged in to go offline.");
+      _setUserStatus(UserStatus.offline("You're Offline.")); // Using factory constructor
       return;
     }
-
     _setLoading(true);
     final result = await _goOffline();
     result.fold(
       (failure) => _setErrorMessage(_mapFailureToMessage(failure)),
-      (status) => _setUserStatus(status),
+      (_) {
+        _setUserStatus(UserStatus.offline("Offline. Tap to go online.")); // Using factory constructor
+        _errorMessage = null;
+      },
     );
     _setLoading(false);
   }
 
   void _setUserStatus(UserStatus status) {
+    debugPrint("HomeViewModel: Cambiando userStatus a: ${status.status} con mensaje: ${status.message}");
     _userStatus = status;
-    _errorMessage = null; // Clear any previous errors on success
+    _errorMessage = null;
     notifyListeners();
   }
 
-    // Method to add to total earnings
   void addEarnings(double amount) {
     _totalEarnings += amount;
     notifyListeners();
-    // Optionally, persist this value (e.g., to SharedPreferences or Supabase)
     _persistEarnings(_totalEarnings);
   }
 
-    // Persist earnings to storage
   Future<void> _persistEarnings(double earnings) async {
+    if (!_authViewModel.isAuthenticated || _supabaseClient.auth.currentUser == null) {
+      debugPrint("HomeViewModel: Cannot persist earnings, user not authenticated.");
+      return;
+    }
     try {
       await _supabaseClient
-          .from('profiles') // Assuming you have a 'profiles' table
+          .from('profiles')
           .update({'total_earnings': earnings})
           .eq('id', _supabaseClient.auth.currentUser!.id);
       debugPrint("Earnings persisted: $earnings");
-      print("Earnings persisted: $earnings");
     } catch (e) {
       debugPrint("Error persisting earnings: $e");
     }
@@ -166,7 +178,7 @@ class HomeViewModel extends ChangeNotifier {
       case CacheFailure:
         return 'Cache Error: Could not retrieve local data.';
       case AuthFailure:
-        return (failure as AuthFailure).message; // Use message from AuthFailure
+        return (failure as AuthFailure).message;
       default:
         return 'Unexpected Error: Please try again.';
     }

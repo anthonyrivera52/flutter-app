@@ -2,23 +2,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:delivery_app_mvvm/model/order.dart';
 import 'package:delivery_app_mvvm/model/location_data.dart';
-import 'package:delivery_app_mvvm/service/order_service.dart';
-import 'package:delivery_app_mvvm/service/mock_order_service.dart';
 import 'package:delivery_app_mvvm/service/location_service.dart';
 import 'package:delivery_app_mvvm/service/mock_location_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:provider/provider.dart'; // Import provider to access other view models
-import 'package:delivery_app_mvvm/viewmodel/home_view_model.dart'; // Import HomeViewModel
 
 class ActiveOrderViewModel extends ChangeNotifier {
   final SupabaseClient _supabaseClient;
-  final OrderService _orderService = MockOrderService();
   final LocationService _locationService = MockLocationService();
+
+    // Inside ActiveOrderViewModel
+  LocationData? _currentDriverLocation;
+  LocationData? get currentDriverLocation => _currentDriverLocation;
 
   Order? _activeOrder;
   bool _isLoading = false;
   String? _errorMessage;
-  LocationData? _currentDriverLocation;
 
   List<bool> _itemChecked = []; // New property for item checks
   List<bool> get itemChecked => _itemChecked;
@@ -28,7 +26,6 @@ class ActiveOrderViewModel extends ChangeNotifier {
   Order? get activeOrder => _activeOrder;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  LocationData? get currentDriverLocation => _currentDriverLocation;
 
   // Add BuildContext to the constructor to allow accessing HomeViewModel
   final BuildContext _context; // Store context
@@ -73,7 +70,12 @@ class ActiveOrderViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
+  
+    
+  void updateDriverLocation(LocationData newLocation) {
+    _currentDriverLocation = newLocation;
+    notifyListeners();
+  }
 
   Future<void> updateOrderStatus(String newStatus) async {
     if (_activeOrder == null) return;
