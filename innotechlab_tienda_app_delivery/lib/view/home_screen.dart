@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:delivery_app_mvvm/view/auth_screen.dart';
+import 'package:delivery_app_mvvm/widget/drawer/custom_app_drawer.dart';
+import 'package:delivery_app_mvvm/widget/home_header.dart';
 import 'package:delivery_app_mvvm/widget/order_action_buttons_carousel.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -596,6 +598,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final driverLocation = activeOrderViewModel.currentDriverLocation;
     return Scaffold(
+      drawer: const CustomAppDrawer(),
       body: Stack(
         children: [
           // Background Map
@@ -613,59 +616,10 @@ class _HomeScreenState extends State<HomeScreen> {
               zoomControlsEnabled: true,
             ),
           ),
-          // Top Bar elements (always visible, regardless of auth state)
-          Positioned(
-            top: 80,
-            left: 20,
-            right: 20,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.menu),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Text(
-                        '\$',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 20),
-                      ),
-                      Text(
-                        homeViewModel.totalEarnings.toStringAsFixed(2),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                      ),
-                    ],
-                  ),
-                ),
-                Container() // Placeholder to balance the row if needed, or remove if not.
-              ],
-            ),
-          ),
+
+          // El HomeHeader con el botón del menú y las ganancias
+          const HomeHeader(), // Este ya lo tienes si seguiste las instrucciones anteriores
+
           // New Order Alert (Floating in the middle)
           Center(
             child: Padding(
