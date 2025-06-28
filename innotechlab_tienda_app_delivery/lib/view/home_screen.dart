@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:delivery_app_mvvm/view/active_order_screen.dart';
 import 'package:delivery_app_mvvm/view/auth_screen.dart';
 import 'package:delivery_app_mvvm/widget/drawer/custom_app_drawer.dart';
 import 'package:delivery_app_mvvm/widget/home_header.dart';
@@ -39,17 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _pickupCodeController = TextEditingController();
   final TextEditingController _deliveryCodeController = TextEditingController();
 
-  StreamSubscription<Position>? _positionStreamSubscription; // For real-time location updates
-
-  static const CameraPosition _kInitialCameraPosition = CameraPosition(
-    target: LatLng(6.195618, -75.575971), // Sabaneta, Antioquia, Colombia
-    zoom: 14.0,
-  );
-
   @override
   void initState() {
+    _mapController?.dispose();
     super.initState();
-    _checkLocationPermissionAndStartStream();
   }
 
   @override
@@ -57,204 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _mapController?.dispose();
     _pickupCodeController.dispose();
     _deliveryCodeController.dispose();
-    _positionStreamSubscription?.cancel(); // Cancel location stream
     super.dispose();
-  }
-
-  // Method to check location permission and start stream
-  Future<void> _checkLocationPermissionAndStartStream() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _showSnackBar('Location services are disabled. Please enable them.');
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _showSnackBar('Location permissions are denied.');
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      _showSnackBar('Location permissions are permanently denied, we cannot request permissions.');
-      return;
-    }
-
-    // [MODIFIED] Reduced location update frequency and improved accuracy
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high, // [MODIFIED] Use high accuracy for more precise initial fix, but filtering below
-        distanceFilter: 20, // [MODIFIED] Update only when moved 20 meters, helps stabilize
-        timeLimit: Duration(seconds: 5) // [NEW] Add a time limit to prevent constant updates if distanceFilter isn't met
-      ),
-    ).listen((Position position) {
-      final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context, listen: false);
-      activeOrderViewModel.updateDriverLocation(LocationData(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        speed: position.speed, // Pass speed if available
-        accuracy: position.accuracy, // Pass accuracy if available
-      ));
-      // Trigger map update based on new driver location
-      _updateMapForLocationChange(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
-    });
-  }
-
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final activeOrderViewModel = Provider.of<ActiveOrderViewModel>(context, listen: false);
-      if (activeOrderViewModel.currentDriverLocation != null) {
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLngZoom(activeOrderViewModel.currentDriverLocation!.toLatLng(), 16.0),
-        );
-      }
-    });
-  }
-
-  // Modified: Separated marker and polyline updates for clarity and better control
-  void _updateMapForLocationChange(Order? order, LocationData? driverLocation) {
-    _updateMarkers(order, driverLocation);
-    _updatePolylines(order, driverLocation);
-    // [MODIFIED] Zoom the map to fit all markers when an order is active
-    if (order != null && driverLocation != null) {
-      _fitMapToAllMarkers(order, driverLocation);
-    } else if (driverLocation != null) {
-      // If no active order, just center on driver's location with a reasonable zoom
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(driverLocation.toLatLng(), 16.0),
-      );
-    }
-    // No need to call setState here, as the view models' notifyListeners will rebuild the map.
-  }
-
-  void _updateMarkers(Order? order, LocationData? driverLocation) {
-    _markers.clear();
-
-    if (order != null) {
-      // Restaurant marker
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('restaurantLocation'),
-          position: order.restaurantLocation,
-          infoWindow: InfoWindow(title: order.restaurantName),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        ),
-      );
-
-      // Customer marker
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('customerLocation'),
-          position: order.customerLocation,
-          infoWindow: InfoWindow(title: 'Cliente: ${order.customerName}'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-        ),
-      );
-    }
-
-    // Driver location marker (always show if available)
-    if (driverLocation != null) {
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('driverLocation'),
-          position: driverLocation.toLatLng(),
-          infoWindow: const InfoWindow(title: 'Tu Posición'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        ),
-      );
-    }
-  }
-
-  // Method to update polylines
-  void _updatePolylines(Order? order, LocationData? driverLocation) {
-    _polylines.clear();
-
-    if (order == null || driverLocation == null) {
-      return;
-    }
-
-    // Polyline from driver to restaurant when pending/accepted/arrived_at_restaurant/picking_up
-    if (order.status == "pending" ||
-        order.status == "accepted" ||
-        order.status == "arrived_at_restaurant" ||
-        order.status == "picking_up") {
-      _polylines.add(
-        Polyline(
-          polylineId: const PolylineId('driverToRestaurant'),
-          points: [driverLocation.toLatLng(), order.restaurantLocation],
-          color: Colors.red,
-          width: 5,
-        ),
-      );
-    }
-
-    // Polyline from driver to customer when picked_up/delivering
-    if (order.status == "picked_up" || order.status == "delivering") {
-      _polylines.add(
-        Polyline(
-          polylineId: const PolylineId('driverToCustomer'),
-          points: [driverLocation.toLatLng(), order.customerLocation],
-          color: Colors.blue,
-          width: 5,
-        ),
-      );
-    }
-    // To ensure the map rebuilds with new polylines and markers, call setState
-    // This is important because _polylines and _markers are state variables.
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // [MODIFIED] Adjusted padding for map bounds and added more explicit checks
-  void _fitMapToAllMarkers(Order order, LocationData? driverLocation) {
-    if (_mapController == null || !mounted) {
-      debugPrint("Map controller not ready or widget not mounted for fitting bounds.");
-      return;
-    }
-
-    // Collect all relevant coordinates
-    List<LatLng> points = [
-      order.restaurantLocation,
-      order.customerLocation,
-    ];
-    if (driverLocation != null) {
-      points.add(driverLocation.toLatLng());
-    }
-
-    if (points.isEmpty) return; // Nothing to fit if no points
-
-    // Calculate bounds
-    double minLat = points.first.latitude;
-    double maxLat = points.first.latitude;
-    double minLon = points.first.longitude;
-    double maxLon = points.first.longitude;
-
-    for (var point in points) {
-      minLat = _min(minLat, point.latitude);
-      maxLat = _max(maxLat, point.latitude);
-      minLon = _min(minLon, point.longitude);
-      maxLon = _max(maxLon, point.longitude);
-    }
-
-    final LatLngBounds bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLon),
-      northeast: LatLng(maxLat, maxLon),
-    );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _mapController != null) {
-        // [MODIFIED] Increased padding for better visibility after zoom
-        _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 120.0));
-      }
-    });
   }
 
   double _min(double a, double b) => a < b ? a : b;
@@ -555,24 +352,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final authViewModel = Provider.of<AuthViewModel>(context);
     final homeViewModel = Provider.of<HomeViewModel>(context);
 
-    // Update markers and polylines based on view model changes
-    // This part ensures map elements are always up-to-date.
-    // It's crucial for the map to re-render with new data.
-    _updateMarkers(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
-    _updatePolylines(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
+    // // Update markers and polylines based on view model changes
+    // // This part ensures map elements are always up-to-date.
+    // // It's crucial for the map to re-render with new data.
+    // _updateMarkers(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
+    // _updatePolylines(activeOrderViewModel.activeOrder, activeOrderViewModel.currentDriverLocation);
 
     // [MODIFIED] Ensure map fits markers only if there's an active order or specific reason
     // This prevents unwanted re-zooming if driver just moves slightly without order.
-    if (activeOrderViewModel.activeOrder != null && activeOrderViewModel.currentDriverLocation != null) {
-      _fitMapToAllMarkers(activeOrderViewModel.activeOrder!, activeOrderViewModel.currentDriverLocation);
-    } else if (activeOrderViewModel.activeOrder == null && activeOrderViewModel.currentDriverLocation != null) {
-      if (_mapController != null && mounted) {
-        // If no active order, just center on driver's location at a standard zoom
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(activeOrderViewModel.currentDriverLocation!.toLatLng(), 16.0),
-        );
-      }
-    }
+    // if (activeOrderViewModel.activeOrder != null && activeOrderViewModel.currentDriverLocation != null) {
+    //   _fitMapToAllMarkers(activeOrderViewModel.activeOrder!, activeOrderViewModel.currentDriverLocation);
+    // } else if (activeOrderViewModel.activeOrder == null && activeOrderViewModel.currentDriverLocation != null) {
+    //   if (_mapController != null && mounted) {
+    //     // If no active order, just center on driver's location at a standard zoom
+    //     _mapController!.animateCamera(
+    //       CameraUpdate.newLatLngZoom(activeOrderViewModel.currentDriverLocation!.toLatLng(), 16.0),
+    //     );
+    //   }
+    // }
+
+    // Actualiza los marcadores y polilíneas basándose en el estado actual de los ViewModels.
+    _updateMapElements(homeViewModel.currentDriverLocation, activeOrderViewModel.activeOrder);
 
     // Initialize _itemChecked when an active order is set for the first time
     if (activeOrderViewModel.activeOrder != null &&
@@ -596,86 +396,309 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    final driverLocation = activeOrderViewModel.currentDriverLocation;
+    // final driverLocation = activeOrderViewModel.currentDriverLocation;
     return Scaffold(
-      drawer: const CustomAppDrawer(),
+      drawer: CustomAppDrawer(authViewModel: authViewModel),
       body: Stack(
-        children: [
-          // Background Map
-          Positioned.fill( // Use Positioned.fill to make the map take all available space
-            child: GoogleMap(
-              onMapCreated: _onMapCreated,
-              // Initial camera position is based on driver location or default
-              initialCameraPosition: driverLocation != null
-                  ? CameraPosition(target: driverLocation.toLatLng(), zoom: 14.0)
-                  : _kInitialCameraPosition,
-              markers: _markers,
-              polylines: _polylines, // Add polylines here
-              myLocationButtonEnabled: true,
-              myLocationEnabled: true,
-              zoomControlsEnabled: true,
-            ),
-          ),
-
-          // El HomeHeader con el botón del menú y las ganancias
-          const HomeHeader(), // Este ya lo tienes si seguiste las instrucciones anteriores
-
-          // New Order Alert (Floating in the middle)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Builder(
-                builder: (context) {
-                  if (newOrderViewModel.currentNewOrder != null && newOrderViewModel.currentNewOrder!.status == 'pending') {
-                    return NewOrderAlertWidget(
-                      order: newOrderViewModel.currentNewOrder!,
-                      onAccept: () async {
-                        debugPrint('Orden Aceptada: ${newOrderViewModel.currentNewOrder!.id}');
-                        await newOrderViewModel.updateOrderStatus(newOrderViewModel.currentNewOrder!.id, 'accepted');
-                        activeOrderViewModel.setActiveOrder(newOrderViewModel.currentNewOrder!);
-                        newOrderViewModel.clearCurrentNewOrder();
-                        // [NEW] Trigger map zoom immediately after accepting the order
-                        if (activeOrderViewModel.currentDriverLocation != null && activeOrderViewModel.activeOrder != null) {
-                          _fitMapToAllMarkers(activeOrderViewModel.activeOrder!, activeOrderViewModel.currentDriverLocation);
-                        }
-                      },
-                      onDecline: () async {
-                        debugPrint('Orden Declinada: ${newOrderViewModel.currentNewOrder!.id}');
-                        await newOrderViewModel.updateOrderStatus(newOrderViewModel.currentNewOrder!.id, 'rejected');
-                        newOrderViewModel.clearCurrentNewOrder();
-                      },
+          children: [
+            // Background Map
+            //Positioned.fill(
+              // child: 
+              GoogleMap(
+                mapType: MapType.normal,
+                // La posición inicial de la cámara utiliza la ubicación del driver del HomeViewModel
+                // o una ubicación por defecto si aún no está disponible.
+                initialCameraPosition: CameraPosition(
+                  bearing: 192.8334901395799,
+                  tilt: 59.440717697143555,
+                  target: homeViewModel.currentDriverLocation != null
+                      ? LatLng(homeViewModel.currentDriverLocation!.latitude,
+                              homeViewModel.currentDriverLocation!.longitude)
+                      : const LatLng(6.195618, -75.575971), // Sabaneta, Antioquia, Colombia por defecto
+                  zoom: 14.4746,
+                ),
+                // Cuando el mapa se crea, guardamos el controlador y centramos la cámara si la ubicación ya existe.
+                onMapCreated: (GoogleMapController controller) {
+                  _mapController = controller;
+                  if (homeViewModel.currentDriverLocation != null) {
+                    _mapController!.animateCamera(
+                      CameraUpdate.newLatLngZoom(
+                        LatLng(
+                          homeViewModel.currentDriverLocation!.latitude,
+                          homeViewModel.currentDriverLocation!.longitude,
+                        ),
+                        14.4746, // Zoom un poco más cercano al inicio
+                      ),
                     );
                   }
-                  return const SizedBox.shrink();
                 },
+                markers: _markers, // Se actualiza dinámicamente en _updateMapElements
+                polylines: _polylines, // Se actualiza dinámicamente en _updateMapElements
+                zoomControlsEnabled: true,
+                myLocationEnabled: true, // Muestra el punto azul de la ubicación actual del usuario
+                myLocationButtonEnabled: true, // Habilita el botón para centrar en la ubicación del usuario
               ),
-            ),
-          ),
+            // ),
+            // --- INDICADOR DE CONECTIVIDAD ---
+            if (!homeViewModel.hasInternet)
+              Container(
+                width: double.infinity,
+                color: Colors.red[700],
+                padding: const EdgeInsets.all(8.0),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.signal_wifi_off, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sin conexión a Internet',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            // --- FIN INDICADOR DE CONECTIVIDAD ---
 
-          // Dynamic Bottom Panel (Login, Offline, Online, Active Order)
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Builder(
-              builder: (context) {
-                if (!authViewModel.isAuthenticated) {
-                  return _buildLoginRequiredBanner(context);
-                } else if (homeViewModel.isLoading) {
-                  return _buildLoadingBanner();
-                } else if (activeOrderViewModel.activeOrder != null) {
-                  return _buildActiveOrderPanel(context, activeOrderViewModel);
-                } else if (homeViewModel.userStatus.status == UserConnectionStatus.offline) {
-                  return _buildOfflineBanner(context, homeViewModel);
-                } else {
-                  return _buildOnlineWaitingBanner(context, homeViewModel);
-                }
-              },
+            // --- MOSTRAR UBICACIÓN ACTUAL DEL DRIVER ---
+            // if (homeViewModel.currentDriverLocation != null)
+            //   Container(
+            //     width: double.infinity,
+            //     color: Colors.blue[700],
+            //     padding: EdgeInsets.all(8.0),
+            //     child: Text(
+            //       'Mi ubicación: Lat ${homeViewModel.currentDriverLocation!.latitude.toStringAsFixed(4)}, '
+            //       'Lon ${homeViewModel.currentDriverLocation!.longitude.toStringAsFixed(4)}',
+            //       style: TextStyle(color: Colors.white, fontSize: 14),
+            //       textAlign: TextAlign.center,
+            //     ),
+            //   )
+            // else if (homeViewModel.errorMessage != null && homeViewModel.errorMessage!.contains('ubicación'))
+            //   Container(
+            //     width: double.infinity,
+            //     color: Colors.orange[700],
+            //     padding: EdgeInsets.all(8.0),
+            //     child: Text(
+            //       'Error de ubicación: ${homeViewModel.errorMessage}',
+            //       style: TextStyle(color: Colors.white, fontSize: 14),
+            //       textAlign: TextAlign.center,
+            //     ),
+            //   )
+            // else
+            //   // Mensaje mientras se carga la ubicación inicial
+            //   Container(
+            //     width: double.infinity,
+            //     color: Colors.blueGrey[700],
+            //     padding: const EdgeInsets.all(8.0),
+            //     child: const Text(
+            //       'Buscando ubicación...',
+            //       style: TextStyle(color: Colors.white, fontSize: 14),
+            //       textAlign: TextAlign.center,
+            //     ),
+            //   ),
+            // // --- FIN MOSTRAR UBICACIÓN ACTUAL ---
+
+            // Header de Home (Tu widget existente)
+            HomeHeader(
+              userStatus: homeViewModel.userStatus,
+              totalEarnings: homeViewModel.totalEarnings,
             ),
-          ),
-        ],
-      ),
+
+            // Indicador de carga si alguna operación está en curso
+            if (homeViewModel.isLoading)
+              const Center(
+                child: CircularProgressIndicator(color: Colors.blue),
+              ),
+              
+                if (homeViewModel.hasInternet && 
+                authViewModel.isAuthenticated && 
+                homeViewModel.userStatus.status == UserConnectionStatus.online &&
+                newOrderViewModel.currentNewOrder != null && 
+                newOrderViewModel.currentNewOrder!.status == 'pending')
+                  // New Order Alert (Floating in the middle)
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: SafeArea(
+                      child: Builder(
+                        builder: (context) {
+                          if (newOrderViewModel.currentNewOrder != null && newOrderViewModel.currentNewOrder!.status == 'pending') {
+                            return NewOrderAlertWidget(
+                              order: newOrderViewModel.currentNewOrder!,
+                              onAccept: () async {
+                                debugPrint('Orden Aceptada: ${newOrderViewModel.currentNewOrder!.id}');
+                                await newOrderViewModel.updateOrderStatus(newOrderViewModel.currentNewOrder!.id, 'accepted');
+                                activeOrderViewModel.setActiveOrder(newOrderViewModel.currentNewOrder!);
+                                newOrderViewModel.clearCurrentNewOrder();
+                                // [NEW] Trigger map zoom immediately after accepting the order
+                                // Opcional: ajustar la cámara del mapa para mostrar la ruta completa de la orden
+                                if (homeViewModel.currentDriverLocation != null && activeOrderViewModel.activeOrder != null) {
+                                  _fitMapToOrderAndDriver(activeOrderViewModel.activeOrder!, homeViewModel.currentDriverLocation!);
+                                }
+                              },
+                              onDecline: () async {
+                                debugPrint('Orden Declinada: ${newOrderViewModel.currentNewOrder!.id}');
+                                await newOrderViewModel.updateOrderStatus(newOrderViewModel.currentNewOrder!.id, 'rejected');
+                                newOrderViewModel.clearCurrentNewOrder();
+                              }, 
+                              onReject: () { 
+                                
+                              },
+                            );
+                            
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
+                  )
+                else
+                  // Dynamic Bottom Panel (Login, Offline, Online, Active Order)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Builder(
+                      builder: (context) {
+                        if (!authViewModel.isAuthenticated) {
+                          return _buildLoginRequiredBanner(context);
+                        } else if (homeViewModel.isLoading) {
+                          return _buildLoadingBanner();
+                        } else if (activeOrderViewModel.activeOrder != null) {
+                          return _buildActiveOrderPanel(context, activeOrderViewModel);
+                        } else if (homeViewModel.userStatus.status == UserConnectionStatus.offline) {
+                          return _buildOfflineBanner(context, homeViewModel);
+                        } else {
+                          return _buildOnlineWaitingBanner(context, homeViewModel);
+                        }
+                      },
+                    ),
+                  ),
+          ],
+        )
+      //),
     );
   }
 
+  // --- MÉTODOS AUXILIARES PARA EL MAPA Y LA ORDEN ---
+
+  // Este método se encarga de actualizar los marcadores y polilíneas.
+  // Se llama en el `build` para reaccionar a los cambios de estado del ViewModel.
+  void _updateMapElements(LocationData? driverLocation, Order? activeOrder) {
+    _markers = {}; // Limpia marcadores anteriores
+    _polylines = {}; // Limpia polilíneas anteriores
+
+    if (driverLocation != null) {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('driver_location'),
+          position: LatLng(driverLocation.latitude, driverLocation.longitude),
+          infoWindow: const InfoWindow(title: 'Mi Ubicación'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      );
+      // Opcional: Centrar el mapa en el driver si no hay orden activa
+      // y si el mapa ya está creado. Esto puede causar saltos si el driver se mueve.
+      // Generalmente, solo se centra al inicio o al aceptar una orden.
+      if (_mapController != null && activeOrder == null && mounted) {
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(LatLng(driverLocation.latitude, driverLocation.longitude), 16.0),
+        );
+      }
+    }
+
+    if (activeOrder != null) {
+      // Marcador del restaurante
+      _markers.add(
+        Marker(
+          markerId: MarkerId('restaurant_location_${activeOrder.id}'),
+          position: LatLng(activeOrder.restaurantLocation.latitude, activeOrder.restaurantLocation.longitude),
+          infoWindow: InfoWindow(title: 'Restaurante: ${activeOrder.restaurantName}', snippet: activeOrder.restaurantAddress),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        ),
+      );
+      // Marcador del cliente
+      _markers.add(
+        Marker(
+          markerId: MarkerId('customer_location_${activeOrder.id}'),
+          position: LatLng(activeOrder.customerLocation.latitude, activeOrder.customerLocation.longitude),
+          infoWindow: InfoWindow(title: 'Cliente: ${activeOrder.customerName}', snippet: activeOrder.customerAddress),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        ),
+      );
+
+      // Dibujar la polilínea desde el driver -> restaurante -> cliente
+      // Asegúrate de que las coordenadas del driver, restaurante y cliente estén disponibles.
+      if (driverLocation != null) {
+        _polylines.add(
+          Polyline(
+            polylineId: PolylineId('order_route_${activeOrder.id}'),
+            points: [
+              LatLng(driverLocation.latitude, driverLocation.longitude),
+              LatLng(activeOrder.restaurantLocation.latitude, activeOrder.restaurantLocation.longitude),
+              LatLng(activeOrder.customerLocation.latitude, activeOrder.customerLocation.longitude),
+            ],
+            color: Colors.blueAccent,
+            width: 5,
+            jointType: JointType.round,
+            endCap: Cap.roundCap,
+            startCap: Cap.roundCap,
+          ),
+        );
+      }
+      // Opcional: Ajustar la vista del mapa para incluir todos los marcadores de la orden.
+      // Esto podría hacerse al aceptar la orden o cuando la ubicación del driver cambia
+      // significativamente y el mapa necesita reajustarse para mostrar la ruta.
+      // _fitMapToOrderAndDriver(activeOrder, driverLocation); // Descomentar si quieres este comportamiento
+    }
+  }
+
+  // Función para ajustar el mapa a múltiples marcadores (driver, restaurante, cliente)
+  Future<void> _fitMapToOrderAndDriver(Order order, LocationData driverLocation) async {
+    String locationString = order.restaurantLocation as String;
+      // Elimina los paréntesis y divide por la coma
+      locationString = locationString.replaceAll('(', '').replaceAll(')', '');
+      List<String> parts = locationString.split(',');
+
+      // Convierte a double
+      double latitude = double.parse(parts[0]);
+      double longitude = double.parse(parts[1]);
+
+      String locationCustomer = order.customerLocation as String;
+      // Elimina los paréntesis y divide por la coma
+      locationCustomer = locationCustomer.replaceAll('(', '').replaceAll(')', '');
+      List<String> partsCustomer = locationCustomer.split(',');
+
+      // Convierte a double
+      double latitudeCustomer = double.parse(partsCustomer[0]);
+      double longitudeCustomer = double.parse(partsCustomer[1]);
+    if (_mapController == null) return;
+
+    final LatLngBounds bounds = _boundsFromLatLngList([
+      LatLng(driverLocation.latitude, driverLocation.longitude),
+      LatLng(latitude, longitude),
+      LatLng(latitudeCustomer, longitudeCustomer),
+    ]);
+
+    // Usamos `newLatLngBounds` para ajustar el zoom para que todos los puntos sean visibles.
+    // El padding asegura que los marcadores no queden justo en el borde de la pantalla.
+    await _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+  }
+
+  // Función auxiliar para calcular los límites del mapa a partir de una lista de coordenadas
+  LatLngBounds _boundsFromLatLngList(List<LatLng> list) {
+    double? x0, x1, y0, y1;
+    for (LatLng latLng in list) {
+      if (x0 == null) {
+        x0 = x1 = latLng.latitude;
+        y0 = y1 = latLng.longitude;
+      } else {
+        if (latLng.latitude < x0) x0 = latLng.latitude;
+        if (latLng.latitude > x1!) x1 = latLng.latitude;
+        if (latLng.longitude < y0!) y0 = latLng.longitude;
+        if (latLng.longitude > y1!) y1 = latLng.longitude;
+      }
+    }
+    return LatLngBounds(northeast: LatLng(x1!, y1!), southwest: LatLng(x0!, y0!));
+  }
+
+  
   // --- Widget Builders for different states of the bottom panel ---
 
   Widget _buildLoginRequiredBanner(BuildContext context) {
@@ -840,7 +863,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   flex: 3,
                   child: ElevatedButton(
                     onPressed: () {
-                      viewModel.attemptGoOnline();
+                      viewModel.goOnline();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
@@ -950,7 +973,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   flex: 3,
                   child: ElevatedButton(
                     onPressed: () {
-                      viewModel.attemptGoOffline();
+                      viewModel.goOffline();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
@@ -1022,6 +1045,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const Divider(height: 20),
                   Center(
                     child: OrderActionButtonsCarousel(
                       viewModel: viewModel,
@@ -1035,18 +1059,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       getNextStatus: _getNextStatus,
                     ),
                   ),
+                  const Divider(height: 20),
                   // Drag handle
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Orden ID: ${order.id}',
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                       ),
-                    ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(order.status),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Text(
+                          order.status.replaceAll('_', ' ').toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
+                  const Divider(height: 20),
                   Text(
                     'Estado: ${order.status.replaceAll('_', ' ').toUpperCase()}',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -1082,4 +1118,27 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  // Método para obtener el color de estado (se mantiene de tu código original)
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case "pending":
+        return Colors.orange; 
+      case "accepted":
+        return Colors.blue;
+      case "arrived_at_restaurant":
+        return Colors.purple;
+      case "picked_up":
+        return Colors.indigo;
+      case "delivering":
+        return Colors.teal;
+      case "delivered":
+        return Colors.green;
+      case "rejected":
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
 }

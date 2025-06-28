@@ -8,7 +8,7 @@ class DrawerMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // El AnimatedContainer y su contenido ahora son el botón de menú
     return Container(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(1.0),
       decoration: BoxDecoration(
         color: Colors.white, // O el color que desees para el botón
         borderRadius: BorderRadius.circular(10),

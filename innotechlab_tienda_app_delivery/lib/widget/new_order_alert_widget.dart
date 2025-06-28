@@ -12,7 +12,8 @@ class NewOrderAlertWidget extends StatefulWidget {
     super.key,
     required this.order,
     required this.onAccept,
-    required this.onDecline,
+    required this.onDecline, 
+    required Null Function() onReject,
   });
 
   @override

@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:delivery_app_mvvm/viewmodel/auth_view_model.dart'; // Para el logout
 
 class CustomAppDrawer extends StatelessWidget {
-  const CustomAppDrawer({super.key});
+  const CustomAppDrawer({super.key, required AuthViewModel authViewModel});
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +125,7 @@ class CustomAppDrawer extends StatelessWidget {
               title: const Text('Desconectar', style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(context); // Cierra el drawer antes de desconectar
-                homeView.attemptGoOffline();
+                homeView.goOffline();
               },
             ),
             ListTile(
@@ -142,7 +142,7 @@ class CustomAppDrawer extends StatelessWidget {
               title: const Text('Conectar', style: TextStyle(color: Colors.green)),
               onTap: () {
                 Navigator.pop(context); // Cierra el drawer antes de conectar
-                homeView.attemptGoOnline();
+                homeView.goOnline();
               },
             ),
             ListTile(

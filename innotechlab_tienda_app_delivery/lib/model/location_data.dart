@@ -6,13 +6,15 @@ class LocationData {
   final double? speed; // Velocidad en m/s (opcional)
   final double? accuracy; // Precisión de la ubicación en metros (opcional)
   final String? address; // Changed to be optional
+  final DateTime? timestamp; // Now optional
 
   LocationData({
     required this.latitude,
     required this.longitude,
     this.speed,
     this.accuracy,
-    this.address, // Now optional
+    this.address,
+    this.timestamp
   });
 
   // Convierte a LatLng para usar con Maps_flutter
@@ -35,6 +37,7 @@ class LocationData {
       latitude: latLng.latitude,
       longitude: latLng.longitude,
       address: address,
+      timestamp: DateTime.now()
     );
   }
 
@@ -50,6 +53,6 @@ class LocationData {
 
   @override
   String toString() {
-    return 'LocationData(latitude: $latitude, longitude: $longitude, speed: $speed, accuracy: $accuracy, address: $address)';
+    return 'LocationData(latitude: $latitude, longitude: $longitude, speed: $speed, accuracy: $accuracy, address: $address, timestamp: $timestamp)';
   }
 }

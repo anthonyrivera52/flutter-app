@@ -6,4 +6,5 @@ abstract class LocationService {
 
   // Emite actualizaciones de ubicación de forma continua
   Stream<LocationData> getLocationStream();
+
 }

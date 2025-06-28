@@ -1,5 +1,8 @@
 // lib/main.dart
+import 'package:delivery_app_mvvm/service/connectivity_service.dart';
+import 'package:delivery_app_mvvm/service/location_service.dart';
 import 'package:delivery_app_mvvm/service/notification_service.dart';
+import 'package:delivery_app_mvvm/service/real_location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -142,6 +145,24 @@ class MyApp extends StatelessWidget {
             return GoOffline(context.read<HomeRepositoryImpl>());
           },
         ),
+
+
+        // =============================================================
+        // AÑADE AQUI LOS NUEVOS PROVIDERS PARA SERVICIOS
+        // =============================================================
+        Provider<LocationService>(
+          create: (_) => RealLocationService(), // Provee la implementación real
+          dispose: (context, service) {
+            if (service is RealLocationService) {
+              service.dispose(); // Asegúrate de llamar a dispose
+            }
+          },
+        ),
+        Provider<ConnectivityService>(
+          create: (_) => ConnectivityService(), // Provee tu servicio de conectividad
+        ),
+        // =============================================================
+
         // 9. HomeViewModel - Depende de los casos de uso de Home Y AuthViewModel
         ChangeNotifierProvider<HomeViewModel>(
           create: (context) {
@@ -150,7 +171,14 @@ class MyApp extends StatelessWidget {
               getUserOnlineStatus: context.read<GetUserOnlineStatus>(),
               goOnline: context.read<GoOnline>(),
               goOffline: context.read<GoOffline>(),
-              authViewModel: context.read<AuthViewModel>(), // <-- Aquí lee AuthViewModel
+              authViewModel: context.read<AuthViewModel>(),
+              
+              // =============================================================
+              // INYECTA LOS NUEVOS SERVICIOS EN EL CONSTRUCTOR DE HomeViewModel
+              // =============================================================
+              locationService: context.read<LocationService>(),
+              connectivityService: context.read<ConnectivityService>(),
+              // ============================================================= // <-- Aquí lee AuthViewModel
             );
           },
         ),
@@ -165,7 +193,8 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ActiveOrderViewModel>(
           create: (context) {
-            return ActiveOrderViewModel(Supabase.instance.client, context);
+            return ActiveOrderViewModel(Supabase.instance.client, context, 
+              locationService: context.read<LocationService>(),);
           },
         ),
       ],

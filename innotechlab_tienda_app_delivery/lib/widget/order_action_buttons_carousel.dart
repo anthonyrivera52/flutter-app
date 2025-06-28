@@ -146,7 +146,7 @@ class OrderActionButtonsCarousel extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: OutlinedButton(
             onPressed: () {
-              viewModel.clearActiveOrder('rejected');
+              // viewModel.clearActiveOrder('rejected');
               onShowSnackBar('Orden activa cancelada/limpiada (Debug).');
             },
             style: OutlinedButton.styleFrom(

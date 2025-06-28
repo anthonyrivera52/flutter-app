@@ -54,17 +54,17 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
       final activeOrderViewModel =
           Provider.of<ActiveOrderViewModel>(context, listen: false);
       final order = activeOrderViewModel.activeOrder;
-      final driverLocation = activeOrderViewModel.currentDriverLocation;
+      // final driverLocation = activeOrderViewModel.currentDriverLocation;
 
       // Update markers immediately after map creation and data is available
-      if (order != null) { // We update markers even if driverLocation is null, just without driver marker
-         _updateMarkers(order, driverLocation);
-      }
+      // if (order != null) { // We update markers even if driverLocation is null, just without driver marker
+      //    _updateMarkers(order, driverLocation);
+      // }
 
       // Fit map to markers only if controller is ready and initial data is there
-      if (order != null && driverLocation != null) {
-        _fitMapToAllMarkers(order, driverLocation);
-      }
+      // if (order != null && driverLocation != null) {
+      //   _fitMapToAllMarkers(order, driverLocation);
+      // }
     }
   }
 
@@ -234,7 +234,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
     return Consumer<ActiveOrderViewModel>(
       builder: (context, viewModel, child) {
         final order = viewModel.activeOrder;
-        final driverLocation = viewModel.currentDriverLocation;
+        // final driverLocation = viewModel.currentDriverLocation;
 
         if (order == null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -251,7 +251,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
         // It modifies _markers, and since _markers is part of the state,
         // and this build method is being called because the ViewModel changed,
         // the GoogleMap will pick up the new _markers naturally.
-        _updateMarkers(order, driverLocation);
+        // _updateMarkers(order, driverLocation);
 
         return Scaffold(
           appBar: AppBar(
@@ -270,7 +270,7 @@ class _ActiveOrderScreenState extends State<ActiveOrderScreen> {
                 child: GoogleMap(
                   onMapCreated: _onMapCreated,
                   initialCameraPosition: CameraPosition(
-                    target: driverLocation?.toLatLng() ?? order.restaurantLocation,
+                    target: order.restaurantLocation,
                     zoom: 14.0,
                   ),
                   markers: _markers, // This uses the _markers set

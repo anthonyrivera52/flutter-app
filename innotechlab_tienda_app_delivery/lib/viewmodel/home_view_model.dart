@@ -1,4 +1,11 @@
 // lib/viewmodel/home_view_model.dart
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:delivery_app_mvvm/model/location_data.dart';
+import 'package:delivery_app_mvvm/service/connectivity_service.dart';
+import 'package:delivery_app_mvvm/service/location_service.dart';
+import 'package:delivery_app_mvvm/service/real_location_service.dart'; // Asegúrate de que esto es correcto si usas RealLocationService
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/error/failures.dart';
@@ -13,6 +20,20 @@ class HomeViewModel extends ChangeNotifier {
   final GoOnline _goOnline;
   final GoOffline _goOffline;
   final AuthViewModel _authViewModel;
+
+  // NUEVAS DEPENDENCIAS
+  final LocationService _locationService;
+  final ConnectivityService _connectivityService;
+  
+  // NUEVOS STREAMS Y PROPIEDADES PARA UBICACIÓN Y CONECTIVIDAD
+  LocationData? _currentDriverLocation;
+  LocationData? get currentDriverLocation => _currentDriverLocation;
+
+  bool _hasInternet = true; // Asume que hay internet al inicio
+  bool get hasInternet => _hasInternet;
+
+  StreamSubscription<LocationData>? _locationSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   double _totalEarnings = 0.0;
 
@@ -33,22 +54,113 @@ class HomeViewModel extends ChangeNotifier {
     required GoOnline goOnline,
     required GoOffline goOffline,
     required AuthViewModel authViewModel,
+    // INYECTA LOS NUEVOS SERVICIOS AQUÍ
+    required LocationService locationService,
+    required ConnectivityService connectivityService,
   })  : _getUserOnlineStatus = getUserOnlineStatus,
         _goOnline = goOnline,
         _goOffline = goOffline,
-        _authViewModel = authViewModel {
+        _authViewModel = authViewModel,
+        _locationService = locationService, // ASIGNACIÓN
+        _connectivityService = connectivityService // ASIGNACIÓN 
+  {
     _authViewModel.addListener(_onAuthStatusChanged);
-    _onAuthStatusChanged(); // Call it once to set initial status
+    _initEarnings(); // Inicia la carga de ganancias
+    _listenForLocationChanges(); // Iniciar escucha de ubicación
+    _listenForConnectivityChanges(); // Iniciar escucha de conectividad
+    _checkInitialConnectivity(); // Verificar estado inicial de conectividad
+    // No llamar initializeStatus aquí, se llamará automáticamente o al logearse.
+  }
+
+  // MÉTODO PARA ESCUCHAR CAMBIOS DE UBICACIÓN
+  void _listenForLocationChanges() {
+    _locationSubscription?.cancel(); // Cancela suscripciones previas si las hay
+    _locationSubscription = _locationService.getLocationStream().listen(
+      (location) {
+        _currentDriverLocation = location;
+        notifyListeners();
+        // debugPrint('Ubicación actualizada: Lat ${location.latitude}, Lon ${location.longitude}');
+      },
+      onError: (error) {
+        _errorMessage = 'Error en el stream de ubicación: $error';
+        notifyListeners();
+        debugPrint('Location Stream Error: $error');
+      },
+    );
+  }
+
+  // MÉTODO PARA VERIFICAR CONECTIVIDAD INICIAL
+  Future<void> _checkInitialConnectivity() async {
+    _hasInternet = await _connectivityService.hasActiveInternetConnection();
+    notifyListeners();
+  }
+
+  // MÉTODO PARA ESCUCHAR CAMBIOS DE CONECTIVIDAD
+  void _listenForConnectivityChanges() {
+    _connectivitySubscription?.cancel(); // Cancela suscripciones previas si las hay
+    _connectivitySubscription = _connectivityService.onConnectivityChanged().listen((List<ConnectivityResult> results) {
+      final bool newStatus = !results.contains(ConnectivityResult.none);
+      if (_hasInternet != newStatus) {
+        _hasInternet = newStatus;
+        notifyListeners();
+        debugPrint('Estado de Conectividad cambiado: Tiene Internet = $_hasInternet');
+        // Si se pierde la conexión, considera pasar a offline automáticamente.
+        if (!newStatus && _userStatus.status == 'online') {
+          debugPrint('Conexión perdida, pasando a offline automáticamente...');
+          goOffline();
+        }
+      }
+    });
+  }
+
+  // Método para inicializar/cargar las ganancias al inicio o al logearse
+  void _initEarnings() async {
+    if (_authViewModel.isAuthenticated && _supabaseClient.auth.currentUser != null) {
+      await _fetchEarnings();
+    }
+  }
+
+  // Método para obtener las ganancias desde Supabase
+  Future<void> _fetchEarnings() async {
+    _setLoading(true);
+    try {
+      final response = await _supabaseClient
+          .from('profiles')
+          .select('total_earnings')
+          .eq('id', _supabaseClient.auth.currentUser!.id)
+          .single();
+
+      if (response != null && response['total_earnings'] != null) {
+        _totalEarnings = (response['total_earnings'] as num).toDouble();
+      }
+    } catch (e) {
+      _setErrorMessage('Error fetching earnings: $e');
+      debugPrint("Error fetching earnings: $e");
+    } finally {
+      _setLoading(false);
+    }
   }
 
   void _onAuthStatusChanged() {
-    debugPrint("HomeViewModel: Auth status changed. Is authenticated: ${_authViewModel.isAuthenticated}");
     if (_authViewModel.isAuthenticated) {
-      if (_userStatus.status == UserConnectionStatus.offline || _userStatus.status == UserConnectionStatus.error) {
-        initializeStatus();
-      }
+      _initEarnings();
+      // Si el usuario se autentica, intenta obtener su estado online/offline del backend
+      initializeStatus(); // Llama a este para obtener el estado del usuario desde el servidor
+      // Asegura que los listeners de ubicación y conectividad estén activos
+      _listenForLocationChanges();
+      _listenForConnectivityChanges();
     } else {
-      _setUserStatus(UserStatus.offline("You're Offline (Logged Out)")); // Using factory constructor
+      // Si el usuario cierra sesión, limpia los datos
+      _totalEarnings = 0.0;
+      _userStatus = UserStatus.offline("You're Offline");
+      _currentDriverLocation = null;
+      _errorMessage = null;
+      _isLoading = false;
+      _hasInternet = true; // Reiniciar asumiendo que el estado es desconocido al deslogear
+      notifyListeners();
+      // Opcional: cancelar suscripciones si no son necesarias sin sesión
+      _locationSubscription?.cancel();
+      _connectivitySubscription?.cancel();
     }
   }
 
@@ -63,69 +175,60 @@ class HomeViewModel extends ChangeNotifier {
     result.fold(
       (failure) => _setErrorMessage(_mapFailureToMessage(failure)),
       (status) {
-        // [FIX] Removed the explicit 'as UserStatus' cast.
-        // The 'status' parameter here is already correctly typed as UserStatus
-        // by the 'Right' side of the 'Either' from the use case.
         debugPrint("HomeViewModel: Status from GetUserOnlineStatus: ${status.status} - ${status.message}");
         _setUserStatus(status);
       },
     );
     _setLoading(false);
-    _loadInitialEarnings();
   }
 
-  Future<void> _loadInitialEarnings() async {
-    if (!_authViewModel.isAuthenticated || _supabaseClient.auth.currentUser == null) {
-      debugPrint("HomeViewModel: Cannot load earnings, user not authenticated.");
-      return;
-    }
-    try {
-      final response = await _supabaseClient
-          .from('profiles')
-          .select('total_earnings')
-          .eq('id', _supabaseClient.auth.currentUser!.id)
-          .single();
-
-      if (response.isNotEmpty && response['total_earnings'] != null) {
-        _totalEarnings = (response['total_earnings'] as num).toDouble();
-        notifyListeners();
-        debugPrint("HomeViewModel: Initial earnings loaded: $_totalEarnings");
-      } else {
-         debugPrint("HomeViewModel: No initial earnings found or response empty.");
-      }
-    } catch (e) {
-      debugPrint("Error loading initial earnings: $e");
-    }
-  }
-
-  Future<void> attemptGoOnline() async {
+  // Método para ir online
+  Future<void> goOnline() async {
     if (!_authViewModel.isAuthenticated) {
       _setErrorMessage("Please log in to go online.");
       return;
     }
+    if (!_hasInternet) {
+      _setErrorMessage("No internet connection. Cannot go online.");
+      return;
+    }
+    if (_currentDriverLocation == null) {
+      _setErrorMessage("Waiting for your location. Please ensure location services are enabled.");
+      // Podrías añadir un delay o un reintento aquí
+      return;
+    }
+
     _setLoading(true);
-    final result = await _goOnline();
+    final result = await _goOnline(); // Usa el caso de uso
     result.fold(
       (failure) => _setErrorMessage(_mapFailureToMessage(failure)),
       (_) {
-        _setUserStatus(UserStatus.online("Online. Waiting for orders...")); // Using factory constructor
+        _setUserStatus(UserStatus.online("Online. Waiting for orders..."));
         _errorMessage = null;
       },
     );
     _setLoading(false);
   }
 
-  Future<void> attemptGoOffline() async {
+  // Método para ir offline
+  Future<void> goOffline() async {
     if (!_authViewModel.isAuthenticated) {
-      _setUserStatus(UserStatus.offline("You're Offline.")); // Using factory constructor
+      _setUserStatus(UserStatus.offline("You're Offline."));
       return;
     }
+    if (!_hasInternet) {
+      _setErrorMessage("No internet connection. Cannot go offline, but your status might be locally offline.");
+      _setUserStatus(UserStatus.offline("Offline (No internet)."));
+      notifyListeners();
+      return;
+    }
+
     _setLoading(true);
-    final result = await _goOffline();
+    final result = await _goOffline(); // Usa el caso de uso
     result.fold(
       (failure) => _setErrorMessage(_mapFailureToMessage(failure)),
       (_) {
-        _setUserStatus(UserStatus.offline("Offline. Tap to go online.")); // Using factory constructor
+        _setUserStatus(UserStatus.offline("Offline. Tap to go online."));
         _errorMessage = null;
       },
     );
@@ -186,7 +289,16 @@ class HomeViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    debugPrint('HomeViewModel DISPOSING...');
     _authViewModel.removeListener(_onAuthStatusChanged);
+    _locationSubscription?.cancel(); // CANCELAR SUSCRIPCIÓN DE UBICACIÓN
+    _connectivitySubscription?.cancel(); // CANCELAR SUSCRIPCIÓN DE CONECTIVIDAD
+    // Si tus servicios de ubicación/conectividad tienen un dispose, llámalo aquí.
+    // Esto es importante si RealLocationService, por ejemplo, gestiona recursos del sistema.
+    if (_locationService is RealLocationService) {
+      (_locationService as RealLocationService).dispose();
+      debugPrint('RealLocationService disposed.');
+    }
     super.dispose();
   }
 }
