@@ -1,8 +1,14 @@
 // lib/main.dart
+import 'package:delivery_app_mvvm/data/datasources/earning_remote_datasource.dart';
+import 'package:delivery_app_mvvm/data/repositories/earning_repository_impl.dart';
+import 'package:delivery_app_mvvm/domain/entities/earning.dart';
+import 'package:delivery_app_mvvm/domain/usecases/get_daily_earnings.dart';
+import 'package:delivery_app_mvvm/domain/usecases/get_earnings_usecase.dart';
 import 'package:delivery_app_mvvm/service/connectivity_service.dart';
 import 'package:delivery_app_mvvm/service/location_service.dart';
 import 'package:delivery_app_mvvm/service/notification_service.dart';
 import 'package:delivery_app_mvvm/service/real_location_service.dart';
+import 'package:delivery_app_mvvm/viewmodel/earning_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -45,9 +51,20 @@ Future<void> main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+  
 
   @override
   Widget build(BuildContext context) {
+
+    // Initialize data sources
+    final earningRemoteDataSource = EarningRemoteDataSourceImpl(supabaseClient: Supabase.instance.client);
+
+    // Initialize repositories
+    final earningRepository = EarningRepositoryImpl(earningRemoteDataSource: earningRemoteDataSource);
+
+    final getEarningsUseCase = GetEarnings(earningRepository);
+    final getDailyEarningsUseCase = GetDailyEarnings(earningRepository);
+
     return MultiProvider(
       providers: [
         // 1. SupabaseClient - La base, no depende de nada más
@@ -56,7 +73,15 @@ class MyApp extends StatelessWidget {
             return Supabase.instance.client;
           },
         ),
-
+        // =============================================================
+        // --- PROVEEDORES DE AUTENTICACIÓN ---
+        // 1. SupabaseClient - Ya lo tenemos arriba, no es necesario repetirlo
+        // 2. AuthRemoteDataSource - Depende de SupabaseClient
+        // 3. AuthRepositoryImpl - Depende de AuthRemoteDataSource
+        // 4. Casos de Uso de Autenticación - Dependen de AuthRepositoryImpl
+        // 5. AuthViewModel - Depende de los casos de uso de autenticación
+        // ¡Este es el Provider que HomeScreen necesita!
+        // =============================================================
         // --- PROVEEDORES RELACIONADOS CON LA AUTENTICACIÓN ---
         // 2. AuthRemoteDataSource - Depende de SupabaseClient
         Provider<AuthRemoteDataSource>(
@@ -71,6 +96,20 @@ class MyApp extends StatelessWidget {
           create: (context) {
             return AuthRepositoryImpl(
               remoteDataSource: context.read<AuthRemoteDataSource>(),
+            );
+          },
+        ),
+        Provider<EarningRemoteDataSource>(
+          create: (context) {
+            return EarningRemoteDataSourceImpl(
+              supabaseClient: context.read<SupabaseClient>(),
+            );
+          },
+        ),
+        Provider<EarningRepositoryImpl>(
+          create: (context) {
+            return EarningRepositoryImpl(
+              earningRemoteDataSource: context.read<EarningRemoteDataSource>(),
             );
           },
         ),
@@ -196,6 +235,14 @@ class MyApp extends StatelessWidget {
             return ActiveOrderViewModel(Supabase.instance.client, context, 
               locationService: context.read<LocationService>(),);
           },
+        ),
+        // =============================================================
+        // 10. EarningViewModel - Depende de GetEarningsUseCase
+        ChangeNotifierProvider(
+          create: (_) => EarningViewModel(
+            getEarnings: getEarningsUseCase,
+            getDailyEarnings: getDailyEarningsUseCase,
+          ),
         ),
       ],
       // MaterialApp es el hijo de MultiProvider, por lo tanto, HomeScreen (que es home)

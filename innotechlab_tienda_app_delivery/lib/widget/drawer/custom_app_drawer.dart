@@ -1,5 +1,6 @@
 // lib/widget/drawer/custom_app_drawer.dart
 import 'package:delivery_app_mvvm/domain/entities/user_status.dart';
+import 'package:delivery_app_mvvm/view/earning_page.dart';
 import 'package:delivery_app_mvvm/viewmodel/home_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -90,8 +91,10 @@ class CustomAppDrawer extends StatelessWidget {
             leading: const Icon(Icons.payments),
             title: const Text('Ganancias'),
             onTap: () {
-              Navigator.pop(context); // Cierra el drawer
-              // Navegar al historial de pedidos
+             Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EarningPage()),
+              ); // Navegar a la pantalla de ganancias
             },
           ),
           ListTile(

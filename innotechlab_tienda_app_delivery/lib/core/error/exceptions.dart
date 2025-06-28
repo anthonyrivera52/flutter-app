@@ -1,9 +1,19 @@
-// lib/core/error/exceptions.dart
-class ServerException implements Exception {}
-class CacheException implements Exception {}
+class ServerException implements Exception {
+  final String message;
+  const ServerException({this.message = 'Server error occurred'});
+}
 
-// New: Authentication exception
+class CacheException implements Exception {
+  final String message;
+  const CacheException({this.message = 'Cache error occurred'});
+}
+
 class AuthException implements Exception {
   final String message;
-  AuthException(String s, {this.message = 'Authentication error'});
+  const AuthException({this.message = 'Authentication error occurred'});
+}
+
+class NetworkException implements Exception {
+  final String message;
+  const NetworkException({this.message = 'Network error occurred'});
 }

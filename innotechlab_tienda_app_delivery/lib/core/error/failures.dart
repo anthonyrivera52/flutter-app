@@ -12,10 +12,12 @@ abstract class Failure extends Equatable {
 
 // General failures
 class ServerFailure extends Failure {}
+
 class CacheFailure extends Failure {}
 
-// New: Authentication failures
 class AuthFailure extends Failure {
   final String message;
-  AuthFailure({this.message = 'Authentication failed.'}) : super([message]);
+  const AuthFailure({this.message = 'Cache error occurred'});
 }
+
+class NetworkFailure extends Failure {}

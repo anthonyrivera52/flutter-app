@@ -22,7 +22,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         password: password,
       );
       if (response.user == null) {
-        throw custom_exceptions.AuthException('Sign-in failed: No user found.');
+        throw custom_exceptions.AuthException(message: 'Sign-in failed: No user found.');
       }
       return AuthUser(
         id: response.user!.id,
@@ -36,11 +36,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         updatedAt: response.user!.updatedAt,
       );
     } on AuthException catch (e) {
-      throw custom_exceptions.AuthException(e.message);
+      throw custom_exceptions.AuthException(message: e.message);
     } on AuthException catch (e) { // Catch Supabase AuthException
-      throw custom_exceptions.AuthException(e.message);
+      throw custom_exceptions.AuthException(message: e.message);
     } catch (e) {
-      throw custom_exceptions.AuthException('An unexpected error occurred during sign-in: ${e.toString()}');
+      throw custom_exceptions.AuthException(message: 'An unexpected error occurred during sign-in: ${e.toString()}');
     }
   }
 
@@ -52,7 +52,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         password: password,
       );
       if (response.user == null) {
-        throw custom_exceptions.AuthException('Sign-up failed: No user found.');
+        throw custom_exceptions.AuthException(message: 'Sign-up failed: No user found.');
       }
       // For email confirmation, Supabase usually sends a confirmation email.
       // The user won't be fully authenticated until they confirm.
@@ -69,11 +69,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         updatedAt: response.user!.updatedAt,
       );
     } on AuthException catch (e) {
-      throw custom_exceptions.AuthException(e.message);
+      throw custom_exceptions.AuthException(message: e.message);
     } on AuthException catch (e) { // Catch Supabase AuthException
-      throw custom_exceptions.AuthException(e.message);
+      throw custom_exceptions.AuthException(message: e.message);
     } catch (e) {
-      throw custom_exceptions.AuthException('An unexpected error occurred during sign-up: ${e.toString()}');
+      throw custom_exceptions.AuthException(message: 'An unexpected error occurred during sign-up: ${e.toString()}');
     }
   }
 
@@ -82,9 +82,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     try {
       await supabaseClient.auth.signOut();
     } on AuthException catch (e) {
-      throw custom_exceptions.AuthException(e.message);
+      throw custom_exceptions.AuthException(message: e.message);
     } catch (e) {
-      throw custom_exceptions.AuthException('An unexpected error occurred during sign-out: ${e.toString()}');
+      throw custom_exceptions.AuthException(message: 'An unexpected error occurred during sign-out: ${e.toString()}');
     }
   }
 
