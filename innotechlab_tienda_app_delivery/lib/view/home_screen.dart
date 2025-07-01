@@ -444,15 +444,16 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 width: double.infinity,
                 color: Colors.red[700],
+                margin: const EdgeInsets.only(top: 59.0, left: 350.0, right: 20.0), // Espacio para el encabezado
                 padding: const EdgeInsets.all(8.0),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.signal_wifi_off, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      'Sin conexión a Internet',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    Center(
+                      heightFactor: 1.0,
+                      child: Icon(
+                        Icons.wifi_off_rounded, color: Colors.white
+                      ),
                     ),
                   ],
                 ),

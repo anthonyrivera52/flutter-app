@@ -91,6 +91,13 @@ class CustomAppDrawer extends StatelessWidget {
             leading: const Icon(Icons.payments),
             title: const Text('Ganancias'),
             onTap: () {
+              if(!authViewModel.isAuthenticated) {
+                Navigator.pop(context); // Cierra el drawer
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Por favor, inicia sesión para ver tus ganancias.')),
+                );
+                return;
+              }
              Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const EarningPage()),

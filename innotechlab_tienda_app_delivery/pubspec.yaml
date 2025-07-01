@@ -7,6 +7,8 @@ environment:
   sdk: ^3.8.0
 
 dependencies:
+  flutter_localizations: # <--- Asegúrate de que esta línea esté aquí
+    sdk: flutter
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.6
@@ -25,13 +27,14 @@ dependencies:
   http: ^1.2.1 # Para hacer peticiones a la API de Google Directions
   dartz: ^0.10.1
   equatable: ^2.0.7
-  intl: ^0.19.0 
+  intl: ^0.20.2
   flutter_dotenv: ^5.2.1
   connectivity_plus: ^6.0.0 # O la última versión disponible
   injectable: ^2.5.0
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
   fl_chart: ^0.68.0 # Use the latest version
+  easy_date_timeline: ^2.0.9
 
 dev_dependencies:
   flutter_test:

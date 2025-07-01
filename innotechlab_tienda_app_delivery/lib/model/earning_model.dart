@@ -10,10 +10,10 @@ class EarningModel extends Earning {
 
   factory EarningModel.fromJson(Map<String, dynamic> json) {
     return EarningModel(
-      date: json['date'] as String, // Assuming date is a String like 'YYYY-MM-DD'
+      date: json['date'] as DateTime, // Assuming date is a String like 'YYYY-MM-DD'
       amount: (json['amount'] as num).toDouble(),
       ordersCount: json['orders_count'] as int,
-      onlineHours: json['online_hours'] as int,
+      onlineHours: (json['online_hours'] as num).toInt(),
     );
   }
 
@@ -35,7 +35,7 @@ class DailyEarningModel extends DailyEarning {
 
   factory DailyEarningModel.fromJson(Map<String, dynamic> json) {
     return DailyEarningModel(
-      date: DateTime.parse(json['date'] as String),
+      date: json['date'] as DateTime,
       amount: (json['amount'] as num).toDouble(),
     );
   }

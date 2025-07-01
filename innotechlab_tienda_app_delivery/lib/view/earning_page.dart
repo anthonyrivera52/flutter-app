@@ -1,8 +1,8 @@
-
 import 'package:delivery_app_mvvm/viewmodel/earning_viewmodel.dart';
-import 'package:delivery_app_mvvm/widget/earning_chart.dart';
+import 'package:delivery_app_mvvm/widget/earning_chart.dart'; // Make sure this path is correct
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart'; // For date formatting
 
 class EarningPage extends StatefulWidget {
   const EarningPage({super.key});
@@ -12,19 +12,47 @@ class EarningPage extends StatefulWidget {
 }
 
 class _EarningPageState extends State<EarningPage> {
+  // This date will represent *any* day within the week currently being displayed.
+  // It's used to tell the ViewModel which week to fetch.
+  DateTime _currentDateInDisplayedWeek = DateTime.now();
+
   @override
   void initState() {
     super.initState();
-    // Fetch initial earnings data when the page loads
+    // Fetch earnings for the week that includes today when the page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final viewModel = Provider.of<EarningViewModel>(context, listen: false);
-      viewModel.setDateRangeToLast7Days(); // Default to last 7 days
+      viewModel.fetchEarningsForWeekOf(_currentDateInDisplayedWeek);
     });
+  }
+
+  // Helper method to find the Monday of a given week.
+  // This is used for UI comparison (e.g., highlighting 'Current Week' button).
+  // The actual week calculation should ideally happen within the ViewModel.
+  DateTime _findMondayOfWeekForUI(DateTime date) {
+    int daysToSubtract = date.weekday - 1; // Monday is 1. If today is Monday (1), subtract 0. If Tuesday (2), subtract 1.
+    DateTime monday = date.subtract(Duration(days: daysToSubtract));
+    return DateTime(monday.year, monday.month, monday.day); // Normalize to midnight
+  }
+
+  DateTime _findSundayOfWeekForUI(DateTime date) {
+    DateTime monday = _findMondayOfWeekForUI(date);
+    DateTime sunday = monday.add(const Duration(days: 6));
+    return DateTime(sunday.year, sunday.month, sunday.day); // Normalize to midnight
   }
 
   @override
   Widget build(BuildContext context) {
     final earningViewModel = Provider.of<EarningViewModel>(context);
+
+    // Calculate the start/end of the actual current week (today's week) for button highlighting
+    DateTime actualCurrentWeekMonday = _findMondayOfWeekForUI(DateTime.now());
+    DateTime actualCurrentWeekSunday = _findSundayOfWeekForUI(DateTime.now());
+
+    // Check if the ViewModel's currently displayed week matches the actual current week
+    bool isDisplayingCurrentWeek =
+        earningViewModel.startDate.isAtSameMomentAs(actualCurrentWeekMonday) &&
+        earningViewModel.endDate.isAtSameMomentAs(actualCurrentWeekSunday);
 
     return Scaffold(
       appBar: AppBar(
@@ -48,8 +76,7 @@ class _EarningPageState extends State<EarningPage> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: () => earningViewModel.fetchEarnings(
-                      earningViewModel.startDate, earningViewModel.endDate),
+                  onRefresh: () => earningViewModel.fetchEarningsForWeekOf(_currentDateInDisplayedWeek),
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
@@ -57,94 +84,165 @@ class _EarningPageState extends State<EarningPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            earningViewModel.getFormattedDateRange(),
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
+                          // Custom Week Navigation Header (Uber-like)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_back_ios),
+                                onPressed: () {
+                                  setState(() {
+                                    _currentDateInDisplayedWeek = _currentDateInDisplayedWeek.subtract(const Duration(days: 7));
+                                  });
+                                  earningViewModel.fetchEarningsForWeekOf(_currentDateInDisplayedWeek);
+                                },
+                              ),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      earningViewModel.getFormattedWeekRange(),
+                                      style: const TextStyle(
+                                          fontSize: 18, fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    // Optional: You can add smaller text here like "Weekly Earnings"
+                                    // const Text('Weekly Earnings', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.arrow_forward_ios),
+                                onPressed: () {
+                                  setState(() {
+                                    _currentDateInDisplayedWeek = _currentDateInDisplayedWeek.add(const Duration(days: 7));
+                                  });
+                                  earningViewModel.fetchEarningsForWeekOf(_currentDateInDisplayedWeek);
+                                },
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '\$${earningViewModel.getTotalAmount().toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontSize: 36, fontWeight: FontWeight.bold),
+                          const SizedBox(height: 20),
+
+                          // Total Earnings for the week
+                          Center(
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'Total Ganancias',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '\$${earningViewModel.getTotalAmount().toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      fontSize: 48, fontWeight: FontWeight.bold, color: Colors.green),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
+
+                          // Summary Cards (Orders, Online Hours)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               _buildSummaryCard(
-                                  context, 'Orders', earningViewModel.getTotalOrders().toString()),
+                                  context, 'Órdenes', earningViewModel.getTotalOrders().toString()),
                               _buildSummaryCard(
-                                  context, 'Online', '${earningViewModel.getTotalOnlineHours()}h ${earningViewModel.getTotalOnlineHours() % 1 * 60 ~/ 1}m'),
+                                  context, 'Horas en línea', '${earningViewModel.getTotalOnlineHours()}h'),
                             ],
                           ),
                           const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () => earningViewModel.setDateRangeToLast7Days(),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        earningViewModel.startDate.difference(earningViewModel.endDate).inDays == -6
-                                            ? Theme.of(context).primaryColor
-                                            : Colors.grey[300],
-                                    foregroundColor:
-                                        earningViewModel.startDate.difference(earningViewModel.endDate).inDays == -6
-                                            ? Colors.white
-                                            : Colors.black,
-                                  ),
-                                  child: const Text('Day'),
+
+                          // "Current Week" button
+                          Center(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  _currentDateInDisplayedWeek = DateTime.now(); // Reset to today
+                                });
+                                earningViewModel.fetchEarningsForWeekOf(_currentDateInDisplayedWeek);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDisplayingCurrentWeek
+                                        ? Theme.of(context).primaryColor // Highlight if current week
+                                        : Colors.grey[300],
+                                foregroundColor: isDisplayingCurrentWeek
+                                        ? Colors.white
+                                        : Colors.black,
+                                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () => earningViewModel.setDateRangeToLast30Days(),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        earningViewModel.startDate.difference(earningViewModel.endDate).inDays == -29
-                                            ? Theme.of(context).primaryColor
-                                            : Colors.grey[300],
-                                    foregroundColor:
-                                        earningViewModel.startDate.difference(earningViewModel.endDate).inDays == -29
-                                            ? Colors.white
-                                            : Colors.black,
-                                  ),
-                                  child: const Text('Month'),
-                                ),
-                              ),
-                              // You can add a "Year" button if needed
-                            ],
+                              child: const Text('Semana Actual'),
+                            ),
                           ),
                           const SizedBox(height: 24),
+
                           // Earning Chart
-                          if (earningViewModel.dailyEarnings.isNotEmpty)
-                            EarningChart(dailyEarnings: earningViewModel.dailyEarnings)
-                          else
-                            const Center(child: Text('No hay datos de ganancias para mostrar en el gráfico.')),
+                          const Text(
+                            'Ganancias Diarias',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  spreadRadius: 1,
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: earningViewModel.dailyEarnings.isNotEmpty
+                                ? EarningChart(dailyEarnings: earningViewModel.dailyEarnings)
+                                : const Padding(
+                                    padding: EdgeInsets.all(20.0),
+                                    child: Center(
+                                      child: Text('No hay datos de ganancias para mostrar en el gráfico para esta semana.', textAlign: TextAlign.center),
+                                    ),
+                                  ),
+                          ),
                           const SizedBox(height: 24),
+
+                          // Recent Orders (Daily breakdown)
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'Recent orders',
+                                'Detalle por día', // Changed to reflect daily breakdown
                                 style: TextStyle(
                                     fontSize: 18, fontWeight: FontWeight.bold),
                               ),
+                              // You might still want a "See all" for historical data outside the week
                               TextButton(
                                 onPressed: () {
-                                  // Navigate to all orders page
+                                  // Navigate to a page with all historical orders
                                 },
-                                child: const Text('See all'),
+                                child: const Text('Ver historial'),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          // List of recent orders (using dummy data for now)
-                          _buildRecentOrderCard(context, 'Saturday', '17/06/2023', '#123', '31.23'),
-                          _buildRecentOrderCard(context, 'Monday', '19/06/2023', '#567', '61.23'),
-                          _buildRecentOrderCard(context, 'Tuesday', '20/06/2023', '#890', '25.00'),
+                          if (earningViewModel.earnings.isNotEmpty)
+                            ...earningViewModel.earnings.map((earning) {
+                              return _buildRecentOrderCard(
+                                context,
+                                DateFormat('EEEE', 'es_ES').format(earning.date),
+                                DateFormat('dd/MM/yyyy').format(earning.date),
+                                earning.ordersCount, // Pass as int
+                                earning.amount.toStringAsFixed(2),
+                              );
+                            }).toList()
+                          else
+                            const Center(child: Text('No hay pedidos recientes en este rango.')),
                         ],
                       ),
                     ),
@@ -164,13 +262,13 @@ class _EarningPageState extends State<EarningPage> {
             children: [
               Text(
                 title,
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
               const SizedBox(height: 4),
               Text(
                 value,
                 style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -179,7 +277,8 @@ class _EarningPageState extends State<EarningPage> {
     );
   }
 
-  Widget _buildRecentOrderCard(BuildContext context, String dayOfWeek, String date, String orderId, String amount) {
+  // Renamed orderId to orderCount for clarity as it reflects number of orders
+  Widget _buildRecentOrderCard(BuildContext context, String dayOfWeek, String date, int orderCount, String amount) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       elevation: 1,
@@ -198,7 +297,7 @@ class _EarningPageState extends State<EarningPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Order $orderId',
+                  'Órdenes: $orderCount', // Display actual order count
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
@@ -207,7 +306,6 @@ class _EarningPageState extends State<EarningPage> {
                 ),
               ],
             ),
-            // You can add more details like delivery address, item count, etc.
           ],
         ),
       ),

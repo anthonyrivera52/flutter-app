@@ -63,7 +63,7 @@ class EarningChart extends StatelessWidget {
                       axisSide: meta.axisSide,
                       space: 4.0,
                       child: Text(
-                        DateFormat('EEE').format(date), // Day of week (e.g., Mon, Tue)
+                        DateFormat('EEE').format(date as DateTime), // Day of week (e.g., Mon, Tue)
                         style: const TextStyle(color: Colors.grey, fontSize: 10),
                       ),
                     );
@@ -104,7 +104,7 @@ class EarningChart extends StatelessWidget {
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 final dailyEarning = dailyEarnings[group.x];
                 return BarTooltipItem(
-                  '${DateFormat('MMM dd').format(dailyEarning.date)}\n',
+                  '${DateFormat('MMM dd').format(dailyEarning.date as DateTime)}\n',
                   const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   children: <TextSpan>[
                     TextSpan(

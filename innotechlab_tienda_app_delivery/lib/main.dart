@@ -10,6 +10,7 @@ import 'package:delivery_app_mvvm/service/notification_service.dart';
 import 'package:delivery_app_mvvm/service/real_location_service.dart';
 import 'package:delivery_app_mvvm/viewmodel/earning_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -240,14 +241,23 @@ class MyApp extends StatelessWidget {
         // 10. EarningViewModel - Depende de GetEarningsUseCase
         ChangeNotifierProvider(
           create: (_) => EarningViewModel(
-            getEarnings: getEarningsUseCase,
-            getDailyEarnings: getDailyEarningsUseCase,
           ),
         ),
       ],
       // MaterialApp es el hijo de MultiProvider, por lo tanto, HomeScreen (que es home)
       // tendrá acceso a todos los providers declarados arriba.
       child: MaterialApp(
+          locale: const Locale('es', 'ES'), // Establece el locale por defecto
+          localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('en', ''), // English
+          Locale('es', ''), // Spanish
+          // Add other locales your app supports
+        ],
         title: 'Delivery App',
         theme: ThemeData(
           primarySwatch: Colors.blue,
