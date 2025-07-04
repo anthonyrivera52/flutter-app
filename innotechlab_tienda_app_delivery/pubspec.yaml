@@ -1,4 +1,4 @@
-name: flutter_app
+name: delivery_app_mvvm
 description: "A new Flutter project."
 publish_to: 'none'
 version: 0.0.1
@@ -7,39 +7,59 @@ environment:
   sdk: ^3.8.0
 
 dependencies:
+  flutter_localizations: # <--- Asegúrate de que esta línea esté aquí
+    sdk: flutter
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.6
   provider: ^6.1.2
-  flutter_lints: ^5.0.0
   shared_preferences: ^2.2.0
   get_it: ^7.6.0
   flutter_riverpod: ^2.3.6
-  supabase_flutter: ^1.10.25
+  supabase_flutter: ^2.5.0
   go_router: ^10.0.0
+  google_maps_flutter: ^2.5.0 # Para mapas
+  geolocator: ^11.0.0       # Para obtener la ubicación actual (simulado con mocks)
+  url_launcher: ^6.2.1      # Para abrir llamadas y chats
+  flutter_local_notifications: ^17.0.0 # O la última versión estable
+  rxdart: ^0.28.0 # Necesario para manejar streams de notificaciones
+  flutter_polyline_points: ^2.0.0 # Para dibujar rutas en el mapa
+  http: ^1.2.1 # Para hacer peticiones a la API de Google Directions
+  dartz: ^0.10.1
+  equatable: ^2.0.7
+  intl: ^0.20.2
+  flutter_dotenv: ^5.2.1
+  connectivity_plus: ^6.0.0 # O la última versión disponible
+  injectable: ^2.5.0
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  fl_chart: ^0.68.0 # Use the latest version
+  easy_date_timeline: ^2.0.9
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.7
+  freezed: ^2.5.6
+  json_serializable: ^6.7.1
+  flutter_launcher_icons: ^0.13.1 # Agrega esta línea
 
 flutter:
   uses-material-design: true
 
-flavors:
-  admin:
-    app:
-      name: "App Admin"
-    bundle:
-      ios: com.example.app.admin
-      android: com.example.app.admin
-  client:
-    app:
-      name: "App Client"
-    bundle:
-      ios: com.example.app.client
-      android: com.example.app.client
-  delivery:
-    app:
-      name: "App Delivery"
-    bundle:
-      ios: com.example.app.delivery
-      android: com.example.app.delivery
+# Configuración para flutter_launcher_icons
+flutter_launcher_icons:
+  android: "launcher_icon" # Opcional: Nombre del icono en Android (por defecto es "launcher_icon")
+  ios: true # Generar icono para iOS
+  image_path: "assets/app_icon/delivery_icon.png" # La ruta a tu imagen de icono
+  min_sdk_android: 21 # Tu minSdk (verifica en android/app/build.gradle)
+  remove_alpha_ios: true # Eliminar el canal alfa para iOS (recomendado)
+  # adaptive_icon_background: "#FFFFFF" # Opcional: Color de fondo para iconos adaptativos de Android
+  # adaptive_icon_foreground: "assets/app_icon/foreground_icon.png" # Opcional: Ruta para el foreground del icono adaptativo
+
+assets:
+  - assets/images/
+  - assets/icons/
+  - assets/fonts/
+  - .env 
