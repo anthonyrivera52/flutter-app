@@ -36,10 +36,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         updatedAt: response.user!.updatedAt,
       );
     } on AuthException catch (e) {
+      print('Supabase Login Error: $e');
       throw custom_exceptions.AuthException(message: e.message);
     } on AuthException catch (e) { // Catch Supabase AuthException
+    print('Supabase Login Error: $e');
       throw custom_exceptions.AuthException(message: e.message);
     } catch (e) {
+      print('Supabase Login Error: $e');
       throw custom_exceptions.AuthException(message: 'An unexpected error occurred during sign-in: ${e.toString()}');
     }
   }

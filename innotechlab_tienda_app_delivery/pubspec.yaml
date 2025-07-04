@@ -43,32 +43,23 @@ dev_dependencies:
   build_runner: ^2.4.7
   freezed: ^2.5.6
   json_serializable: ^6.7.1
+  flutter_launcher_icons: ^0.13.1 # Agrega esta línea
 
 flutter:
   uses-material-design: true
+
+# Configuración para flutter_launcher_icons
+flutter_launcher_icons:
+  android: "launcher_icon" # Opcional: Nombre del icono en Android (por defecto es "launcher_icon")
+  ios: true # Generar icono para iOS
+  image_path: "assets/app_icon/delivery_icon.png" # La ruta a tu imagen de icono
+  min_sdk_android: 21 # Tu minSdk (verifica en android/app/build.gradle)
+  remove_alpha_ios: true # Eliminar el canal alfa para iOS (recomendado)
+  # adaptive_icon_background: "#FFFFFF" # Opcional: Color de fondo para iconos adaptativos de Android
+  # adaptive_icon_foreground: "assets/app_icon/foreground_icon.png" # Opcional: Ruta para el foreground del icono adaptativo
 
 assets:
   - assets/images/
   - assets/icons/
   - assets/fonts/
   - .env 
-
-flavors:
-  admin:
-    app:
-      name: "App Admin"
-    bundle:
-      ios: com.example.app.admin
-      android: com.example.app.admin
-  client:
-    app:
-      name: "App Client"
-    bundle:
-      ios: com.example.app.client
-      android: com.example.app.client
-  delivery:
-    app:
-      name: "App Delivery"
-    bundle:
-      ios: com.example.app.delivery
-      android: com.example.app.delivery

@@ -56,13 +56,22 @@ class _EarningPageState extends State<EarningPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ganancias'),
+        title: const Text(
+          'Ganancias',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: Theme.of(context).primaryColor,
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
             onPressed: () {
               // Handle notifications
             },
+            color: Colors.white,
           ),
         ],
       ),
@@ -235,8 +244,8 @@ class _EarningPageState extends State<EarningPage> {
                             ...earningViewModel.earnings.map((earning) {
                               return _buildRecentOrderCard(
                                 context,
-                                DateFormat('EEEE', 'es_ES').format(earning.date),
-                                DateFormat('dd/MM/yyyy').format(earning.date),
+                                DateFormat('EEEE', 'es_ES').format(DateTime.parse(earning.date.toString())),
+                                DateFormat('dd/MM/yyyy').format(DateTime.parse(earning.date.toString())),
                                 earning.ordersCount, // Pass as int
                                 earning.amount.toStringAsFixed(2),
                               );

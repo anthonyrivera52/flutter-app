@@ -1,6 +1,9 @@
 // lib/widget/drawer/custom_app_drawer.dart
 import 'package:delivery_app_mvvm/domain/entities/user_status.dart';
+import 'package:delivery_app_mvvm/view/configuration_screen.dart';
 import 'package:delivery_app_mvvm/view/earning_page.dart';
+import 'package:delivery_app_mvvm/view/feed_back_screen.dart';
+import 'package:delivery_app_mvvm/view/wallet_screen.dart';
 import 'package:delivery_app_mvvm/viewmodel/home_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +26,7 @@ class CustomAppDrawer extends StatelessWidget {
             margin: EdgeInsets.zero,
             padding: const EdgeInsets.all(0),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColorDark, // Usa tu color primario
+              color: Theme.of(context).primaryColor,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,6 +92,23 @@ class CustomAppDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.payments),
+            title: const Text('Billetera'),
+            onTap: () {
+              if(!authViewModel.isAuthenticated) {
+                Navigator.pop(context); // Cierra el drawer
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Por favor, inicia sesión para ver tus wallet.')),
+                );
+                return;
+              }
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WalletScreen()),
+                ); // Navegar a la pantalla de ganancias
+              },
+          ),
+          ListTile(
+            leading: const Icon(Icons.payments),
             title: const Text('Ganancias'),
             onTap: () {
               if(!authViewModel.isAuthenticated) {
@@ -98,11 +118,11 @@ class CustomAppDrawer extends StatelessWidget {
                 );
                 return;
               }
-             Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const EarningPage()),
-              ); // Navegar a la pantalla de ganancias
-            },
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EarningPage()),
+                ); // Navegar a la pantalla de ganancias
+              },
           ),
           ListTile(
             leading: const Icon(Icons.book),
@@ -116,7 +136,17 @@ class CustomAppDrawer extends StatelessWidget {
             leading: const Icon(Icons.settings),
             title: const Text('Configuración'),
             onTap: () {
-              Navigator.pop(context); // Cierra el drawer
+              if(!authViewModel.isAuthenticated) {
+                Navigator.pop(context); // Cierra el drawer
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Por favor, inicia sesión para acceder a la configuración.')),
+                );
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ConfigurationScreen()),
+              );
               // Navegar a la configuración
             },
           ),
@@ -124,7 +154,17 @@ class CustomAppDrawer extends StatelessWidget {
             leading: const Icon(Icons.help_outline),
             title: const Text('Help & Feedback'),
             onTap: () {
-              Navigator.pop(context); // Cierra el drawer
+              if(!authViewModel.isAuthenticated) {
+                Navigator.pop(context); // Cierra el drawer
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Por favor, inicia sesión.')),
+                );
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const FeedbackScreen()),
+              ); 
               // Navegar a la configuración
             },
           ),

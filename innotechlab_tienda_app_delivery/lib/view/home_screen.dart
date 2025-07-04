@@ -406,7 +406,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // child: 
               GoogleMap(
                 mapType: MapType.normal,
-                // La posición inicial de la cámara utiliza la ubicación del driver del HomeViewModel
+                // La posición inicial de la cámara utiliza la ubicación d8kkkel driver del HomeViewModel
                 // o una ubicación por defecto si aún no está disponible.
                 initialCameraPosition: CameraPosition(
                   bearing: 192.8334901395799,
@@ -557,11 +557,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     alignment: Alignment.bottomCenter,
                     child: Builder(
                       builder: (context) {
-                        if (!authViewModel.isAuthenticated) {
+                       // **ORDEN DE VALIDACIÓN IMPORTANTE**
+                        // Siempre maneja el estado de carga PRIMERO si es una pantalla de carga global.
+                        if (authViewModel.isLoading) { // Si AuthViewModel está cargando (ej. durante el login/logout)
+                          return _buildLoadingBanner(); // Un loading más genérico
+                        } else if (!authViewModel.isAuthenticated) {
+                          // Esto NO debería ocurrir si estás en HomeScreen después de un login exitoso
+                          // Pero es una buena fallback. Quizás deberías redirigir a LoginScreen aquí.
                           return _buildLoginRequiredBanner(context);
                         } else if (homeViewModel.isLoading) {
+                          // Este es el loading específico de la Home, después de la autenticación
                           return _buildLoadingBanner();
-                        } else if (activeOrderViewModel.activeOrder != null) {
+                        } else if (activeOrderViewModel.activeOrder != null) { // Asumiendo que activeOrderViewModel es accesible
                           return _buildActiveOrderPanel(context, activeOrderViewModel);
                         } else if (homeViewModel.userStatus.status == UserConnectionStatus.offline) {
                           return _buildOfflineBanner(context, homeViewModel);
@@ -766,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildLoadingBanner() {
+   Widget _buildLoadingBanner() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20),

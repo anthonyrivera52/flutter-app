@@ -164,22 +164,35 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  // En HomeViewModel
   Future<void> initializeStatus() async {
-    if (!_authViewModel.isAuthenticated) {
-      _setUserStatus(UserStatus.offline("Please log in to go online.")); // Using factory constructor
-      return;
-    }
+      debugPrint("HomeViewModel: initializeStatus() called. Auth isAuthenticated: ${_authViewModel.isAuthenticated}");
 
-    _setLoading(true);
-    final result = await _getUserOnlineStatus();
-    result.fold(
-      (failure) => _setErrorMessage(_mapFailureToMessage(failure)),
-      (status) {
-        debugPrint("HomeViewModel: Status from GetUserOnlineStatus: ${status.status} - ${status.message}");
-        _setUserStatus(status);
-      },
-    );
-    _setLoading(false);
+      if (!_authViewModel.isAuthenticated) {
+        _setUserStatus(UserStatus.offline("Please log in to go online."));
+        debugPrint("HomeViewModel: initializeStatus() - Not authenticated, returning.");
+        return;
+      }
+
+      _setLoading(true); // <-- Debug point 1
+      debugPrint("HomeViewModel: _setLoading(true) called for initializeStatus. Current _isLoading: $_isLoading");
+
+      final result = await _getUserOnlineStatus();
+      debugPrint("HomeViewModel: _getUserOnlineStatus() completed.");
+
+      result.fold(
+        (failure) {
+          _setErrorMessage(_mapFailureToMessage(failure));
+          debugPrint("HomeViewModel: initializeStatus() - Failure: ${_errorMessage}");
+        },
+        (status) {
+          debugPrint("HomeViewModel: Status from GetUserOnlineStatus: ${status.status} - ${status.message}");
+          _setUserStatus(status);
+          debugPrint("HomeViewModel: initializeStatus() - Status set.");
+        },
+      );
+      _setLoading(false); // <-- Debug point 2
+      debugPrint("HomeViewModel: _setLoading(false) called for initializeStatus. Current _isLoading: $_isLoading");
   }
 
   // Método para ir online
@@ -264,9 +277,12 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  // En el método _setLoading de HomeViewModel
   void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
+      debugPrint("HomeViewModel: _setLoading($loading) called. Old _isLoading: $_isLoading, New _isLoading: $loading");
+      _isLoading = loading;
+      notifyListeners();
+      debugPrint("HomeViewModel: notifyListeners() called after _setLoading($loading).");
   }
 
   void _setErrorMessage(String? message) {

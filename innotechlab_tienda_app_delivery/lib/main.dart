@@ -9,6 +9,7 @@ import 'package:delivery_app_mvvm/service/location_service.dart';
 import 'package:delivery_app_mvvm/service/notification_service.dart';
 import 'package:delivery_app_mvvm/service/real_location_service.dart';
 import 'package:delivery_app_mvvm/viewmodel/earning_viewmodel.dart';
+import 'package:delivery_app_mvvm/viewmodel/wallet_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -243,6 +244,8 @@ class MyApp extends StatelessWidget {
           create: (_) => EarningViewModel(
           ),
         ),
+        // Add your WalletViewModel here:
+        ChangeNotifierProvider(create: (_) => WalletViewModel()),
       ],
       // MaterialApp es el hijo de MultiProvider, por lo tanto, HomeScreen (que es home)
       // tendrá acceso a todos los providers declarados arriba.
