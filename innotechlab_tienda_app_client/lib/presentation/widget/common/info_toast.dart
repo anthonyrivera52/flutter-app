@@ -17,6 +17,7 @@ void showInfoToast(
   Duration duration = const Duration(seconds: 5),
   bool? isDismissible,
 }) {
+  if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Row(
@@ -26,22 +27,22 @@ void showInfoToast(
             const SizedBox(width: 8),
           ],
           Expanded(
-            child: Text(
-              message,
-              style: TextStyle(color: textColor),
-            ),
+            child: Text(message, style: TextStyle(color: textColor)),
           ),
         ],
       ),
       backgroundColor: backgroundColor,
       duration: duration,
-      behavior: SnackBarBehavior.floating, // Opcional: para que flote sobre el contenido
+      behavior: SnackBarBehavior
+          .floating, // Opcional: para que flote sobre el contenido
       action: isDismissible == true
           ? SnackBarAction(
               label: 'Cerrar',
               textColor: textColor,
               onPressed: () {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                }
               },
             )
           : null, // Si isDismissible es true, muestra un botón de cerrar

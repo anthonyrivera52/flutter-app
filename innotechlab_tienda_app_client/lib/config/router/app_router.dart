@@ -1,6 +1,6 @@
-import 'package:flutter_app/presentation/pages/auth/OTP/opt_verification_page.dart';
-import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_page.dart';
-import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_page.dart';
+import 'package:flutter_app/presentation/pages/auth/OTP/otp_verification_page.dart';
+import 'package:flutter_app/presentation/pages/auth/signIn/sign_in_page.dart';
+import 'package:flutter_app/presentation/pages/auth/signUp/sign_up_page.dart';
 import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
@@ -8,7 +8,7 @@ import 'package:flutter_app/presentation/pages/dashboard/orders/order_details.da
 import 'package:flutter_app/presentation/pages/dashboard/orders/order_list.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 import 'package:flutter_app/presentation/pages/notifications/notifications_page.dart';
-import 'package:flutter_app/presentation/pages/orden_confirmation/orden_confirmation_page.dart';
+import 'package:flutter_app/presentation/pages/order_confirmation/order_confirmation_page.dart';
 import 'package:flutter_app/presentation/pages/products/detail_page.dart';
 import 'package:flutter_app/presentation/pages/onboarding/onboarding_page.dart';
 import 'package:flutter_app/presentation/pages/products/product_list_page.dart';

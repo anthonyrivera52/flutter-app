@@ -1,8 +1,8 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/core/usecases/usecase.dart';
-import 'package:flutter_app/data/repositories/order_repository_impl.dart';
 import 'package:flutter_app/domain/entities/orden.dart';
+import 'package:flutter_app/domain/repositories/order_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class GetUserOrdersUseCase extends UseCase<List<Orden>, NoParams> {

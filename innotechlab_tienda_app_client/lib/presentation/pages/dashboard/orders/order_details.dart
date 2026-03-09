@@ -1,7 +1,5 @@
-import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/domain/entities/orden.dart';
 import 'package:flutter_app/presentation/provider/order_details_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -17,78 +15,24 @@ class OrderDetailsPage extends ConsumerStatefulWidget {
 }
 
 class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
-  GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
-  LatLng? _userLocation;
-  LatLng? _storeLocation;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(orderDetailsProvider(widget.orderId).notifier).fetchOrderDetails(widget.orderId);
-      }
+      if (!mounted) return;
+      ref
+          .read(orderDetailsProvider(widget.orderId).notifier)
+          .fetchOrderDetails(widget.orderId);
     });
-  }
-
-  void _updateMapMarkers(Orden order) {
-    if (!mounted) return;
-    setState(() {
-      _userLocation = LatLng(order.shippingLatitude, order.shippingLongitude);
-      _storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
-      _markers.clear(); // Limpia los marcadores anteriores
-
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('userLocation'),
-          position: _userLocation!,
-          infoWindow: const InfoWindow(title: 'Tu Ubicación'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-        ),
-      );
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('storeLocation'),
-          position: _storeLocation!,
-          infoWindow: const InfoWindow(title: 'Ubicación de la Tienda'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        ),
-      );
-    });
-
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(
-            _userLocation!.latitude < _storeLocation!.latitude ? _userLocation!.latitude : _storeLocation!.latitude,
-            _userLocation!.longitude < _storeLocation!.longitude ? _userLocation!.longitude : _storeLocation!.longitude,
-          ),
-          northeast: LatLng(
-            _userLocation!.latitude > _storeLocation!.latitude ? _userLocation!.latitude : _storeLocation!.latitude,
-            _userLocation!.longitude > _storeLocation!.longitude ? _userLocation!.longitude : _storeLocation!.longitude,
-          ),
-        ),
-        50.0, // Relleno alrededor de los límites
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final orderDetailsState = ref.watch(orderDetailsProvider(widget.orderId));
-
-    ref.listen<OrderDetailsState>(orderDetailsProvider(widget.orderId), (previous, next) {
-      if (next.order != null && next.order != previous?.order) {
-        _updateMapMarkers(next.order! as Orden);
-      }
-    });
+    final state = ref.watch(orderDetailsProvider(widget.orderId));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalles del Pedido'),
-      ),
-      body: _buildBody(context, orderDetailsState),
+      appBar: AppBar(title: const Text('Estado del pedido')),
+      body: _buildBody(context, state),
     );
   }
 
@@ -99,205 +43,232 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
 
     if (state.errorMessage != null) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Error: ${state.errorMessage}'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => ref.read(orderDetailsProvider(widget.orderId).notifier).fetchOrderDetails(widget.orderId),
-              child: const Text('Reintentar'),
-            )
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(state.errorMessage!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref
+                    .read(orderDetailsProvider(widget.orderId).notifier)
+                    .fetchOrderDetails(widget.orderId),
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     final order = state.order;
     if (order == null) {
-      return const Center(child: Text('No se encontró información del pedido.'));
+      return const Center(child: Text('No se encontró el pedido.'));
     }
 
-    final formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt.toLocal());
+    final formattedDate = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(order.createdAt.toLocal());
+    final userLocation = LatLng(
+      order.shippingLatitude,
+      order.shippingLongitude,
+    );
+    final storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
+    final markers = {
+      Marker(
+        markerId: const MarkerId('userLocation'),
+        position: userLocation,
+        infoWindow: const InfoWindow(title: 'Tu ubicación'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+      ),
+      Marker(
+        markerId: const MarkerId('storeLocation'),
+        position: storeLocation,
+        infoWindow: const InfoWindow(title: 'Comercio'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      ),
+    };
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return RefreshIndicator(
+      onRefresh: () => ref
+          .read(orderDetailsProvider(widget.orderId).notifier)
+          .fetchOrderDetails(widget.orderId),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
         children: [
+          const SizedBox(height: 8),
           Text(
             'Pedido #${order.id.length > 8 ? order.id.substring(0, 8) : order.id}',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 8),
-          Text('Fecha: $formattedDate', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text('Total: \$${order.totalAmount.toStringAsFixed(2)}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text('Dirección de Envío: ${order.shippingAddress}', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 20),
-
+          const SizedBox(height: 6),
+          Text(formattedDate),
+          const SizedBox(height: 4),
           Text(
-            'Ubicación del Pedido',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            'Total: \$${order.totalAmount.toStringAsFixed(2)}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 10),
-          Container(
-            height: 250,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: (_userLocation != null && _storeLocation != null)
-                ? GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(
-                        (_userLocation!.latitude + _storeLocation!.latitude) / 2,
-                        (_userLocation!.longitude + _storeLocation!.longitude) / 2,
-                      ),
-                      zoom: 12, // Zoom ajustado para ver ambas ubicaciones
-                    ),
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                      if (state.order != null) _updateMapMarkers(state.order! as Orden);
-                    },
-                    markers: _markers,
-                    circles: {
-                      Circle(
-                        circleId: const CircleId('store_radius_details'),
-                        center: _storeLocation!,
-                        radius: 1000, // Radio de ejemplo en metros
-                        fillColor: AppColors.primaryColor.withOpacity(0.1),
-                        strokeColor: AppColors.primaryColor,
-                        strokeWidth: 1,
-                      ),
-                    },
-                  )
-                : const Center(child: Text("Cargando mapa...")),
-          ),
-          const SizedBox(height: 30),
-
-          Text(
-            'Productos del Pedido',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: order.items.length,
-            itemBuilder: (context, index) {
-              final item = order.items[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: item.product.imageUrl != null && item.product.imageUrl!.isNotEmpty
-                            ? Image.network(
-                                item.product.imageUrl!,
-                                width: 60,
-                                height: 60,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Image.asset('assets/images/placeholder.png', width: 60, height: 60, fit: BoxFit.cover),
-                              )
-                            : Image.asset(
-                                'assets/images/placeholder.png',
-                                width: 60,
-                                height: 60,
-                                fit: BoxFit.cover,
-                              ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Text('${item.quantity} x \$${item.priceAtPurchase.toStringAsFixed(2)}'),
-                          ],
-                        ),
-                      ),
-                      Text('\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}'),
-                    ],
+          const SizedBox(height: 4),
+          Text('Entrega: ${order.shippingAddress}'),
+          const SizedBox(height: 16),
+          _StatusTimeline(status: order.status),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 220,
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(
+                    (userLocation.latitude + storeLocation.latitude) / 2,
+                    (userLocation.longitude + storeLocation.longitude) / 2,
                   ),
+                  zoom: 12,
                 ),
-              );
-            },
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                markers: markers,
+                circles: {
+                  Circle(
+                    circleId: const CircleId('store_radius_details'),
+                    center: storeLocation,
+                    radius: 1000,
+                    fillColor: AppColors.primaryColor.withValues(alpha: 0.08),
+                    strokeColor: AppColors.primaryColor,
+                    strokeWidth: 1,
+                  ),
+                },
+              ),
+            ),
           ),
-          const SizedBox(height: 30),
-
-          Text(
-            'Estado del Pedido',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          const SizedBox(height: 18),
+          const Text(
+            'Productos',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 10),
-          _buildOrderStatus(context, order.status),
+          const SizedBox(height: 8),
+          ...order.items.map(
+            (item) => Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: item.product.imageUrl.isNotEmpty
+                      ? Image.network(
+                          item.product.imageUrl,
+                          width: 52,
+                          height: 52,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _imageFallback(),
+                        )
+                      : _imageFallback(),
+                ),
+                title: Text(
+                  item.product.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  '${item.quantity} x \$${item.priceAtPurchase.toStringAsFixed(2)}',
+                ),
+                trailing: Text(
+                  '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}',
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return Colors.orange;
-      case 'processing':
-        return Colors.blue;
-      case 'completed':
-      case 'delivered':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
+  Widget _imageFallback() {
+    return Container(
+      width: 52,
+      height: 52,
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: const Icon(Icons.image_not_supported_outlined),
+    );
   }
+}
 
-  Widget _buildOrderStatus(BuildContext context, String status) {
-    Map<String, int> statusSteps = {
+class _StatusTimeline extends StatelessWidget {
+  final String status;
+
+  const _StatusTimeline({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = status.toLowerCase();
+
+    if (normalized == 'cancelled') {
+      return _statusRow(
+        title: 'Cancelado',
+        subtitle: 'El pedido fue cancelado.',
+        active: true,
+        activeColor: Colors.red,
+      );
+    }
+
+    final steps = <_StepData>[
+      const _StepData(title: 'Pendiente', subtitle: 'Esperando confirmación'),
+      const _StepData(
+        title: 'Aceptado',
+        subtitle: 'Pedido confirmado por la tienda',
+      ),
+      const _StepData(
+        title: 'Preparando',
+        subtitle: 'Estamos preparando tu pedido',
+      ),
+      const _StepData(title: 'En camino', subtitle: 'El pedido va en ruta'),
+      const _StepData(title: 'Entregado', subtitle: 'Pedido completado'),
+    ];
+
+    final indexByStatus = {
       'pending': 0,
       'accepted': 1,
       'processing': 2,
       'shipped': 3,
       'delivered': 4,
       'completed': 4,
-      'cancelled': -1
     };
 
-    int currentStep = statusSteps[status.toLowerCase()] ?? 0;
-    bool isCancelled = status.toLowerCase() == 'cancelled';
-
-    if (isCancelled) {
-      return _buildStatusRow(context, 'Cancelado', 'Este pedido ha sido cancelado.', true, isCancelled: true);
-    }
+    final activeIndex = indexByStatus[normalized] ?? 0;
 
     return Column(
       children: [
-        _buildStatusRow(context, 'Pendiente', 'Tu pedido está en espera de confirmación.', currentStep >= 0),
-        _buildStatusRow(context, 'Aceptado', 'El pedido ha sido aceptado.', currentStep >= 1),
-        _buildStatusRow(context, 'En Procesamiento', 'Tu pedido está siendo preparado.', currentStep >= 2),
-        _buildStatusRow(context, 'Enviado', 'Tu pedido ha sido enviado.', currentStep >= 3),
-        _buildStatusRow(context, 'Entregado', 'Tu pedido ha sido entregado.', currentStep >= 4),
+        for (var i = 0; i < steps.length; i++)
+          _statusRow(
+            title: steps[i].title,
+            subtitle: steps[i].subtitle,
+            active: i <= activeIndex,
+            activeColor: AppColors.primaryColor,
+          ),
       ],
     );
   }
 
-  Widget _buildStatusRow(BuildContext context, String title, String subtitle, bool isActive, {bool isCancelled = false}) {
-    Color activeColor = isCancelled ? Colors.red : AppColors.greyDark;
-    Color inactiveColor = Colors.grey;
-    IconData icon = isActive ? (isCancelled ? Icons.cancel : Icons.check_circle) : Icons.radio_button_unchecked;
-
+  Widget _statusRow({
+    required String title,
+    required String subtitle,
+    required bool active,
+    required Color activeColor,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: isActive ? activeColor : inactiveColor, size: 28),
-          const SizedBox(width: 16),
+          Icon(
+            active ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: active ? activeColor : Colors.grey,
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,16 +276,14 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                 Text(
                   title,
                   style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: isActive ? (isCancelled ? Colors.red : Colors.black) : Colors.grey[700],
+                    fontWeight: FontWeight.w700,
+                    color: active ? Colors.black : Colors.grey[700],
                   ),
                 ),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 14,
-                    color: isActive ? (isCancelled ? Colors.red.shade700 : Colors.black87) : Colors.grey,
+                    color: active ? Colors.black87 : Colors.grey,
                   ),
                 ),
               ],
@@ -324,4 +293,56 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       ),
     );
   }
+
+  /// Widget para mostrar el código de verificación del pedido
+  Widget _buildOrderCodeBadge(BuildContext context, String orderCode) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primaryColor,
+            AppColors.primaryColor.withValues(alpha: 0.8),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.verified_user, color: Colors.white, size: 24),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Código de verificación',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                orderCode,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepData {
+  final String title;
+  final String subtitle;
+
+  const _StepData({required this.title, required this.subtitle});
 }

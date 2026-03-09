@@ -1,113 +1,116 @@
-import 'package:flutter_app/core/usecases/usecase.dart';
-import 'package:flutter_app/domain/entities/cartItem.dart';
+import 'package:flutter_app/domain/entities/cart_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class CheckoutState {
-  final bool isLoading;
-  final String? errorMessage;
-  final List<CartItem> cartItems;
+const double checkoutDeliveryFee = 1.20;
+const List<double> checkoutTipOptions = [0, 1, 2, 4];
 
-  CheckoutState({
-    this.isLoading = false,
+class CheckoutState {
+  final bool isSubmitting;
+  final String? errorMessage;
+  final double selectedTip;
+  final String? createdOrderId;
+  final String? createdOrderCode; // ✅ NUEVO: Código de verificación
+
+  const CheckoutState({
+    this.isSubmitting = false,
     this.errorMessage,
-    this.cartItems = const [],
+    this.selectedTip = 2.0,
+    this.createdOrderId,
+    this.createdOrderCode,
   });
 
   CheckoutState copyWith({
-    bool? isLoading,
+    bool? isSubmitting,
     String? errorMessage,
-    List<CartItem>? cartItems,
+    double? selectedTip,
+    String? createdOrderId,
+    String? createdOrderCode,
+    bool clearError = false,
   }) {
     return CheckoutState(
-      isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
-      cartItems: cartItems ?? this.cartItems,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      selectedTip: selectedTip ?? this.selectedTip,
+      createdOrderId: createdOrderId ?? this.createdOrderId,
+      createdOrderCode: createdOrderCode ?? this.createdOrderCode,
     );
   }
 }
 
 final checkoutProvider = StateNotifierProvider<CheckoutNotifier, CheckoutState>((ref) {
-  // final clearCartUseCase = ref.watch(clearCartUseCaseProvider);
-  final supabaseClient = Supabase.instance.client; // Obtener la instancia de Supabase
-  return CheckoutNotifier(supabaseClient, ref);
+  return CheckoutNotifier(Supabase.instance.client);
 });
 
 class CheckoutNotifier extends StateNotifier<CheckoutState> {
-  // final ClearCartUseCase _clearCartUseCase;
-  final SupabaseClient _supabaseClient; // Inyectar SupabaseClient
-  final Ref _ref; // Inyectar Ref para acceder a otros providers
+  final SupabaseClient _supabase;
 
-  CheckoutNotifier(this._supabaseClient, this._ref) : super(CheckoutState());
+  CheckoutNotifier(this._supabase) : super(const CheckoutState());
 
-  void loadCartItems(List<CartItem> items) {
-    state = state.copyWith(cartItems: items);
+  void selectTip(double tip) {
+    state = state.copyWith(selectedTip: tip, clearError: true);
   }
 
-  Future<bool> processPayment(String cardNumber, String expiryDate, String cvv) async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-    try {
-      // Simular un procesamiento de pago exitoso
-      await Future.delayed(const Duration(seconds: 2));
+  double subtotal(List<CartItem> items) {
+    return items.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
+  }
 
-      // Aquí podrías integrar un gateway de pago real
-      if (cardNumber.isEmpty || expiryDate.isEmpty || cvv.isEmpty) {
-        throw Exception('Datos de pago inválidos.');
-      }
+  double total(List<CartItem> items) {
+    return subtotal(items) + checkoutDeliveryFee + state.selectedTip;
+  }
 
-      final success = await confirmOrder(); // Confirmar la orden después del pago
-      if (success) {
-        return true;
-      } else {
-        throw Exception(state.errorMessage ?? 'Error al confirmar la orden.');
-      }
-    } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+  Future<bool> placeOrder({
+    required String shopId,
+    required List<CartItem> cartItems,
+    required String shippingAddress,
+    String? notes,
+    double? shippingLatitude,
+    double? shippingLongitude,
+  }) async {
+    if (cartItems.isEmpty) {
+      state = state.copyWith(errorMessage: 'Tu carrito está vacío.');
       return false;
     }
-  }
 
-  Future<bool> confirmOrder() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    if (shippingAddress.trim().isEmpty) {
+      state = state.copyWith(errorMessage: 'Ingresa una dirección de entrega.');
+      return false;
+    }
+
+    state = state.copyWith(isSubmitting: true, clearError: true);
+
     try {
-      final userId = _supabaseClient.auth.currentUser?.id;
-      if (userId == null) {
-        state = state.copyWith(isLoading: false, errorMessage: 'Usuario no autenticado.');
-        return false;
-      }
+      final response = await _supabase.functions.invoke(
+        'create-order',
+        body: {
+          'shopId': shopId,
+          'shippingAddress': shippingAddress,
+          'shippingLatitude': shippingLatitude ?? 0,
+          'shippingLongitude': shippingLongitude ?? 0,
+          'notes': notes,
+          'tipAmount': state.selectedTip,
+          'items': cartItems
+              .map(
+                (item) => {
+                  'productId': item.productId,
+                  'quantity': item.quantity,
+                },
+              )
+              .toList(),
+        },
+      );
 
-      // 1. Crear la orden en la base de datos con estado 'pending'
-      final orderResponse = await _supabaseClient.from('orders').insert({
-        'user_id': userId,
-        'total_amount': state.cartItems.fold(0.0, (sum, item) => sum + item.price * item.quantity),
-        'status': 'pending', // Estado inicial
-        // Puedes añadir otros campos de la orden aquí (ej. shipping_address)
-      }).select().single(); // Obtener la orden recién creada
-
-      final orderId = orderResponse['id'];
-
-      // 2. Crear los ítems de la orden
-      final orderItems = state.cartItems.map((item) => {
-            'order_id': orderId,
-            'product_id': item.productId,
-            'quantity': item.quantity,
-            'price_at_purchase': item.price,
-          }).toList();
-
-      await _supabaseClient.from('order_items').insert(orderItems);
-
-      // 3. ACTUALIZAR EL ESTADO A 'confirmed' - ESTO DISPARARÁ EL TRIGGER DE SUPABASE
-      await _supabaseClient.from('orders').update({
-        'status': 'confirmed',
-      }).eq('id', orderId);
-
-      // 4. Limpiar el carrito local
-      state.cartItems.clear();
-
-      state = state.copyWith(isLoading: false, cartItems: []);
+      final orderId = response.data['orderId'] as String?;
+      final orderCode = response.data['orderCode'] as String?; // ✅ Capturar código de orden
+      state = state.copyWith(
+        isSubmitting: false,
+        createdOrderId: orderId,
+        createdOrderCode: orderCode,
+        clearError: true,
+      );
       return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'Error al confirmar la orden: ${e.toString()}');
+      state = state.copyWith(isSubmitting: false, errorMessage: 'No se pudo crear la orden: $e');
       return false;
     }
   }

@@ -5,6 +5,7 @@ import 'package:flutter_app/domain/entities/orden_item.dart';
 class Orden extends Equatable {
   final String id;
   final String userId;
+  final String orderCode; // Código aleatorio para verificación de entrega
   final double totalAmount;
   final String status;
   final String shippingAddress;
@@ -19,6 +20,7 @@ class Orden extends Equatable {
   const Orden({
     required this.id,
     required this.userId,
+    required this.orderCode,
     required this.totalAmount,
     required this.status,
     required this.shippingAddress,
@@ -35,6 +37,7 @@ class Orden extends Equatable {
   List<Object> get props => [
         id,
         userId,
+        orderCode,
         totalAmount,
         status,
         shippingAddress,

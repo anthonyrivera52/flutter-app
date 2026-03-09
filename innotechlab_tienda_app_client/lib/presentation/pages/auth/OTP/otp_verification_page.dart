@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_viewmodel.dart';
+import 'package:flutter_app/presentation/pages/auth/signUp/sign_up_viewmodel.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
+import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +14,8 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
   const OtpVerificationPage({super.key, this.email});
 
   @override
-  ConsumerState<OtpVerificationPage> createState() => _OtpVerificationPageState();
+  ConsumerState<OtpVerificationPage> createState() =>
+      _OtpVerificationPageState();
 }
 
 class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
@@ -36,74 +38,48 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     super.dispose();
   }
 
-  // void _sendOtp() async {
-  //   if (FormValidators.isValidateEmail(_emailController.text) != null) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('Por favor, introduce un correo electrónico válido.')),
-  //     );
-  //     return;
-  //   }
-
-  //   final authNotifier = ref.read(authProvider.notifier);
-  //   final success = await authNotifier.sendOtpForVerification(_emailController.text.trim());
-
-  //   if (success) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('OTP enviado a tu correo electrónico.')),
-  //     );
-  //   } else {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text(authNotifier.errorMessage ?? 'Error al enviar OTP'),
-  //         backgroundColor: Colors.red,
-  //       ),
-  //     );
-  //   }
-  // }
-
-  void _verifyOtp() async {
-    if (_formKey.currentState?.validate() != true) {
-      return; // Si la validación falla, no continuar
-    }
-
-    if(_emailController.text.isEmpty || _otpController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, completa todos los campos')),
+  void _sendOtp() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      showInfoToast(
+        context,
+        message: 'Ingresa un correo',
+        backgroundColor: Colors.red,
       );
       return;
     }
-    context.go('/'); // Redirigir a home si la verificación es exitosa
 
-    // if (_formKey.currentState!.validate()) {
-    //   final authNotifier = ref.read(authProvider.notifier);
-    //   final success = await authNotifier.verifyOtp(
-    //     _emailController.text.trim(),
-    //     _otpController.text.trim(),
-    //   );
+    await ref.read(authViewModelProvider.notifier).resendOtp(email);
+    if (mounted) {
+      showInfoToast(
+        context,
+        message: 'OTP reenviado',
+        backgroundColor: Colors.green,
+      );
+    }
+  }
 
-    //   if (success) {
-    //     context.go('/'); // Redirigir a home si la verificación es exitosa
-    //   } else {
-    //     ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(
-    //         content: Text(authNotifier.errorMessage ?? 'Error al verificar OTP'),
-    //         backgroundColor: Colors.red,
-    //       ),
-    //     );
-    //   }
-    // }
+  void _verifyOtp() async {
+    if (_formKey.currentState?.validate() != true) {
+      return;
+    }
+
+    final success = await ref
+        .read(authViewModelProvider.notifier)
+        .verifyOtp(_emailController.text.trim(), _otpController.text.trim());
+
+    if (success && mounted) {
+      context.go('/');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authViewModel);
+    final authState = ref.watch(authViewModelProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Verificación OTP'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Verificación OTP'), centerTitle: true),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -121,9 +97,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 Text(
                   'Ingresa el código OTP',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryColor,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryColor,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -147,7 +123,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   },
                   prefixIcon: Icons.email,
                   hintText: '',
-                  readOnly: widget.email != null, // Make read-only if email is passed
+                  readOnly:
+                      widget.email != null, // Make read-only if email is passed
                 ),
                 const SizedBox(height: 20),
                 CustomTextField(
@@ -175,7 +152,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           ),
                           const SizedBox(height: 10),
                           TextButton(
-                            onPressed: () {}, // _sendOtp,
+                            onPressed: _sendOtp,
                             child: const Text(
                               'Reenviar OTP',
                               style: TextStyle(color: AppColors.primaryColor),

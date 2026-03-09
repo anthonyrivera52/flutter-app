@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/pages/auth/singUp/sing_up_viewmodel.dart';
+import 'package:flutter_app/presentation/pages/auth/signUp/sign_up_viewmodel.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
 import 'package:flutter_app/presentation/widget/common/info_toast.dart';
@@ -26,7 +26,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
   late VoidCallback _removeAuthListener;
   // Stores the function to remove the listener for error messages
   late VoidCallback _removeErrorListener;
-  
+  // Almacena el email anterior para detectar cambios
+  String? _previousLoggedInEmail;
+
   @override
   void initState() {
     super.initState();
@@ -36,23 +38,45 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
     // Listen to changes in the authentication state
     _removeAuthListener = authVM.addListener((state) {
-      // previousState is not directly available with addListener,
-      // so we check if isAuthenticated just became true.
-      // This relies on the ViewModel correctly setting isAuthenticated to false initially
-      // and then true only on success.
+      // Case 1: User is fully authenticated (direct login without OTP)
       if (state.isAuthenticated) {
         if (mounted) {
-          showInfoToast( // Usando InfoToast para el mensaje de éxito
+          showInfoToast(
             context,
             message: '¡Registro exitoso!',
             backgroundColor: Colors.green,
             icon: Icons.check_circle_outline,
             isDismissible: true
           );
-          // Redirect to the OTP verification page or main page
-          // Ensure '/otp-verification' is defined in your GoRouter
+          // Redirect to main page (user is already authenticated)
+          context.go('/home');
+        }
+        return;
+      }
+
+      // Case 2: OTP was sent (user created but needs verification)
+      // Check if loggedInEmail was set (meaning the signup was successful and OTP was sent)
+      if (state.loggedInEmail != null &&
+          state.loggedInEmail!.isNotEmpty &&
+          state.loggedInEmail != _previousLoggedInEmail &&
+          state.errorMessage == null) {
+        _previousLoggedInEmail = state.loggedInEmail;
+        if (mounted) {
+          showInfoToast(
+            context,
+            message: 'Código de verificación enviado a ${state.loggedInEmail}',
+            backgroundColor: Colors.blue,
+            icon: Icons.mark_email_read_outlined,
+            isDismissible: true
+          );
+          // Redirect to OTP verification page
           context.go('/otp-verification', extra: state.loggedInEmail);
         }
+      }
+
+      // Update previous email for next change detection
+      if (state.loggedInEmail != null) {
+        _previousLoggedInEmail = state.loggedInEmail;
       }
     });
 
@@ -61,7 +85,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
       // Check if there's a new error message
       if (state.errorMessage != null) {
         if (mounted) {
-          showInfoToast( // Usando InfoToast para el mensaje de éxito
+          showInfoToast(
             context,
             message: state.errorMessage!,
             backgroundColor: Colors.red,

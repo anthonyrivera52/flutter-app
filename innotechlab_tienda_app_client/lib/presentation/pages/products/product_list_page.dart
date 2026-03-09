@@ -20,19 +20,27 @@ Category? _findCategoryRecursive(List<Category> catList, String id) {
   return null;
 }
 
-Set<String> _getApplicableCategoryIds(String rootCategoryId, List<Category> allMockCategoriesRoot) {
+Set<String> _getApplicableCategoryIds(
+  String rootCategoryId,
+  List<Category> allMockCategoriesRoot,
+) {
   final Set<String> ids = {};
-  final rootCatObject = _findCategoryRecursive(allMockCategoriesRoot, rootCategoryId);
+  final rootCatObject = _findCategoryRecursive(
+    allMockCategoriesRoot,
+    rootCategoryId,
+  );
 
   if (rootCatObject != null) {
     ids.add(rootCatObject.id);
-    if (rootCatObject.subcategories != null && rootCatObject.subcategories!.isNotEmpty) {
+    if (rootCatObject.subcategories != null &&
+        rootCatObject.subcategories!.isNotEmpty) {
       void collectIdsRecursive(Category category) {
         category.subcategories?.forEach((sub) {
           ids.add(sub.id);
           collectIdsRecursive(sub);
         });
       }
+
       collectIdsRecursive(rootCatObject);
     }
   } else {
@@ -43,7 +51,6 @@ Set<String> _getApplicableCategoryIds(String rootCategoryId, List<Category> allM
   }
   return ids;
 }
-
 
 class ProductListPage extends ConsumerStatefulWidget {
   final String categoryId;
@@ -63,7 +70,7 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
   late ValueNotifier<String> _searchTermNotifier;
   // _isSearchMode is not strictly needed if SearchInputWidget is always a TextField here
   // and its internal state handles the input. It's kept for consistency with HomeTabPageContent.
-  bool _isSearchMode = false;
+  // bool _isSearchMode = false;
 
   @override
   void initState() {
@@ -72,7 +79,7 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     _searchTermNotifier.addListener(_onSearchTermChanged);
     // Initialize search mode if a search term was passed or if we anticipate search.
     // For ProductListPage, we assume the search input is always "active" (a TextField).
-    _isSearchMode = true;
+    // _isSearchMode = true;
   }
 
   @override
@@ -92,7 +99,7 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     // This method might be less critical if SearchInputWidget is always a TextField here,
     // but keep it for consistency or if you decide to toggle its visibility.
     setState(() {
-      _isSearchMode = isSearching;
+      // _isSearchMode = isSearching;
       if (!isSearching) {
         _searchTermNotifier.value = '';
       }
@@ -106,10 +113,15 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     if (widget.categoryId == MockData.allProductsCategoryId) {
       productsToFilter = MockData.mockProducts;
     } else if (widget.categoryId == MockData.discountedProductsCategoryId) {
-      productsToFilter = MockData.mockProducts.where((p) => p.discountedPrice != null).toList();
+      productsToFilter = MockData.mockProducts
+          .where((p) => p.discountedPrice != null)
+          .toList();
     } else {
       final allCategoriesStructure = MockData.mockCategories;
-      final applicableIds = _getApplicableCategoryIds(widget.categoryId, allCategoriesStructure);
+      final applicableIds = _getApplicableCategoryIds(
+        widget.categoryId,
+        allCategoriesStructure,
+      );
       productsToFilter = MockData.mockProducts
           .where((product) => applicableIds.contains(product.categoryId))
           .toList();
@@ -117,13 +129,16 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
 
     // Apply search filter
     final String currentSearchTerm = _searchTermNotifier.value.toLowerCase();
-    List<Product> productsToDisplay = productsToFilter; // Start with filtered category products
+    List<Product> productsToDisplay =
+        productsToFilter; // Start with filtered category products
 
     if (currentSearchTerm.isNotEmpty) {
       productsToDisplay = productsToFilter
-          .where((product) =>
-              product.name.toLowerCase().contains(currentSearchTerm) ||
-              (product.description?.toLowerCase().contains(currentSearchTerm) ?? false)) // Handle null description
+          .where(
+            (product) =>
+                product.name.toLowerCase().contains(currentSearchTerm) ||
+                product.description.toLowerCase().contains(currentSearchTerm),
+          )
           .toList();
     }
 
@@ -133,9 +148,11 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
 
     if (productsToDisplay.isEmpty) {
       if (currentSearchTerm.isNotEmpty) {
-        noProductsMessage = 'No products found matching "$currentSearchTerm" in "${widget.categoryName}".';
+        noProductsMessage =
+            'No products found matching "$currentSearchTerm" in "${widget.categoryName}".';
       } else {
-        noProductsMessage = 'No products available in "${widget.categoryName}".';
+        noProductsMessage =
+            'No products available in "${widget.categoryName}".';
       }
       showNoProductsMessage = true;
     }
@@ -147,7 +164,9 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
         elevation: 0.5,
         title: Text(
           widget.categoryName,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         // A back button is automatically provided by AppBar when pushed onto the stack.
       ),
@@ -159,7 +178,8 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
               searchTermNotifier: _searchTermNotifier,
               onSearchModeChanged: _onSearchModeChanged,
               initialIsSearching: true, // Always show as a TextField
-              isShowCancelButton: false, // No cancel button needed as it's always a search field
+              isShowCancelButton:
+                  false, // No cancel button needed as it's always a search field
             ),
           ),
 
@@ -181,8 +201,10 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
                 // Use primary: false and a SingleChildScrollView parent if this GridView
                 // needs to scroll with other content, otherwise use its own ScrollPhysics.
                 // Since it's in an Expanded, it will handle its own scrolling.
-                shrinkWrap: false, // Set to false if it's in an Expanded widget and fills space
-                physics: const AlwaysScrollableScrollPhysics(), // Allows scrolling even if content is small
+                shrinkWrap:
+                    false, // Set to false if it's in an Expanded widget and fills space
+                physics:
+                    const AlwaysScrollableScrollPhysics(), // Allows scrolling even if content is small
                 padding: const EdgeInsets.all(16.0),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,

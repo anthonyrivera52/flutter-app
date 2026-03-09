@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/domain/entities/cartItem.dart';
+import 'package:flutter_app/domain/entities/cart_item.dart';
 
 class CartItemCard extends StatelessWidget {
   final CartItem item;

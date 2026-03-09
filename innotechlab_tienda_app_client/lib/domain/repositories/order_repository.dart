@@ -28,8 +28,8 @@ class OrderRepositoryImpl implements OrderRepository {
   @override
   Future<Either<Failure, List<Orden>>> getUserOrders() async {
     try {
-      final orders = await remoteDataSource.getUserOrders();
-      return Right(orders);
+      final paginatedOrders = await remoteDataSource.getUserOrders();
+      return Right(paginatedOrders.orders);
     } catch (e) {
       return Left(ServerFailure('Failed to get user orders: ${e.toString()}'));
     }

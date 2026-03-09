@@ -14,19 +14,23 @@ class Exceptions {
   static const String emailAlreadyInUse = 'Email Already In Use';
   static const String weakPassword = 'Weak Password';
 
-  Future<void> CacheException(String message) async {
+  Future<void> cacheException(String message) async {
     throw Exception('Cache Error: $message');
   }
-  Future<void> ServerException(String message) async {
+
+  Future<void> serverException(String message) async {
     throw Exception('Server Error: $message');
   }
-  Future<void> AuthException(String message) async {
+
+  Future<void> authException(String message) async {
     throw Exception('Authentication Error: $message');
   }
-  Future<void> NetworkException(String message) async {
+
+  Future<void> networkException(String message) async {
     throw Exception('Network Error: $message');
   }
-  Future<void> ValidationException(String message) async {
+
+  Future<void> validationException(String message) async {
     throw Exception('Validation Error: $message');
   }
 }

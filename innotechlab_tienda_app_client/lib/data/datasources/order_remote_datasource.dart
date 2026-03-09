@@ -1,35 +1,75 @@
+import 'package:flutter_app/data/model/orden_model.dart';
 import 'package:flutter_app/domain/entities/orden.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_app/config/mock/app_mock.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Pagination result wrapper
+class PaginatedOrders {
+  final List<Orden> orders;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+
+  const PaginatedOrders({
+    required this.orders,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+  });
+
+  bool get hasMore => page < totalPages;
+  bool get hasPrevious => page > 1;
+}
 
 abstract class OrderRemoteDataSource {
-  Future<List<Orden>> getUserOrders();
+  Future<PaginatedOrders> getUserOrders({int page = 1, int limit = 10});
   Future<Orden> getOrderById(String orderId);
 }
 
 class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
-  Future<T> _simulateApiCall<T>(T Function() callback) async {
-    await Future.delayed(const Duration(milliseconds: 700));
-    return callback();
+  final SupabaseClient _supabase;
+
+  OrderRemoteDataSourceImpl(this._supabase);
+
+  @override
+  Future<PaginatedOrders> getUserOrders({int page = 1, int limit = 10}) async {
+    final response = await _supabase.functions.invoke(
+      'get-user-orders',
+      queryParameters: {'page': page.toString(), 'limit': limit.toString()},
+    );
+
+    final rawOrders = (response.data['orders'] as List<dynamic>? ?? const []);
+    final pagination = response.data['pagination'] as Map<String, dynamic>?;
+
+    return PaginatedOrders(
+      orders: rawOrders
+          .map((orderJson) => OrdenModel.fromJson(orderJson as Map<String, dynamic>).toEntity())
+          .toList(),
+      page: pagination?['page'] as int? ?? page,
+      limit: pagination?['limit'] as int? ?? limit,
+      total: pagination?['total'] as int? ?? 0,
+      totalPages: pagination?['totalPages'] as int? ?? 1,
+    );
   }
 
   @override
-  Future<List<Orden>> getUserOrders() {
-    return _simulateApiCall(() => MockData.mockOrders.cast<Orden>());
-  }
+  Future<Orden> getOrderById(String orderId) async {
+    final response = await _supabase.functions.invoke(
+      'track-order',
+      body: {'orderId': orderId},
+    );
 
-  @override
-  Future<Orden> getOrderById(String orderId) {
-    return _simulateApiCall(() {
-      final order = MockData.mockOrders.firstWhere(
-        (order) => order.id == orderId,
-        orElse: () => throw Exception('Order not found'),
-      );
-      return order;
-    });
+    final raw = response.data['order'] as Map<String, dynamic>?;
+    if (raw == null) {
+      throw Exception('Order not found');
+    }
+
+    return OrdenModel.fromJson(raw).toEntity();
   }
 }
 
 final orderRemoteDataSourceProvider = Provider<OrderRemoteDataSource>((ref) {
-  return OrderRemoteDataSourceImpl();
+  return OrderRemoteDataSourceImpl(Supabase.instance.client);
 });

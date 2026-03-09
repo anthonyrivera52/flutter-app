@@ -67,7 +67,11 @@ class ProductCard extends ConsumerWidget { // Changed to ConsumerWidget
                         child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryColor)),
                       ),
                       errorWidget: (context, url, error) =>
-                          Image.asset('assets/images/placeholder.png', fit: BoxFit.cover, width: double.infinity),
+                          Container(
+                            color: AppColors.greyLight,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.image_not_supported_outlined),
+                          ),
                     ),
                   ),
                   if (hasDiscount)

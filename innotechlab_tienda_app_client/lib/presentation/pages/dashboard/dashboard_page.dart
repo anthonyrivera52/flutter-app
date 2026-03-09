@@ -32,8 +32,8 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
     _selectedIndex = widget.initialTabIndex ?? 0; // Set initial index
        //// use "MotionTabBarController" to replace with "TabController", if you need to programmatically change the tab
     _motionTabBarController = MotionTabBarController(
-      initialIndex: 1,
-      length: 4,
+      initialIndex: _selectedIndex,
+      length: 3,
       vsync: this,
     );
   }

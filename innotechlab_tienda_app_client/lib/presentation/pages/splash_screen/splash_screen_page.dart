@@ -18,8 +18,9 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
     }
     
     Future<void> _navigateToNextScreen() async {
-      await Future.delayed(const Duration(seconds: 10)); // Simulate a splash screen delay
-      context.go('/onboarding'); // Navigate to the onboarding page
+      await Future.delayed(const Duration(milliseconds: 1200));
+      if (!mounted) return;
+      context.go('/onboarding');
     }
 
     @override
@@ -93,4 +94,3 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
     );
   }
 }
-

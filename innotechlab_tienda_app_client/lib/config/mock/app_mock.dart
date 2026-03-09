@@ -1,8 +1,9 @@
-import 'package:flutter_app/domain/entities/cartItem.dart';
+import 'package:flutter_app/domain/entities/cart_item.dart';
 import 'package:flutter_app/domain/entities/category.dart';
 import 'package:flutter_app/domain/entities/orden.dart';
 import 'package:flutter_app/domain/entities/orden_item.dart';
 import 'package:flutter_app/domain/entities/product.dart';
+import 'package:flutter_app/domain/entities/shop.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart'; // Para generar IDs únicos
 
@@ -13,7 +14,8 @@ const Uuid uuid = Uuid();
 class MockData {
   // IDs especiales para categorías
   static final String allProductsCategoryId = 'all_products_category_id';
-  static final String discountedProductsCategoryId = 'discounted_products_category_id';
+  static final String discountedProductsCategoryId =
+      'discounted_products_category_id';
 
   // IDs para categorías principales
   static final String vegetablesId = 'vegetables_category_id';
@@ -28,7 +30,8 @@ class MockData {
   static final String leafyGreensId = 'leafy_greens_subcategory_id';
   static final String rootVegetablesId = 'root_vegetables_subcategory_id';
   static final String peppersId = 'peppers_subcategory_id';
-  static final String broccoliCauliflowerId = 'broccoli_cauliflower_subcategory_id';
+  static final String broccoliCauliflowerId =
+      'broccoli_cauliflower_subcategory_id';
   static final String applesId = 'apples_subcategory_id';
   static final String bananasId = 'bananas_subcategory_id';
   static final String berriesId = 'berries_subcategory_id';
@@ -48,7 +51,11 @@ class MockData {
 
   static List<Category> _initMockCategories() {
     return [
-      Category(id: allProductsCategoryId, name: 'All Products', imageUrl: 'https://placehold.co/100x100/CCCCCC/000000?text=All'),
+      Category(
+        id: allProductsCategoryId,
+        name: 'All Products',
+        imageUrl: 'https://placehold.co/100x100/CCCCCC/000000?text=All',
+      ),
       Category(
         id: vegetablesId,
         name: 'Vegetables',
@@ -217,6 +224,7 @@ class MockData {
         }
       }
     }
+
     extractCategoryIds(categoriesWithSubcategories, null);
     // print('Category Map: $categoryMap'); // Debug: You can keep this if needed for development
 
@@ -417,13 +425,14 @@ class MockData {
   static final List<Orden> mockOrders = _initMockOrders();
 
   static List<Orden> _initMockOrders() {
-    final cartItems = mockCartItems; // Use the already initialized mockCartItems
+    // final cartItems = mockCartItems; // Use the already initialized mockCartItems
     final products = mockProducts; // Use the already initialized mockProducts
     if (products.length < 7) return [];
     return [
       Orden(
         id: uuid.v4(),
         userId: 'mock_user_id',
+        orderCode: 'ORD-${uuid.v4().substring(0, 8).toUpperCase()}',
         totalAmount: 25.00,
         status: 'pending',
         shippingAddress: '123 Mock St, Mock City, MC 12345',
@@ -462,11 +471,12 @@ class MockData {
             quantity: 3,
             priceAtPurchase: products[3].price,
           ),
-        ]
+        ],
       ),
       Orden(
         id: uuid.v4(),
         userId: 'mock_user_id',
+        orderCode: 'ORD-${uuid.v4().substring(0, 8).toUpperCase()}',
         totalAmount: 15.00,
         status: 'completed',
         shippingAddress: '456 Mock Ave, Mock City, MC 67890',
@@ -484,11 +494,12 @@ class MockData {
             quantity: 2,
             priceAtPurchase: products[0].price,
           ),
-        ]
+        ],
       ),
       Orden(
         id: uuid.v4(),
         userId: 'mock_user_id',
+        orderCode: 'ORD-${uuid.v4().substring(0, 8).toUpperCase()}',
         totalAmount: 30.00,
         status: 'cancelled',
         shippingAddress: '789 Mock Blvd, Mock City, MC 10112',
@@ -520,9 +531,72 @@ class MockData {
             quantity: 1,
             priceAtPurchase: products[3].price,
           ),
-        ]
+        ],
       ),
     ];
+  }
+
+  static final List<Shop> shops = _initShops();
+
+  static List<Shop> _initShops() {
+    if (mockProducts.isEmpty) return const [];
+    final shopAProducts = mockProducts
+        .take((mockProducts.length / 2).ceil())
+        .map((e) => e.id)
+        .toList();
+    final shopBProducts = mockProducts
+        .skip((mockProducts.length / 2).ceil())
+        .map((e) => e.id)
+        .toList();
+
+    return [
+      Shop(
+        id: 'shop_el_rey_chapinero',
+        name: 'El Rey Chapinero',
+        logoUrl: 'https://placehold.co/240x160/F2F7FF/1F2937?text=El+Rey',
+        address: 'Calle 63 #13-24, Chapinero, Bogota',
+        schedule: 'Lun-Dom 8:00 AM - 9:00 PM',
+        latitude: 4.6482,
+        longitude: -74.0628,
+        serviceRadiusKm: 5.0,
+        productIds: shopAProducts,
+      ),
+      Shop(
+        id: 'shop_mercado_norte',
+        name: 'Mercado Norte',
+        logoUrl:
+            'https://placehold.co/240x160/ECFDF3/064E3B?text=Mercado+Norte',
+        address: 'Calle 140 #11-20, Usaquen, Bogota',
+        schedule: 'Lun-Sab 7:00 AM - 8:00 PM',
+        latitude: 4.7198,
+        longitude: -74.0339,
+        serviceRadiusKm: 6.5,
+        productIds: shopBProducts,
+      ),
+      Shop(
+        id: 'shop_centro_express',
+        name: 'Centro Express',
+        logoUrl:
+            'https://placehold.co/240x160/FFF7ED/9A3412?text=Centro+Express',
+        address: 'Carrera 7 #19-50, Centro, Bogota',
+        schedule: 'Lun-Dom 9:00 AM - 10:00 PM',
+        latitude: 4.6073,
+        longitude: -74.0721,
+        serviceRadiusKm: 4.0,
+        productIds: mockProducts.map((e) => e.id).toList(),
+      ),
+    ];
+  }
+
+  static List<Product> productsForShop(String shopId) {
+    final shop = shops.firstWhere(
+      (element) => element.id == shopId,
+      orElse: () => shops.first,
+    );
+    final allowedIds = shop.productIds.toSet();
+    return mockProducts
+        .where((product) => allowedIds.contains(product.id))
+        .toList();
   }
 
   // Mock User for display purposes
@@ -531,8 +605,9 @@ class MockData {
     email: 'admin.mock@example.com',
     appMetadata: const {},
     userMetadata: const {
-        'display_name': 'Sarah', // Nombre mockeado
-        'avatar_url': 'https://placehold.co/100x100/CCCCCC/000000?text=S', // Imagen de placeholder
+      'display_name': 'Sarah', // Nombre mockeado
+      'avatar_url':
+          'https://placehold.co/100x100/CCCCCC/000000?text=S', // Imagen de placeholder
     },
     aud: 'authenticated',
     createdAt: DateTime.now().toIso8601String(),

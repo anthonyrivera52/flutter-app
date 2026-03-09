@@ -3,12 +3,12 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/data/datasources/orden_remote_datasource.dart';
-import 'package:flutter_app/domain/entities/cartItem.dart';
+import 'package:flutter_app/domain/entities/cart_item.dart';
 import 'package:flutter_app/domain/entities/orden.dart';
 import 'package:flutter_app/domain/repositories/orden_repository.dart';
 
 class OrdenRepositoryImpl implements OrdenRepository {
-  final OrderRemoteDataSource remoteDataSource;
+  final CheckoutOrderRemoteDataSource remoteDataSource;
 
   OrdenRepositoryImpl({required this.remoteDataSource});
 

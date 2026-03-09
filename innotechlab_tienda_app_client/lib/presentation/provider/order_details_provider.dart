@@ -44,7 +44,7 @@ class OrderDetailsNotifier extends StateNotifier<OrderDetailsState> {
         state = state.copyWith(isLoading: false, errorMessage: failure.message);
       },
       (order) {
-        state = state.copyWith(isLoading: false, order: order as Orden);
+        state = state.copyWith(isLoading: false, order: order);
       },
     );
   }

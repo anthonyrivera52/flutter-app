@@ -1,6 +1,6 @@
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/core/usecases/usecase.dart'; // Ensure UseCase and NoParams are defined here
-import 'package:flutter_app/domain/entities/cartItem.dart';
+import 'package:flutter_app/domain/entities/cart_item.dart';
 import 'package:flutter_app/domain/entities/product.dart'; // Corrected from .h to .dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // import 'package:flutter_app/service_locator.dart'; // Comment out or remove this if you only want mocks

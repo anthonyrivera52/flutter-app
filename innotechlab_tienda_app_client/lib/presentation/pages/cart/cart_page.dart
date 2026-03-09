@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/core/utils/app_colors.dart'; // Ensure this path is correct
-import 'package:flutter_app/domain/entities/cartItem.dart'; // Ensure this path is correct
+import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
-import 'package:flutter_app/presentation/provider/cart_provider.dart'; // Ensure this path is correct
-import 'package:flutter_app/presentation/widget/cart_item_card.dart'; // Ensure this path is correct
-import 'package:flutter_app/presentation/widget/common/loading_indicator.dart'; // Ensure this path is correct
+import 'package:flutter_app/presentation/provider/checkout_provider.dart';
+import 'package:flutter_app/presentation/provider/cart_provider.dart';
+import 'package:flutter_app/presentation/widget/cart_item_card.dart';
+import 'package:flutter_app/presentation/widget/common/custom_button.dart';
+import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:slide_action/slide_action.dart';
 
 class CartModalContent extends ConsumerWidget {
   const CartModalContent({super.key});
@@ -15,50 +15,10 @@ class CartModalContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cartState = ref.watch(cartProvider);
     final cartNotifier = ref.read(cartProvider.notifier);
+    final checkoutNotifier = ref.read(checkoutProvider.notifier);
 
-    final double shippingAmount = 200.00; // Puedes hacer esto dinámico si es necesario
-    final double minimumAmountForFreeShipping = 210.00; // Monto mínimo para envío gratis
-    double subtotalAmount = cartState.cartItems.fold(0.0, (sum, item) => sum + item.totalPrice);
-    final double grandTotal = subtotalAmount + shippingAmount; // El valor total a pagar
-
-    // Define si el slide action debe estar habilitado o no
-    final bool isSlideActionEnabled = grandTotal >= minimumAmountForFreeShipping;
-
-    // Define el onPressed para el SlideAction, será null si está deshabilitado
-    VoidCallback? slideActionOnSlide() {
-      if (isSlideActionEnabled) {
-        return () {
-          // Lógica a ejecutar cuando se desliza el SlideAction (por ejemplo, ir a la pantalla de pago)
-          // Navigator.of(context).pop(); // Cierra el modal
-          // ScaffoldMessenger.of(context).showSnackBar(
-          //   SnackBar(content: Text('Pago iniciado por deslizamiento. Total: \$${grandTotal.toStringAsFixed(2)}')),
-          // );
-          
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true, // Allows the modal to be taller than half the screen
-            builder: (BuildContext context) {
-              return DraggableScrollableSheet(
-                initialChildSize: 0.75, // Initial height of the modal (75% of screen height)
-                minChildSize: 0.5, // Minimum height
-                maxChildSize: 0.95, // Maximum height
-                expand: false, // Do not expand to full screen by default
-                builder: (BuildContext context, ScrollController scrollController) {
-                  return CheckoutPageModal(); // Your cart content
-                },
-              );
-            },
-          );
-          // Navigator.push(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (context) => CheckoutPageModal()
-          //   )
-          // );
-        };
-      }
-      return null; // Si es null, el SlideAction estará deshabilitado
-    }
+    final subtotal = checkoutNotifier.subtotal(cartState.cartItems);
+    final total = checkoutNotifier.total(cartState.cartItems);
 
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -72,48 +32,57 @@ class CartModalContent extends ConsumerWidget {
           Container(
             height: 4,
             width: 40,
+            margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               color: AppColors.greyLight,
               borderRadius: BorderRadius.circular(2),
             ),
-            margin: const EdgeInsets.only(bottom: 16.0),
           ),
           Text(
-            'Mi Carrito',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            'Mi carrito',
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           if (cartState.isLoading)
             const Expanded(child: Center(child: LoadingIndicator()))
           else if (cartState.errorMessage != null)
-            Expanded(child: Center(child: Text('Error: ${cartState.errorMessage}')))
+            Expanded(
+              child: Center(child: Text('Error: ${cartState.errorMessage}')),
+            )
           else if (cartState.cartItems.isEmpty)
             const Expanded(
               child: Center(
                 child: Text(
                   'Tu carrito está vacío.',
-                  style: TextStyle(fontSize: 18, color: AppColors.textLightColor),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.textLightColor,
+                  ),
                 ),
               ),
             )
           else
             Expanded(
               child: ListView.builder(
-                shrinkWrap: true,
                 itemCount: cartState.cartItems.length,
                 itemBuilder: (context, index) {
                   final item = cartState.cartItems[index];
                   return CartItemCard(
                     item: item,
-                    onRemove: () {
-                      cartNotifier.removeItemFromCart(item.productId);
-                    },
-                    onAddQuantity: () {
-                      cartNotifier.updateItemQuantity(item.productId, item.quantity + 1);
-                    },
+                    onRemove: () =>
+                        cartNotifier.removeItemFromCart(item.productId),
+                    onAddQuantity: () => cartNotifier.updateItemQuantity(
+                      item.productId,
+                      item.quantity + 1,
+                    ),
                     onDecreaseQuantity: () {
                       if (item.quantity > 1) {
-                        cartNotifier.updateItemQuantity(item.productId, item.quantity - 1);
+                        cartNotifier.updateItemQuantity(
+                          item.productId,
+                          item.quantity - 1,
+                        );
                       } else {
                         cartNotifier.removeItemFromCart(item.productId);
                       }
@@ -124,119 +93,52 @@ class CartModalContent extends ConsumerWidget {
             ),
           if (cartState.cartItems.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 16.0),
+              padding: const EdgeInsets.only(top: 14),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Envío:',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textColor,
-                            ),
-                      ),
-                      Text(
-                        '\$${shippingAmount.toStringAsFixed(2)}',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                              color: AppColors.primaryColor,
-                            ),
-                      ),
-                    ],
+                  _SummaryRow(
+                    label: 'Subtotal',
+                    value: '\$${subtotal.toStringAsFixed(2)}',
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Total:',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textColor,
-                            ),
-                      ),
-                      Text(
-                        '\$${grandTotal.toStringAsFixed(2)}', // Usa el grandTotal calculado
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryColor,
-                            ),
-                      ),
-                    ],
+                  _SummaryRow(
+                    label: 'Envío',
+                    value: '\$${checkoutDeliveryFee.toStringAsFixed(2)}',
                   ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: SlideAction(
-                      trackBuilder: (context, state) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            color: isSlideActionEnabled ? AppColors.backgroundColor : AppColors.greyLight, // Color del fondo del track
-                            boxShadow: isSlideActionEnabled
-                                ? const [BoxShadow(color: Colors.black26, blurRadius: 8)]
-                                : null, // Sin sombra si está deshabilitado
-                          ),
-                          child: Center(
-                            child: Text(
-                              isSlideActionEnabled ? "Desliza para pagar" : "Pago mínimo \$${minimumAmountForFreeShipping.toStringAsFixed(2)}",
-                              style: TextStyle(
-                                color: isSlideActionEnabled ? AppColors.primaryColor : AppColors.greyDark,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      thumbBuilder: (context, state) {
-                        return Container(
-                          margin: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: isSlideActionEnabled ? AppColors.primaryColor : AppColors.greyDark, // Color del pulgar
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.chevron_right,
-                              color: isSlideActionEnabled ? AppColors.backgroundColor : AppColors.textLightColor, // Color del icono
-                            ),
-                          ),
-                        );
-                      },
-                      action: slideActionOnSlide(), // Aquí se pasa la acción o null
-                    ),
+                  const Divider(height: 18),
+                  _SummaryRow(
+                    label: 'Total',
+                    value: '\$${total.toStringAsFixed(2)}',
+                    isBold: true,
                   ),
-                  const SizedBox(height: 16), // Espacio entre el SlideAction y el CustomButton
-                  // CustomButton(
-                  //   // El CustomButton se puede mantener o eliminar si solo quieres el SlideAction
-                  //   backgroundColor: isSlideActionEnabled ? AppColors.primaryColor : AppColors.greyLight,
-                  //   foregroundColor: isSlideActionEnabled ? AppColors.backgroundColor : AppColors.textLightColor,
-                  //   isLoading: cartState.isLoading,
-                  //   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  //   fontSize: 16,
-                  //   fontWeight: FontWeight.bold,
-                  //   borderRadius: 10.0,
-                  //   text: 'Proceder al Pago',
-                  //   onPressed: () => isSlideActionEnabled
-                  //       ? () {
-                  //           Navigator.of(context).pop(); // Cierra el modal
-                  //           ScaffoldMessenger.of(context).showSnackBar(
-                  //             SnackBar(content: Text('Pago iniciado por botón. Total: \$${grandTotal.toStringAsFixed(2)}')),
-                  //           );
-                  //           // context.go('/checkout'); // Ejemplo con GoRouter
-                  //         }
-                  //       : null, // Si es null, el botón estará deshabilitado
-                  // ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  CustomButton(
+                    text: 'Ir al checkout',
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (BuildContext context) {
+                          return DraggableScrollableSheet(
+                            initialChildSize: 0.9,
+                            minChildSize: 0.75,
+                            maxChildSize: 0.95,
+                            expand: false,
+                            builder: (_, __) => const CheckoutPageModal(),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 6),
                   TextButton(
                     onPressed: () {
                       showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Vaciar Carrito'),
-                          content: const Text('¿Estás seguro de que quieres vaciar tu carrito?'),
+                          title: const Text('Vaciar carrito'),
+                          content: const Text(
+                            '¿Seguro que quieres vaciar el carrito?',
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.of(ctx).pop(),
@@ -247,14 +149,17 @@ class CartModalContent extends ConsumerWidget {
                                 cartNotifier.clearCart();
                                 Navigator.of(ctx).pop();
                               },
-                              child: const Text('Vaciar', style: TextStyle(color: Colors.red)),
+                              child: const Text(
+                                'Vaciar',
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ),
                           ],
                         ),
                       );
                     },
                     child: const Text(
-                      'Vaciar Carrito',
+                      'Vaciar carrito',
                       style: TextStyle(color: AppColors.greyDark),
                     ),
                   ),
@@ -267,7 +172,38 @@ class CartModalContent extends ConsumerWidget {
   }
 }
 
-// Extensión para calcular el precio total de un CartItem (keep this in the same file as CartItem definition or separate utility)
-extension CartItemTotalPrice on CartItem {
-  double get totalPrice => price * quantity;
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.isBold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

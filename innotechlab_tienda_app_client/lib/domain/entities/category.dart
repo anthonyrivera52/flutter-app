@@ -6,14 +6,14 @@ const Uuid _uuid = Uuid(); // Para generar IDs si es necesario dentro de la enti
 class Category {
   final String id;
   final String name;
-  final String imageUrl;
+  final String? imageUrl;
   final List<Category>? subcategories; // Campo para las subcategorías
   final String? parentId; // Opcional: si también quieres mantener una referencia al padre
 
   Category({
     String? id, // Permitir que el ID sea opcional si se genera aquí
     required this.name,
-    required this.imageUrl,
+    this.imageUrl,
     this.subcategories,
     this.parentId,
   }) : id = id ?? _uuid.v4(); // Genera un ID si no se proporciona
@@ -26,11 +26,12 @@ class Category {
     List<Category>? subcategories,
     String? parentId,
     bool clearSubcategories = false, // Para explícitamente poner subcategories a null
+    bool clearImageUrl = false, // Para explícitamente poner imageUrl a null
   }) {
     return Category(
       id: id ?? this.id,
       name: name ?? this.name,
-      imageUrl: imageUrl ?? this.imageUrl,
+      imageUrl: clearImageUrl ? null : (imageUrl ?? this.imageUrl),
       subcategories: clearSubcategories ? null : (subcategories ?? this.subcategories),
       parentId: parentId ?? this.parentId,
     );

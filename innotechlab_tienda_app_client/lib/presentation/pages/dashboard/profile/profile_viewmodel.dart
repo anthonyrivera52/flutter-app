@@ -1,12 +1,13 @@
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/data/model/profile_model.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';// Para NoParams
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Para NoParams
 
 /// Proveedor para AuthNotifierProfile.
 /// Inyecta las dependencias necesarias (casos de uso).
-final authProfileProvider = StateNotifierProvider<AuthNotifierProfile, AuthStateProfileModel>(
-  (ref) => AuthNotifierProfile(),
-);
+final authProfileProvider =
+    StateNotifierProvider<AuthNotifierProfile, AuthStateProfileModel>(
+      (ref) => AuthNotifierProfile(),
+    );
 
 /// ViewModel para la gestión del perfil de usuario y el cierre de sesión.
 class AuthNotifierProfile extends StateNotifier<AuthStateProfileModel> {
@@ -26,15 +27,12 @@ class AuthNotifierProfile extends StateNotifier<AuthStateProfileModel> {
     //     state = state.copyWith(isLoading: false, user: updatedUser);
     //   },
     // );
-    return Future.delayed(
-      const Duration(seconds: 2),
-      () {
-        state = state.copyWith(
-          isLoading: false,
-          user: null, // Simulación de actualización
-        );
-      },
-    );
+    return Future.delayed(const Duration(seconds: 2), () {
+      state = state.copyWith(
+        isLoading: false,
+        user: null, // Simulación de actualización
+      );
+    });
   }
 
   /// Sube una imagen de perfil.
@@ -51,16 +49,13 @@ class AuthNotifierProfile extends StateNotifier<AuthStateProfileModel> {
     //     return imageUrl;
     //   },
     // );
-    return Future.delayed(
-      const Duration(seconds: 2),
-      () {
-        state = state.copyWith(
-          isLoading: false,
-          user: null, // Simulación de subida de imagen
-        );
-        return 'https://example.com/new-avatar.png'; // URL simulada
-      },
-    );
+    return Future.delayed(const Duration(seconds: 2), () {
+      state = state.copyWith(
+        isLoading: false,
+        user: null, // Simulación de subida de imagen
+      );
+      return 'https://example.com/new-avatar.png'; // URL simulada
+    });
   }
 
   /// Realiza el cierre de sesión del usuario.
@@ -86,17 +81,14 @@ class AuthNotifierProfile extends StateNotifier<AuthStateProfileModel> {
     //     );
     //   },
     // );
-    return Future.delayed(
-      const Duration(seconds: 2),
-      () {
-        state = state.copyWith(
-          isLoading: false,
-          user: null, // Simulación de cierre de sesión
-          errorMessage: null,
-          isAuthenticated: false, // Establece como no autenticado
-        );
-      },
-    );
+    return Future.delayed(const Duration(seconds: 2), () {
+      state = state.copyWith(
+        isLoading: false,
+        user: null, // Simulación de cierre de sesión
+        errorMessage: null,
+        isAuthenticated: false, // Establece como no autenticado
+      );
+    });
   }
 
   /// Limpia el mensaje de error actual.
@@ -105,12 +97,14 @@ class AuthNotifierProfile extends StateNotifier<AuthStateProfileModel> {
   }
 
   /// Mapea un objeto Failure a un mensaje de error legible.
+  // ignore: unused_element
   String _mapFailureToMessage(Failure failure) {
     if (failure is ServerFailure) {
       return failure.message;
     } else if (failure is AuthFailure) {
       return failure.message;
-    } else if (failure is NetworkFailure) { // Añadido NetworkFailure si lo tienes
+    } else if (failure is NetworkFailure) {
+      // Añadido NetworkFailure si lo tienes
       return 'Problemas de conexión a internet. Por favor, revisa tu conexión.';
     } else {
       return 'Ocurrió un error inesperado.';

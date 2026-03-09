@@ -2,7 +2,7 @@
 // order_confirmation_provider.dart (ViewModel)
 import 'package:flutter_app/core/usecases/usecase.dart';
 import 'package:flutter_app/domain/entities/orden.dart';
-import 'package:flutter_app/domain/usecase/order_confirmation/get_user_orders_usecase.dart';
+import 'package:flutter_app/domain/usecase/order/get_user_orders_usecase.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class OrderConfirmationState {

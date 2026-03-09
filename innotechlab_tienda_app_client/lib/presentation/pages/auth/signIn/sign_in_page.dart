@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/pages/auth/signIn/sing_in_viewmodel.dart';
+import 'package:flutter_app/presentation/pages/auth/signUp/sign_up_viewmodel.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
 import 'package:flutter_app/presentation/widget/common/info_toast.dart';
@@ -27,7 +27,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     super.initState();
 
     // Get the notifier instance for authViewModelProvider
-    final authVM = ref.read(authViewModel.notifier);
+    final authVM = ref.read(authViewModelProvider.notifier);
 
     // Listen to changes in the authentication state
     _removeAuthListener = authVM.addListener((state) {
@@ -37,16 +37,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       // and then true only on success.
       if (state.isAuthenticated) {
         if (mounted) {
-          showInfoToast( // Usando InfoToast para el mensaje de éxito
+          showInfoToast(
             context,
-            message: '¡Registro exitoso!',
+            message: '¡Bienvenido!',
             backgroundColor: Colors.green,
             icon: Icons.check_circle_outline,
-            isDismissible: true
+            isDismissible: true,
           );
-          // Redirect to the OTP verification page or main page
-          // Ensure '/otp-verification' is defined in your GoRouter
-          context.go('/otp-verification', extra: state.loggedInEmail);
+          context.go('/');
         }
       }
     });
@@ -61,13 +59,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       if (state.errorMessage != null) {
         if (mounted) {
           // Show the error message using InfoToast
-          showInfoToast( // Usando InfoToast para el mensaje de éxito
-              context,
-              message: state.errorMessage!,
-              backgroundColor: Colors.red,
-              icon: Icons.error_outline,
-              isDismissible: true
-            );
+          showInfoToast(
+            // Usando InfoToast para el mensaje de éxito
+            context,
+            message: state.errorMessage!,
+            backgroundColor: Colors.red,
+            icon: Icons.error_outline,
+            isDismissible: true,
+          );
           // Clear the error message in the ViewModel after displaying it
           authVM.clearErrorMessage();
         }
@@ -88,22 +87,19 @@ class _SignInPageState extends ConsumerState<SignInPage> {
   void _onSignInButtonPressed() {
     if (_formKey.currentState?.validate() ?? false) {
       // Call the login method of the ViewModel
-      ref.read(authViewModel.notifier).login();
+      ref.read(authViewModelProvider.notifier).login();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     // Observe the ViewModel's state to rebuild the UI when it changes.
-    final authState = ref.watch(authViewModel);
+    final authState = ref.watch(authViewModelProvider);
     // Access the ViewModel's notifier to call its methods.
-    final authVM = ref.read(authViewModel.notifier);
+    final authVM = ref.read(authViewModelProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Iniciar Sesión'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Iniciar Sesión'), centerTitle: true),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -115,13 +111,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                 Text(
                   'Bienvenido de nuevo',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.textColor,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    color: AppColors.textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 30),
                 CustomTextField(
-                  controller: authVM.emailController, // Use the ViewModel's controller
+                  controller:
+                      authVM.emailController, // Use the ViewModel's controller
                   labelText: 'Correo Electrónico',
                   hintText: 'ejemplo@dominio.com',
                   prefixIcon: Icons.email,
@@ -139,19 +136,24 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
-                  controller: authVM.passwordController, // Use the ViewModel's controller
+                  controller: authVM
+                      .passwordController, // Use the ViewModel's controller
                   labelText: 'Contraseña',
                   hintText: 'Tu contraseña secreta',
                   prefixIcon: Icons.lock,
-                  obscureText: authState.isPasswordObscured, // Observe the ViewModel's state
+                  obscureText: authState
+                      .isPasswordObscured, // Observe the ViewModel's state
                   textInputAction: TextInputAction.done,
                   suffixIcon: IconButton(
                     icon: Icon(
-                      authState.isPasswordObscured ? Icons.visibility_off : Icons.visibility,
+                      authState.isPasswordObscured
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: AppColors.greyMedium,
                     ),
                     onPressed: () {
-                      authVM.togglePasswordVisibility(); // Call the ViewModel's method
+                      authVM
+                          .togglePasswordVisibility(); // Call the ViewModel's method
                     },
                   ),
                   validator: (value) {
@@ -162,11 +164,13 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   },
                 ),
                 const SizedBox(height: 30),
-                authState.isLoading // Use the ViewModel's loading state
+                authState
+                        .isLoading // Use the ViewModel's loading state
                     ? const LoadingIndicator()
                     : CustomButton(
                         text: 'Iniciar Sesión',
-                        onPressed: _onSignInButtonPressed, // Call the method that interacts with the ViewModel
+                        onPressed:
+                            _onSignInButtonPressed, // Call the method that interacts with the ViewModel
                       ),
                 const SizedBox(height: 20),
                 TextButton(
@@ -175,7 +179,9 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   },
                   child: Text(
                     '¿No tienes una cuenta? Regístrate',
-                    style: TextStyle(color: Theme.of(context).colorScheme.secondary),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
                   ),
                 ),
               ],

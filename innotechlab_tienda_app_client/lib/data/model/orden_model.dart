@@ -6,6 +6,7 @@ class OrdenModel extends Orden {
   const OrdenModel({
     required super.id,
     required super.userId,
+    required super.orderCode,
     required super.totalAmount,
     required super.status,
     required super.shippingAddress,
@@ -29,6 +30,7 @@ class OrdenModel extends Orden {
     return OrdenModel(
       id: json['id'] as String,
       userId: json['user_id'] as String,
+      orderCode: json['order_code'] as String? ?? '', // ✅ Soporte para código de orden
       totalAmount: (json['total_amount'] as num).toDouble(),
       status: json['status'] as String,
       shippingAddress: json['shipping_address'] as String,
@@ -46,6 +48,7 @@ class OrdenModel extends Orden {
     return {
       'id': id,
       'user_id': userId,
+      'order_code': orderCode,
       'total_amount': totalAmount,
       'status': status,
       'shipping_address': shippingAddress,
@@ -63,6 +66,7 @@ class OrdenModel extends Orden {
     return Orden(
       id: id.toString(),
       userId: userId,
+      orderCode: orderCode,
       totalAmount: totalAmount,
       status: status,
       shippingAddress: shippingAddress,

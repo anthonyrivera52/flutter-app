@@ -3,10 +3,8 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/core/usecases/usecase.dart';
-import 'package:flutter_app/data/repositories/orden_repository_impl.dart';
-import 'package:flutter_app/domain/entities/cartItem.dart';
+import 'package:flutter_app/domain/entities/cart_item.dart';
 import 'package:flutter_app/domain/repositories/orden_repository.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PlaceOrderUseCase implements UseCase<void, PlaceOrderParams> {
   final OrdenRepository repository;

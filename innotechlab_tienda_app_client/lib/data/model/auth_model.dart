@@ -1,22 +1,14 @@
-
 import 'package:flutter_app/domain/entities/auth.dart';
 
 class AuthStateModel extends AuthState {
-  @override
-  final bool isLoading;
-  @override
-  final String? errorMessage;
-  @override
-  final bool isPasswordObscured;
-  @override
-  final bool isAuthenticated; // Para indicar si la autenticación fue exitosa
-  final String? loggedInEmail; // Para almacenar el correo electrónico del usuario autenticado
+  final String?
+  loggedInEmail; // Para almacenar el correo electrónico del usuario autenticado
 
   AuthStateModel({
-    this.isLoading = false,
-    this.errorMessage,
-    this.isPasswordObscured = true,
-    this.isAuthenticated = false,
+    super.isLoading = false,
+    super.errorMessage,
+    super.isPasswordObscured = true,
+    super.isAuthenticated = false,
     this.loggedInEmail = "",
   });
 

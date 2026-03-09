@@ -43,3 +43,23 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+#agent
+.agents/
+.claude/
+
+# enviroment
+.env.*
+
+.mcp.*
+.mcp
+
+pubspec.lock
+
+.vscode/
+skills-lock.json
+
+*.md
+
+supabase/

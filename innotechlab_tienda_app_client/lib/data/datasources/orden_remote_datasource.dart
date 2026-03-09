@@ -2,11 +2,11 @@
 // order_remote_datasource.dart (Data Remote Data Source)
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/data/model/orden_model.dart';
-import 'package:flutter_app/domain/entities/cartItem.dart';
+import 'package:flutter_app/domain/entities/cart_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-abstract class OrderRemoteDataSource {
+abstract class CheckoutOrderRemoteDataSource {
   Future<void> createOrder({
     required List<CartItem> cartItems,
     required double totalAmount,
@@ -20,14 +20,14 @@ abstract class OrderRemoteDataSource {
   Future<OrdenModel> getOrderDetails(String orderId);
 }
 
-class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
+class CheckoutOrderRemoteDataSourceImpl implements CheckoutOrderRemoteDataSource {
   final SupabaseClient supabaseClient;
 
   // Placeholder for store location (replace with actual data or fetch from Supabase)
   static const double _storeLatitude = 6.1363; // Example: Medellín, Colombia
   static const double _storeLongitude = -75.5786; // Example: Medellín, Colombia
 
-  OrderRemoteDataSourceImpl({required this.supabaseClient});
+  CheckoutOrderRemoteDataSourceImpl({required this.supabaseClient});
 
   @override
   Future<void> createOrder({
@@ -57,9 +57,6 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       };
 
       final response = await supabaseClient.from('orders').insert(orderData).select().single();
-      if (response == null) {
-        throw ServerFailure('Failed to create order.');
-      }
 
       final orderId = response['id'] as String;
 
@@ -92,10 +89,6 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           .eq('user_id', userId)
           .order('created_at', ascending: false);
 
-      if (response == null) {
-        throw ServerFailure('No orders found or network error.');
-      }
-
       return (response as List).map((json) => OrdenModel.fromJson(json)).toList();
     } catch (e) {
       throw ServerFailure('Failed to fetch user orders: $e');
@@ -110,10 +103,6 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           .select('*, order_items(*, products(*))')
           .eq('id', orderId)
           .single();
-
-      if (response == null) {
-        throw ServerFailure('Orden not found with ID: $orderId');
-      }
       return OrdenModel.fromJson(response);
     } catch (e) {
       throw ServerFailure('Failed to fetch order details: $e');
@@ -121,6 +110,6 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   }
 }
 
-final orderRemoteDataSourceProvider = Provider<OrderRemoteDataSource>((ref) {
-  return OrderRemoteDataSourceImpl(supabaseClient: Supabase.instance.client);
+final checkoutOrderRemoteDataSourceProvider = Provider<CheckoutOrderRemoteDataSource>((ref) {
+  return CheckoutOrderRemoteDataSourceImpl(supabaseClient: Supabase.instance.client);
 });
