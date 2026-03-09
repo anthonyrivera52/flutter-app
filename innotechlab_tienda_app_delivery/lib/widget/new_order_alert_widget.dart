@@ -5,14 +5,16 @@ import 'package:flutter/material.dart';
 
 class NewOrderAlertWidget extends StatefulWidget {
   final Order order;
+  final double? distanceToRestaurant; // Distancia del repartidor al restaurante
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
   const NewOrderAlertWidget({
     super.key,
     required this.order,
+    this.distanceToRestaurant,
     required this.onAccept,
-    required this.onDecline, 
+    required this.onDecline,
     required Null Function() onReject,
   });
 
@@ -131,10 +133,17 @@ class _NewOrderAlertWidgetState extends State<NewOrderAlertWidget> {
               style: TextStyle(fontSize: 16, color: Colors.blue[700]),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Distancia: ${widget.order.distanceKm.toStringAsFixed(1)} km',
-              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-            ),
+            // Mostrar distancia al restaurante si está disponible (geofencing)
+            if (widget.distanceToRestaurant != null)
+              Text(
+                'Distancia al restaurante: ${widget.distanceToRestaurant!.toStringAsFixed(1)} km',
+                style: TextStyle(fontSize: 16, color: Colors.purple[700], fontWeight: FontWeight.w500),
+              )
+            else
+              Text(
+                'Distancia: ${widget.order.distanceKm.toStringAsFixed(1)} km',
+                style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+              ),
             const SizedBox(height: 20),
             Row(
               children: [

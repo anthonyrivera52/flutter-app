@@ -1,53 +1,95 @@
 // lib/viewmodel/new_order_viewmodel.dart
 
 import 'dart:async';
+import 'dart:math';
 
+import 'package:delivery_app_mvvm/core/utils/constants.dart';
 import 'package:delivery_app_mvvm/model/order.dart';
+import 'package:delivery_app_mvvm/service/location_service.dart';
 import 'package:delivery_app_mvvm/service/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NewOrderViewModel extends ChangeNotifier {
   final SupabaseClient _supabaseClient;
-  StreamSubscription? _orderSubscription; // Manages the Realtime stream connection
+  StreamSubscription? _orderSubscription;
   final NotificationService notificationService;
+  final LocationService? _locationService;
+  StreamSubscription? _locationSubscription;
+
+  // Radio máximo para recibir pedidos (en km) - configurable
+  double maxRadiusKm;
 
   Order? _currentNewOrder;
   Order? get currentNewOrder => _currentNewOrder;
 
-  bool _isLoading = false; // Indicates if data is being loaded or stream is initializing
+  bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  String? _errorMessage; // Stores any error messages
+  String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  // Constructor: This is where the stream should ideally start listening.
-  NewOrderViewModel(this._supabaseClient, this.notificationService) {
-    _listenForNewOrders(); // Start listening as soon as the ViewModel is created.
+  // Distancia al restaurante del pedido actual
+  double? _distanceToRestaurant;
+  double? get distanceToRestaurant => _distanceToRestaurant;
+
+  // Ubicación actual del repartidor (se actualiza desde HomeViewModel)
+  double? _currentLat;
+  double? _currentLon;
+
+  // Constructor
+  NewOrderViewModel(
+    this._supabaseClient,
+    this.notificationService, {
+    this.maxRadiusKm = 5.0, // Default: 5km - se sobrescribe con AppConstants.maxRadius
+    LocationService? locationService,
+  })  : _locationService = locationService {
+    // Usar el radio configurado según el entorno
+    maxRadiusKm = AppConstants.maxRadius;
+
+    _listenForNewOrders();
+
+    // Escuchar cambios de ubicación si se proporciona el servicio
+    if (_locationService != null) {
+      _locationSubscription = _locationService!.getLocationStream().listen(
+        (location) {
+          updateCurrentLocation(location.latitude, location.longitude);
+        },
+        onError: (error) {
+          debugPrint('Location stream error in NewOrderViewModel: $error');
+        },
+      );
+    }
   }
 
-  // This method is for initiating or re-initiating the stream,
-  // typically called once at ViewModel creation or to recover from an error.
+  /// Actualizar la ubicación actual del repartidor
+  void updateCurrentLocation(double lat, double lon) {
+    _currentLat = lat;
+    _currentLon = lon;
+  }
+
+  /// Método para iniciar la escucha de nuevos pedidos
   void _listenForNewOrders() {
-    // If a subscription already exists, cancel it to avoid multiple listeners.
-    // This is useful if _listenForNewOrders is called again (e.g., after an error).
     _orderSubscription?.cancel();
 
-    _isLoading = true; // Set loading state while stream connects
-    _errorMessage = null; // Clear previous errors
-    notifyListeners(); // Notify UI about loading state
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
 
-    debugPrint('--> Initializing Supabase Realtime listener for orders...');
+    // Usar la tabla configurada en constants (puede ser 'sales' o 'orders')
+    final tableName = AppConstants.ordersTable;
+
+    debugPrint('--> Initializing Supabase Realtime listener for table: $tableName');
 
     _orderSubscription = _supabaseClient
-        .from('orders')
+        .from(tableName)
         .stream(primaryKey: ['id'])
-        .eq('status', 'pending')
+        .eq('status', AppConstants.statusPending)
         .order('created_at', ascending: false)
         .limit(1)
         .listen((List<Map<String, dynamic>> data) {
-          _isLoading = false; // Data received, stop loading
-          _errorMessage = null; // Clear any previous error on successful data
+          _isLoading = false;
+          _errorMessage = null;
 
           debugPrint('--> Supabase Realtime - Data received: $data');
 
@@ -55,136 +97,212 @@ class NewOrderViewModel extends ChangeNotifier {
             final newOrderData = data.first;
             final Order newOrder = Order.fromJson(newOrderData);
 
-            // Only update and notify if it's a genuinely new order ID
-            // or if the previous order was cleared.
+            // Verificar si es un pedido genuinamente nuevo
             if (_currentNewOrder == null || _currentNewOrder!.id != newOrder.id) {
-              _currentNewOrder = newOrder;
-              notifyListeners(); // Notify UI about the new order
-
-              // Trigger system notification (banner)
-              notificationService.showNotification(
-                id: 0,
-                title: '¡Nuevo Pedido Recibido!',
-                body: 'Pedido para ${newOrder.customerName} a ${newOrder.customerAddress}. Total: \$${newOrder.totalAmount.toStringAsFixed(2)}',
-                payload: newOrder.id,
-              );
-              debugPrint('Notification triggered for order: ${newOrder.id}');
+              // Verificar geofencing si tenemos ubicación actual
+              if (_currentLat != null && _currentLon != null) {
+                _checkOrderWithGeofencing(newOrder);
+              } else {
+                // Sin ubicación, mostrar el pedido
+                _currentNewOrder = newOrder;
+                _distanceToRestaurant = null;
+                notifyListeners();
+                _showNotification(newOrder, null);
+              }
             } else {
-              debugPrint('--> Duplicate order ID received, skipping UI update and system notification: ${newOrder.id}');
+              debugPrint('--> Duplicate order ID received, skipping: ${newOrder.id}');
             }
           } else {
-            // If the stream sends an empty list (meaning no pending orders matching filter)
-            // and we currently have an order displayed, clear it from the UI.
             if (_currentNewOrder != null) {
               _currentNewOrder = null;
+              _distanceToRestaurant = null;
               notifyListeners();
-              debugPrint('--> No pending orders currently matching filter. Clearing current order from UI.');
+              debugPrint('--> No pending orders. Clearing current order from UI.');
             } else {
-              debugPrint('--> Supabase Realtime - No pending orders currently matching filter (UI already clear).');
+              debugPrint('--> Supabase Realtime - No pending orders.');
             }
           }
         }, onError: (error) {
-          _isLoading = false; // Stop loading on error
+          _isLoading = false;
           _errorMessage = 'Error en Realtime de Supabase: $error';
           debugPrint('--> Supabase Realtime - ERROR: $error');
           notifyListeners();
         }, onDone: () {
-          debugPrint('--> Supabase Realtime - Stream finished (unexpectedly for a continuous listener).');
-          // You might want to re-initiate the stream here if it unexpectedly closes.
-          // _listenForNewOrders(); // Uncomment if you want to automatically restart the stream on completion.
+          debugPrint('--> Supabase Realtime - Stream finished unexpectedly.');
         });
   }
 
-  // This method is for a *manual fetch* or *re-attempt connection* if the stream fails,
-  // not for continuous listening. It effectively re-triggers the listener.
-  Future<void> fetchNewOrder() async {
-    // Only re-initialize the stream if not already loading or in an error state requiring a retry
-    if (!_isLoading) { // Prevents multiple rapid calls if already in progress
-      debugPrint('--> Manually attempting to fetch/re-establish new order listener.');
-      _listenForNewOrders(); // Re-establish the listener
+  /// Verificar el pedido contra el geofencing
+  void _checkOrderWithGeofencing(Order newOrder) {
+    final restaurantLat = newOrder.restaurantLocation.latitude;
+    final restaurantLon = newOrder.restaurantLocation.longitude;
+
+    // Calcular distancia al restaurante
+    final distance = calculateDistance(
+      _currentLat!,
+      _currentLon!,
+      restaurantLat,
+      restaurantLon,
+    );
+
+    _distanceToRestaurant = distance;
+
+    debugPrint('--> Distance to restaurant (${newOrder.restaurantName}): ${distance.toStringAsFixed(2)}km');
+
+    // Verificar si está dentro del radio
+    if (distance <= maxRadiusKm) {
+      // Dentro del radio - mostrar pedido
+      _currentNewOrder = newOrder;
+      notifyListeners();
+      _showNotification(newOrder, distance);
+      debugPrint('--> Order within radius ($maxRadiusKm km). Showing to driver.');
+    } else {
+      // Fuera del radio - no mostrar
+      debugPrint('--> Order outside radius ($maxRadiusKm km). Ignoring.');
+      _currentNewOrder = null;
+      _distanceToRestaurant = null;
+      // No notifyListeners() aquí para no molestar al usuario con pedidos que no le interesan
     }
   }
 
-  // Method to clear the currently displayed new order from the UI
+  /// Calcular distancia usando fórmula de Haversine
+  double calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const double earthRadiusKm = 6371.0;
+
+    final double dLat = _degreesToRadians(lat2 - lat1);
+    final double dLon = _degreesToRadians(lon2 - lon1);
+
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degreesToRadians(lat1)) *
+            cos(_degreesToRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return earthRadiusKm * c;
+  }
+
+  double _degreesToRadians(double degrees) {
+    return degrees * pi / 180;
+  }
+
+  /// Mostrar notificación del sistema
+  void _showNotification(Order order, double? distanceKm) {
+    String body;
+    if (distanceKm != null) {
+      body = '${order.restaurantName} - ${distanceKm.toStringAsFixed(1)}km de distancia. '
+          'Total: \$${order.totalAmount.toStringAsFixed(2)}';
+    } else {
+      body = 'Pedido para ${order.customerName} a ${order.customerAddress}. '
+          'Total: \$${order.totalAmount.toStringAsFixed(2)}';
+    }
+
+    notificationService.showNotification(
+      id: AppConstants.newOrderNotificationId,
+      title: distanceKm != null ? '¡Nuevo Pedido Cercano!' : '¡Nuevo Pedido Recibido!',
+      body: body,
+      payload: order.id,
+    );
+    debugPrint('Notification triggered for order: ${order.id}');
+  }
+
+  /// Método para reintentar obtener/re-establecer el listener
+  Future<void> fetchNewOrder() async {
+    if (!_isLoading) {
+      debugPrint('--> Manually attempting to fetch/re-establish new order listener.');
+      _listenForNewOrders();
+    }
+  }
+
+  /// Limpiar el pedido actual mostrado
   void clearCurrentNewOrder() {
     if (_currentNewOrder != null) {
       _currentNewOrder = null;
+      _distanceToRestaurant = null;
       notifyListeners();
       debugPrint('--> Current new order cleared from ViewModel UI.');
     }
   }
 
-  // Method to update order status in Supabase
+  /// Actualizar estado del pedido en Supabase
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners(); // Indicate that an operation is in progress
+    notifyListeners();
 
     try {
+      final tableName = AppConstants.ordersTable;
       await _supabaseClient
-          .from('orders')
+          .from(tableName)
           .update({'status': newStatus})
           .eq('id', orderId);
       debugPrint('Order $orderId status updated to $newStatus in Supabase.');
-      // The Realtime listener will automatically detect this change and remove the order from its stream if its status no longer matches 'pending'.
-      // Therefore, the clearCurrentNewOrder() call in acceptOrder/rejectOrder is mostly for immediate UI feedback.
     } catch (e) {
       debugPrint('Error updating order status in Supabase: $e');
       _errorMessage = 'No se pudo actualizar el estado del pedido: $e';
     } finally {
       _isLoading = false;
-      notifyListeners(); // Update UI after operation
+      notifyListeners();
     }
   }
 
-  // --- New Methods for Accept/Reject (as discussed previously) ---
+  /// Asignar repartidor al pedido
+  Future<void> assignDriver(String orderId, String driverId) async {
+    try {
+      final tableName = AppConstants.ordersTable;
+      await _supabaseClient
+          .from(tableName)
+          .update({
+            'driver_id': driverId,
+            'status': AppConstants.statusAccepted,
+          })
+          .eq('id', orderId);
+      debugPrint('Driver $driverId assigned to order $orderId');
+    } catch (e) {
+      debugPrint('Error assigning driver to order: $e');
+      _errorMessage = 'No se pudo asignar el repartidor: $e';
+    }
+  }
+
+  /// Aceptar un pedido
   Future<void> acceptOrder(String orderId) async {
     debugPrint('Attempting to accept order: $orderId');
-    await updateOrderStatus(orderId, 'accepted');
-    // The clearCurrentNewOrder() here is good for immediate UI feedback.
-    // The stream's filter will also eventually remove it.
+
+    // Obtener el ID del usuario actual
+    final userId = _supabaseClient.auth.currentUser?.id;
+    if (userId != null) {
+      // Asignar el repartidor al pedido
+      await assignDriver(orderId, userId);
+    }
+
+    await updateOrderStatus(orderId, AppConstants.statusAccepted);
     clearCurrentNewOrder();
   }
 
+  /// Rechazar un pedido
   Future<void> rejectOrder(String orderId) async {
     debugPrint('Attempting to reject order: $orderId');
-    await updateOrderStatus(orderId, 'rejected');
+    await updateOrderStatus(orderId, AppConstants.statusRejected);
     clearCurrentNewOrder();
+  }
+
+  /// Cambiar el radio máximo de geofencing
+  void setMaxRadius(double radiusKm) {
+    maxRadiusKm = radiusKm;
+    debugPrint('--> Max radius updated to: $radiusKm km');
   }
 
   @override
   void dispose() {
     debugPrint('--> NewOrderViewModel DISPOSED: Canceling order subscription.');
-    _orderSubscription?.cancel(); // IMPORTANT: Cancel the stream when ViewModel is disposed.
+    _orderSubscription?.cancel();
+    _locationSubscription?.cancel();
     super.dispose();
   }
 }
-
-// Add these for ActiveOrderViewModel (if it also uses a stream and needs similar management)
-// class ActiveOrderViewModel extends ChangeNotifier {
-//   StreamSubscription? _activeOrderSubscription;
-//   // ... other properties
-
-//   ActiveOrderViewModel(this._supabaseClient) {
-//     _listenForActiveOrders(); // Start listening for active orders
-//   }
-
-//   void _listenForActiveOrders() {
-//     _activeOrderSubscription?.cancel();
-//     _activeOrderSubscription = _supabaseClient
-//         .from('orders')
-//         .stream(primaryKey: ['id'])
-//         .eq('status', 'accepted') // or whatever status denotes an active order for THIS driver
-//         .listen((data) {
-//           // Parse data, set _currentActiveOrder, notifyListeners()
-//         }, onError: (error) {
-//           // Handle error
-//         });
-//   }
-
-//   @override
-//   void dispose() {
-//     _activeOrderSubscription?.cancel();
-//     super.dispose();
-//   }
-// }

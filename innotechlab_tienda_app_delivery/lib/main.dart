@@ -1,29 +1,30 @@
 // lib/main.dart
+
 import 'package:delivery_app_mvvm/data/datasources/earning_remote_datasource.dart';
+import 'package:delivery_app_mvvm/data/datasources/home_local_data_source.dart';
+import 'package:delivery_app_mvvm/data/datasources/home_remote_data_source.dart';
 import 'package:delivery_app_mvvm/data/repositories/earning_repository_impl.dart';
-import 'package:delivery_app_mvvm/domain/entities/earning.dart';
+import 'package:delivery_app_mvvm/data/repositories/home_repository_impl.dart';
 import 'package:delivery_app_mvvm/domain/usecases/get_daily_earnings.dart';
 import 'package:delivery_app_mvvm/domain/usecases/get_earnings_usecase.dart';
+import 'package:delivery_app_mvvm/domain/usecases/get_user_online_status.dart';
+import 'package:delivery_app_mvvm/domain/usecases/go_offline.dart';
 import 'package:delivery_app_mvvm/service/connectivity_service.dart';
 import 'package:delivery_app_mvvm/service/location_service.dart';
 import 'package:delivery_app_mvvm/service/notification_service.dart';
 import 'package:delivery_app_mvvm/service/real_location_service.dart';
+import 'package:delivery_app_mvvm/viewmodel/active_order_viewmodel.dart';
+import 'package:delivery_app_mvvm/viewmodel/auth_view_model.dart';
 import 'package:delivery_app_mvvm/viewmodel/earning_viewmodel.dart';
+import 'package:delivery_app_mvvm/viewmodel/home_view_model.dart';
+import 'package:delivery_app_mvvm/viewmodel/new_order_viewmodel.dart';
 import 'package:delivery_app_mvvm/viewmodel/wallet_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Tus importaciones existentes (asegúrate de que las rutas sean correctas)
-import 'package:delivery_app_mvvm/data/datasources/home_local_data_source.dart';
-import 'package:delivery_app_mvvm/data/datasources/home_remote_data_source.dart';
-import 'package:delivery_app_mvvm/data/repositories/home_repository_impl.dart';
-import 'package:delivery_app_mvvm/domain/usecases/get_user_online_status.dart';
-import 'package:delivery_app_mvvm/domain/usecases/go_offline.dart';
-import 'package:delivery_app_mvvm/viewmodel/home_view_model.dart';
-import 'package:delivery_app_mvvm/viewmodel/new_order_viewmodel.dart';
-import 'package:delivery_app_mvvm/viewmodel/active_order_viewmodel.dart';
 import 'package:delivery_app_mvvm/view/home_screen.dart';
 
 // Importaciones de autenticación
@@ -33,241 +34,252 @@ import 'package:delivery_app_mvvm/domain/usecases/sign_in_user.dart';
 import 'package:delivery_app_mvvm/domain/usecases/sign_up_user.dart';
 import 'package:delivery_app_mvvm/domain/usecases/sign_out_user.dart';
 import 'package:delivery_app_mvvm/domain/usecases/get_auth_session.dart';
-import 'package:delivery_app_mvvm/viewmodel/auth_view_model.dart';
 
+// Importar constantes
+import 'package:delivery_app_mvvm/core/utils/constants.dart';
 
 final NotificationService notificationService = NotificationService();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await notificationService.init(); // Initialize notification service once
+  // Cargar variables de entorno
+  try {
+    await dotenv.load(fileName: ".env");
+    debugPrint('Variables de entorno cargadas correctamente');
+  } catch (e) {
+    debugPrint('Error al cargar variables de entorno: $e');
+  }
 
+  // Inicializar constantes desde .env
+  _initializeConstants();
+
+  await notificationService.init();
+
+  // Inicializar Supabase con variables de entorno
   await Supabase.initialize(
-    url: 'https://ofzswnqjqgjiwsbvybou.supabase.co', // <-- ¡REEMPLAZA CON TU URL REAL DE SUPABASE!
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9menN3bnFqcWdqaXdzYnZ5Ym91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxMzUwMjcsImV4cCI6MjA2MzcxMTAyN30.orFqPDhX3xMKT2jra7ZVKNUcwwpOO3_mGQf9hKBZprE'
+    url: AppConstants.supabaseUrl,
+    anonKey: AppConstants.supabaseAnonKey,
+  );
+
+  debugPrint('Supabase inicializado: ${AppConstants.supabaseUrl}');
+  debugPrint('Método OTP: ${AppConstants.otpMethod}');
+  debugPrint(
+    'Entorno: ${AppConstants.isDevelopment ? "DESARROLLO" : "PRODUCCIÓN"}',
   );
 
   runApp(const MyApp());
 }
 
+void _initializeConstants() {
+  // Cargar valores desde .env con valores por defecto
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  final supabaseBucket = dotenv.env['SUPABASE_BUCKET'] ?? 'my_bucket';
+  final otpMethod = dotenv.env['OTP_METHOD'] ?? 'supabase';
+  final ordersTable = dotenv.env['ORDERS_TABLE'] ?? 'orders';
+
+  // Twilio (opcionales)
+  final twilioAccountSid = dotenv.env['TWILIO_ACCOUNT_SID'];
+  final twilioAuthToken = dotenv.env['TWILIO_AUTH_TOKEN'];
+  final twilioPhoneNumber = dotenv.env['TWILIO_PHONE_NUMBER'];
+
+  AppConstants.initialize(
+    supabaseUrl: supabaseUrl,
+    supabaseAnonKey: supabaseAnonKey,
+    supabaseBucket: supabaseBucket,
+    otpMethod: otpMethod,
+    twilioAccountSid: twilioAccountSid,
+    twilioAuthToken: twilioAuthToken,
+    twilioPhoneNumber: twilioPhoneNumber,
+    ordersTable: ordersTable,
+  );
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-  
 
   @override
   Widget build(BuildContext context) {
-
-    // Initialize data sources
-    final earningRemoteDataSource = EarningRemoteDataSourceImpl(supabaseClient: Supabase.instance.client);
-
-    // Initialize repositories
-    final earningRepository = EarningRepositoryImpl(earningRemoteDataSource: earningRemoteDataSource);
-
-    final getEarningsUseCase = GetEarnings(earningRepository);
-    final getDailyEarningsUseCase = GetDailyEarnings(earningRepository);
-
     return MultiProvider(
       providers: [
-        // 1. SupabaseClient - La base, no depende de nada más
-        Provider<SupabaseClient>(
-          create: (_) {
-            return Supabase.instance.client;
-          },
-        ),
-        // =============================================================
-        // --- PROVEEDORES DE AUTENTICACIÓN ---
-        // 1. SupabaseClient - Ya lo tenemos arriba, no es necesario repetirlo
-        // 2. AuthRemoteDataSource - Depende de SupabaseClient
-        // 3. AuthRepositoryImpl - Depende de AuthRemoteDataSource
-        // 4. Casos de Uso de Autenticación - Dependen de AuthRepositoryImpl
-        // 5. AuthViewModel - Depende de los casos de uso de autenticación
-        // ¡Este es el Provider que HomeScreen necesita!
-        // =============================================================
-        // --- PROVEEDORES RELACIONADOS CON LA AUTENTICACIÓN ---
-        // 2. AuthRemoteDataSource - Depende de SupabaseClient
+        // 1. SupabaseClient
+        Provider<SupabaseClient>(create: (_) => Supabase.instance.client),
+
+        // --- AUTH PROVIDERS ---
         Provider<AuthRemoteDataSource>(
-          create: (context) {
-            return AuthRemoteDataSourceImpl(
-              supabaseClient: context.read<SupabaseClient>(),
-            );
-          },
+          create: (context) => AuthRemoteDataSourceImpl(
+            supabaseClient: context.read<SupabaseClient>(),
+          ),
         ),
-        // 3. AuthRepositoryImpl - Depende de AuthRemoteDataSource
         Provider<AuthRepositoryImpl>(
-          create: (context) {
-            return AuthRepositoryImpl(
-              remoteDataSource: context.read<AuthRemoteDataSource>(),
-            );
-          },
+          create: (context) => AuthRepositoryImpl(
+            remoteDataSource: context.read<AuthRemoteDataSource>(),
+          ),
         ),
-        Provider<EarningRemoteDataSource>(
-          create: (context) {
-            return EarningRemoteDataSourceImpl(
-              supabaseClient: context.read<SupabaseClient>(),
-            );
-          },
-        ),
-        Provider<EarningRepositoryImpl>(
-          create: (context) {
-            return EarningRepositoryImpl(
-              earningRemoteDataSource: context.read<EarningRemoteDataSource>(),
-            );
-          },
-        ),
-        // 4. Casos de Uso de Autenticación - Dependen de AuthRepositoryImpl
         Provider<SignInUser>(
-          create: (context) {
-            return SignInUser(context.read<AuthRepositoryImpl>());
-          },
+          create: (context) => SignInUser(context.read<AuthRepositoryImpl>()),
         ),
         Provider<SignUpUser>(
-          create: (context) {
-            return SignUpUser(context.read<AuthRepositoryImpl>());
-          },
+          create: (context) => SignUpUser(context.read<AuthRepositoryImpl>()),
         ),
         Provider<SignOutUser>(
-          create: (context) {
-            return SignOutUser(context.read<AuthRepositoryImpl>());
-          },
+          create: (context) => SignOutUser(context.read<AuthRepositoryImpl>()),
         ),
         Provider<GetAuthSession>(
-          create: (context) {
-            return GetAuthSession(context.read<AuthRepositoryImpl>());
-          },
+          create: (context) =>
+              GetAuthSession(context.read<AuthRepositoryImpl>()),
         ),
-        // 5. AuthViewModel - Depende de los casos de uso de autenticación
-        // ¡Este es el Provider que HomeScreen necesita!
         ChangeNotifierProvider<AuthViewModel>(
-          create: (context) {
-            return AuthViewModel(
-              signInUser: context.read<SignInUser>(),
-              signUpUser: context.read<SignUpUser>(),
-              signOutUser: context.read<SignOutUser>(),
-              getAuthSession: context.read<GetAuthSession>(),
-            )..initializeAuthListener();
-          },
+          create: (context) => AuthViewModel(
+            signInUser: context.read<SignInUser>(),
+            signUpUser: context.read<SignUpUser>(),
+            signOutUser: context.read<SignOutUser>(),
+            getAuthSession: context.read<GetAuthSession>(),
+          )..initializeAuthListener(),
         ),
 
-        // --- PROVEEDORES DE LA FUNCIONALIDAD PRINCIPAL (HOME) ---
-        // 6. HomeLocalDataSource, HomeRemoteDataSource - No tienen dependencias directas en otros providers
-        Provider<HomeLocalDataSource>(
-          create: (_) {
-            return HomeLocalDataSourceImpl();
-          },
-        ),
+        // --- HOME PROVIDERS ---
+        Provider<HomeLocalDataSource>(create: (_) => HomeLocalDataSourceImpl()),
         Provider<HomeRemoteDataSource>(
-          create: (_) {
-            return HomeRemoteDataSourceImpl();
-          },
+          create: (_) => HomeRemoteDataSourceImpl(),
         ),
-        // 7. HomeRepositoryImpl - Depende de HomeLocalDataSource y HomeRemoteDataSource
         Provider<HomeRepositoryImpl>(
-          create: (context) {
-            return HomeRepositoryImpl(
-              remoteDataSource: context.read<HomeRemoteDataSource>(),
-              localDataSource: context.read<HomeLocalDataSource>(),
-            );
-          },
+          create: (context) => HomeRepositoryImpl(
+            remoteDataSource: context.read<HomeRemoteDataSource>(),
+            localDataSource: context.read<HomeLocalDataSource>(),
+          ),
         ),
-        // 8. Casos de Uso de Home - Dependen de HomeRepositoryImpl
         Provider<GetUserOnlineStatus>(
-          create: (context) {
-            return GetUserOnlineStatus(context.read<HomeRepositoryImpl>());
-          },
+          create: (context) =>
+              GetUserOnlineStatus(context.read<HomeRepositoryImpl>()),
         ),
         Provider<GoOnline>(
-          create: (context) {
-            return GoOnline(context.read<HomeRepositoryImpl>());
-          },
+          create: (context) => GoOnline(context.read<HomeRepositoryImpl>()),
         ),
         Provider<GoOffline>(
-          create: (context) {
-            return GoOffline(context.read<HomeRepositoryImpl>());
-          },
+          create: (context) => GoOffline(context.read<HomeRepositoryImpl>()),
         ),
 
-
-        // =============================================================
-        // AÑADE AQUI LOS NUEVOS PROVIDERS PARA SERVICIOS
-        // =============================================================
+        // --- SERVICES ---
         Provider<LocationService>(
-          create: (_) => RealLocationService(), // Provee la implementación real
+          create: (_) => RealLocationService(),
           dispose: (context, service) {
             if (service is RealLocationService) {
-              service.dispose(); // Asegúrate de llamar a dispose
+              service.dispose();
             }
           },
         ),
-        Provider<ConnectivityService>(
-          create: (_) => ConnectivityService(), // Provee tu servicio de conectividad
-        ),
-        // =============================================================
+        Provider<ConnectivityService>(create: (_) => ConnectivityService()),
 
-        // 9. HomeViewModel - Depende de los casos de uso de Home Y AuthViewModel
+        // --- HOME VIEWMODEL ---
         ChangeNotifierProvider<HomeViewModel>(
-          create: (context) {
-            return HomeViewModel(
-              context.read<SupabaseClient>(),
-              getUserOnlineStatus: context.read<GetUserOnlineStatus>(),
-              goOnline: context.read<GoOnline>(),
-              goOffline: context.read<GoOffline>(),
-              authViewModel: context.read<AuthViewModel>(),
-              
-              // =============================================================
-              // INYECTA LOS NUEVOS SERVICIOS EN EL CONSTRUCTOR DE HomeViewModel
-              // =============================================================
-              locationService: context.read<LocationService>(),
-              connectivityService: context.read<ConnectivityService>(),
-              // ============================================================= // <-- Aquí lee AuthViewModel
-            );
-          },
+          create: (context) => HomeViewModel(
+            context.read<SupabaseClient>(),
+            getUserOnlineStatus: context.read<GetUserOnlineStatus>(),
+            goOnline: context.read<GoOnline>(),
+            goOffline: context.read<GoOffline>(),
+            authViewModel: context.read<AuthViewModel>(),
+            locationService: context.read<LocationService>(),
+            connectivityService: context.read<ConnectivityService>(),
+          ),
         ),
 
-        // Otros ViewModels que uses (asegúrate de que sus dependencias se resuelvan antes si las tienen)
+        // --- ORDER VIEWMODELS ---
         ChangeNotifierProvider<NewOrderViewModel>(
           create: (context) => NewOrderViewModel(
             Supabase.instance.client,
-            notificationService, // Pass the initialized instance
+            notificationService,
+            maxRadiusKm: AppConstants.maxRadius,
+            locationService: context.read<LocationService>(),
           ),
-          lazy: false, // Ensures ViewModel is created immediately and starts listening
+          lazy: false,
         ),
         ChangeNotifierProvider<ActiveOrderViewModel>(
-          create: (context) {
-            return ActiveOrderViewModel(Supabase.instance.client, context, 
-              locationService: context.read<LocationService>(),);
-          },
-        ),
-        // =============================================================
-        // 10. EarningViewModel - Depende de GetEarningsUseCase
-        ChangeNotifierProvider(
-          create: (_) => EarningViewModel(
+          create: (context) => ActiveOrderViewModel(
+            Supabase.instance.client,
+            context,
+            locationService: context.read<LocationService>(),
           ),
         ),
-        // Add your WalletViewModel here:
+
+        // --- EARNING & WALLET ---
+        Provider<EarningRemoteDataSource>(
+          create: (context) => EarningRemoteDataSourceImpl(
+            supabaseClient: context.read<SupabaseClient>(),
+          ),
+        ),
+        Provider<EarningRepositoryImpl>(
+          create: (context) => EarningRepositoryImpl(
+            earningRemoteDataSource: context.read<EarningRemoteDataSource>(),
+          ),
+        ),
+        Provider<GetEarnings>(
+          create: (context) =>
+              GetEarnings(context.read<EarningRepositoryImpl>()),
+        ),
+        Provider<GetDailyEarnings>(
+          create: (context) =>
+              GetDailyEarnings(context.read<EarningRepositoryImpl>()),
+        ),
+        ChangeNotifierProvider(create: (_) => EarningViewModel()),
         ChangeNotifierProvider(create: (_) => WalletViewModel()),
       ],
-      // MaterialApp es el hijo de MultiProvider, por lo tanto, HomeScreen (que es home)
-      // tendrá acceso a todos los providers declarados arriba.
       child: MaterialApp(
-          locale: const Locale('es', 'ES'), // Establece el locale por defecto
-          localizationsDelegates: const [
+        locale: const Locale('es', 'ES'),
+        localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        supportedLocales: const [
-          Locale('en', ''), // English
-          Locale('es', ''), // Spanish
-          // Add other locales your app supports
-        ],
-        title: 'Delivery App',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
-        ),
-        home: const HomeScreen(), // Esta línea es la que da el error (main.dart:135:19)
+        supportedLocales: const [Locale('en', ''), Locale('es', '')],
+        title: 'Delivery App - ${AppConstants.isDevelopment ? "Dev" : "Prod"}',
+        debugShowCheckedModeBanner: AppConstants.isDevelopment,
+        theme: _buildAdaptiveTheme(),
+        home: const HomeScreen(),
       ),
+    );
+  }
+
+  // Tema adaptativo para la aplicación
+  ThemeData _buildAdaptiveTheme() {
+    final isDark =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+        Brightness.dark;
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppConstants.isDevelopment ? Colors.orange : Colors.blue,
+        brightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+      // Estilos adaptativos
+      appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+      cardTheme: CardThemeData(
+        elevation: AppConstants.cardElevation,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
+      ),
+      visualDensity: VisualDensity.adaptivePlatformDensity,
     );
   }
 }

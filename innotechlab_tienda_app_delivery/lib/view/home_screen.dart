@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:delivery_app_mvvm/view/active_order_screen.dart';
 import 'package:delivery_app_mvvm/view/auth_screen.dart';
 import 'package:delivery_app_mvvm/widget/drawer/custom_app_drawer.dart';
+import 'package:delivery_app_mvvm/widget/drawer/enhanced_app_drawer.dart';
 import 'package:delivery_app_mvvm/widget/home_header.dart';
 import 'package:delivery_app_mvvm/widget/order_action_buttons_carousel.dart';
 import 'package:flutter/material.dart';
@@ -398,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // final driverLocation = activeOrderViewModel.currentDriverLocation;
     return Scaffold(
-      drawer: CustomAppDrawer(authViewModel: authViewModel),
+      drawer: const EnhancedAppDrawer(),
       body: Stack(
           children: [
             // Background Map
@@ -524,6 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (newOrderViewModel.currentNewOrder != null && newOrderViewModel.currentNewOrder!.status == 'pending') {
                             return NewOrderAlertWidget(
                               order: newOrderViewModel.currentNewOrder!,
+                              distanceToRestaurant: newOrderViewModel.distanceToRestaurant,
                               onAccept: () async {
                                 debugPrint('Orden Aceptada: ${newOrderViewModel.currentNewOrder!.id}');
                                 await newOrderViewModel.updateOrderStatus(newOrderViewModel.currentNewOrder!.id, 'accepted');

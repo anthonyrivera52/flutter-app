@@ -5,14 +5,15 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:delivery_app_mvvm/model/location_data.dart';
 import 'package:delivery_app_mvvm/service/connectivity_service.dart';
 import 'package:delivery_app_mvvm/service/location_service.dart';
-import 'package:delivery_app_mvvm/service/real_location_service.dart'; // Asegúrate de que esto es correcto si usas RealLocationService
+import 'package:delivery_app_mvvm/service/real_location_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/error/failures.dart';
 import '../domain/usecases/get_user_online_status.dart';
 import '../domain/usecases/go_offline.dart';
-import '../domain/entities/user_status.dart'; // This is the CORRECT UserStatus
+import '../domain/entities/user_status.dart';
 import 'auth_view_model.dart';
+import 'new_order_viewmodel.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final SupabaseClient _supabaseClient;
@@ -36,6 +37,7 @@ class HomeViewModel extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   double _totalEarnings = 0.0;
+  int _todayOrderCount = 0;
 
   // Use the UserStatus from '../domain/entities/user_status.dart'
   UserStatus _userStatus = UserStatus.offline("You're Offline"); // Using factory constructor
@@ -46,8 +48,9 @@ class HomeViewModel extends ChangeNotifier {
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
-  
+
   double get totalEarnings => _totalEarnings;
+  int get todayOrderCount => _todayOrderCount;
 
   HomeViewModel(this._supabaseClient,{
     required GetUserOnlineStatus getUserOnlineStatus,
