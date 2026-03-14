@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/provider/order_details_provider.dart';
+import 'package:flutter_app/domain/entities/orden.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -116,6 +117,14 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           const SizedBox(height: 16),
           _StatusTimeline(status: order.status),
           const SizedBox(height: 16),
+
+           // Sección de información del domiciliario (si está asignado)
+           if (order.driverId != null) _buildDriverInfo(context, order),
+           if (order.driverId != null) const SizedBox(height: 16),
+
+           // Sección de desglose de costos
+           _buildPaymentBreakdown(context, order),
+           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
@@ -193,6 +202,111 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       color: Colors.grey.shade200,
       alignment: Alignment.center,
       child: const Icon(Icons.image_not_supported_outlined),
+    );
+  }
+
+
+  Widget _buildDriverInfo(BuildContext context, Orden order) {
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundImage: order.driverPhotoUrl != null
+              ? NetworkImage(order.driverPhotoUrl!)
+              : null,
+          child: order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
+        ),
+        title: Text(
+          order.driverName ?? 'Domiciliario',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (order.driverPhone != null) Text('📱 ${order.driverPhone}'),
+            if (order.vehicleType != null)
+              Text(
+                '🚗 ${order.vehicleType}${order.vehiclePlate != null ? ' (${order.vehiclePlate})' : ''}',
+              ),
+          ],
+        ),
+        trailing: const Icon(Icons.chat),
+        onTap: () {
+          // Navegar a chat con repartidor
+        },
+      ),
+    );
+  }
+
+  Widget _buildPaymentBreakdown(BuildContext context, Orden order) {
+    final subtotal = order.subtotalAmount ?? order.totalAmount;
+    final shipping = order.shippingAmount ?? 0.0;
+    final tax = order.taxIvaAmount ?? 0.0;
+    final tip = order.tipAmount ?? 0.0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Resumen de Pago',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Subtotal'),
+                Text('\$${subtotal.toStringAsFixed(2)}'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Envío'),
+                Text('\$${shipping.toStringAsFixed(2)}'),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Impuestos'),
+                Text('\$${tax.toStringAsFixed(2)}'),
+              ],
+            ),
+            if (tip > 0) ...[
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Propina'),
+                  Text('\$${tip.toStringAsFixed(2)}'),
+                ],
+              ),
+            ],
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Total',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(
+                  '\$${order.totalAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -295,49 +409,6 @@ class _StatusTimeline extends StatelessWidget {
   }
 
   /// Widget para mostrar el código de verificación del pedido
-  Widget _buildOrderCodeBadge(BuildContext context, String orderCode) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.primaryColor,
-            AppColors.primaryColor.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.verified_user, color: Colors.white, size: 24),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Código de verificación',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              Text(
-                orderCode,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StepData {

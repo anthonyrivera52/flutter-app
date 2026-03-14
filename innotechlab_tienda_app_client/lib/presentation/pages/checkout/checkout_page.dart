@@ -6,6 +6,7 @@ import 'package:flutter_app/presentation/provider/cart_provider.dart';
 import 'package:flutter_app/presentation/provider/checkout_provider.dart'
     show checkoutDeliveryFee, checkoutProvider;
 import 'package:flutter_app/presentation/provider/home_provider.dart';
+import 'package:flutter_app/presentation/provider/shop_status_provider.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
 import 'package:flutter_app/presentation/widget/common/info_toast.dart';
@@ -100,6 +101,40 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
         backgroundColor: AppColors.errorColor,
         icon: Icons.store,
         isDismissible: true,
+      );
+      return;
+    }
+
+    // Check shop status before proceeding
+    final shopStatus = ref.read(shopStatusProvider(selectedShop.id));
+    if (!shopStatus.canOrder) {
+      String message =
+          shopStatus.message ??
+          'El comercio no acepta pedidos en este momento.';
+
+      if (shopStatus.status == ShopStatus.waiting) {
+        message =
+            'Temporalmente en pausa por alta demanda. Puedes ver los productos pero no puedes realizar pedidos.';
+      } else if (shopStatus.status == ShopStatus.closed) {
+        message = shopStatus.nextOpenTime != null
+            ? 'El comercio está cerrado. Próxima apertura: ${shopStatus.nextOpenTime}'
+            : 'El comercio está cerrado en este momento.';
+      } else if (shopStatus.status == ShopStatus.inactive) {
+        message = 'El comercio no está disponible actualmente.';
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('No disponible'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
       return;
     }

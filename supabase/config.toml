@@ -1,0 +1,22 @@
+project_id = "replace-with-your-project-ref"
+
+[functions.get-nearby-shops]
+verify_jwt = true
+
+[functions.get-catalog]
+verify_jwt = true
+
+[functions.create-order]
+verify_jwt = true
+
+[functions.create-payment-intent]
+verify_jwt = true
+
+[functions.track-order]
+verify_jwt = true
+
+[functions.get-user-orders]
+verify_jwt = true
+
+[functions.payment-webhook]
+verify_jwt = false

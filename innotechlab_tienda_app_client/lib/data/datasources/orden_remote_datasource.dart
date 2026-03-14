@@ -1,4 +1,3 @@
-
 // order_remote_datasource.dart (Data Remote Data Source)
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/data/model/orden_model.dart';
@@ -20,7 +19,8 @@ abstract class CheckoutOrderRemoteDataSource {
   Future<OrdenModel> getOrderDetails(String orderId);
 }
 
-class CheckoutOrderRemoteDataSourceImpl implements CheckoutOrderRemoteDataSource {
+class CheckoutOrderRemoteDataSourceImpl
+    implements CheckoutOrderRemoteDataSource {
   final SupabaseClient supabaseClient;
 
   // Placeholder for store location (replace with actual data or fetch from Supabase)
@@ -56,20 +56,25 @@ class CheckoutOrderRemoteDataSourceImpl implements CheckoutOrderRemoteDataSource
         'notes': notes,
       };
 
-      final response = await supabaseClient.from('orders').insert(orderData).select().single();
+      final response = await supabaseClient
+          .from('sales')
+          .insert(orderData)
+          .select()
+          .single();
 
       final orderId = response['id'] as String;
 
       final orderItemsData = cartItems.map((item) {
         return {
-          'order_id': orderId,
+          'sale_id': orderId,
           'product_id': item.productId,
           'quantity': item.quantity,
-          'price': item.price, // Store price at time of order
+          'unit_price': item.price, // Store price at time of order
+          'total_price': item.price * item.quantity,
         };
       }).toList();
 
-      await supabaseClient.from('order_items').insert(orderItemsData);
+      await supabaseClient.from('sale_items').insert(orderItemsData);
     } catch (e) {
       throw ServerFailure('Failed to place order: $e');
     }
@@ -84,12 +89,28 @@ class CheckoutOrderRemoteDataSourceImpl implements CheckoutOrderRemoteDataSource
       }
 
       final response = await supabaseClient
-          .from('orders')
-          .select('*, order_items(*, products(*))') // Fetch order items and product details
-          .eq('user_id', userId)
+          .from('sales')
+          .select('''
+            *,
+            driver:drivers(
+              id,
+              name,
+              phone,
+              photo_url,
+              vehicle_type,
+              vehicle_plate,
+              vehicle_brand,
+              vehicle_model,
+              status
+            ),
+            sale_items(*, products(*))
+          ''')
+          .eq('customer_id', userId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((json) => OrdenModel.fromJson(json)).toList();
+      return (response as List)
+          .map((json) => OrdenModel.fromJson(json))
+          .toList();
     } catch (e) {
       throw ServerFailure('Failed to fetch user orders: $e');
     }
@@ -99,8 +120,22 @@ class CheckoutOrderRemoteDataSourceImpl implements CheckoutOrderRemoteDataSource
   Future<OrdenModel> getOrderDetails(String orderId) async {
     try {
       final response = await supabaseClient
-          .from('orders')
-          .select('*, order_items(*, products(*))')
+          .from('sales')
+          .select('''
+            *,
+            driver:drivers(
+              id,
+              name,
+              phone,
+              photo_url,
+              vehicle_type,
+              vehicle_plate,
+              vehicle_brand,
+              vehicle_model,
+              status
+            ),
+            sale_items(*, products(*))
+          ''')
           .eq('id', orderId)
           .single();
       return OrdenModel.fromJson(response);
@@ -110,6 +145,9 @@ class CheckoutOrderRemoteDataSourceImpl implements CheckoutOrderRemoteDataSource
   }
 }
 
-final checkoutOrderRemoteDataSourceProvider = Provider<CheckoutOrderRemoteDataSource>((ref) {
-  return CheckoutOrderRemoteDataSourceImpl(supabaseClient: Supabase.instance.client);
-});
+final checkoutOrderRemoteDataSourceProvider =
+    Provider<CheckoutOrderRemoteDataSource>((ref) {
+      return CheckoutOrderRemoteDataSourceImpl(
+        supabaseClient: Supabase.instance.client,
+      );
+    });

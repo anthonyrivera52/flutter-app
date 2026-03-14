@@ -7,6 +7,7 @@ import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/orders/order_details.dart';
 import 'package:flutter_app/presentation/pages/dashboard/orders/order_list.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
+import 'package:flutter_app/presentation/pages/location/location_selection_page.dart';
 import 'package:flutter_app/presentation/pages/notifications/notifications_page.dart';
 import 'package:flutter_app/presentation/pages/order_confirmation/order_confirmation_page.dart';
 import 'package:flutter_app/presentation/pages/products/detail_page.dart';
@@ -27,19 +28,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/splash_screen',
         name: 'splash_screen', // Nombre opcional para referenciar la ruta
-        builder: (context, state) => const SplashScreenPage(), // Cambia esto a tu página de splash
+        builder: (context, state) =>
+            const SplashScreenPage(), // Cambia esto a tu página de splash
       ),
       // Ruta para la página de onboarding
       GoRoute(
         path: '/onboarding',
         name: 'onboarding', // Nombre opcional para referenciar la ruta
-        builder: (context, state) => const OnboardingPage(), // Cambia esto a tu página de onboarding
+        builder: (context, state) =>
+            const OnboardingPage(), // Cambia esto a tu página de onboarding
       ),
+      // Ruta para sign in
       GoRoute(
         path: '/signin',
-        name: 'signin', // Nombre opcional para referenciar la ruta
+        name: 'signin',
         builder: (context, state) => const SignInPage(),
       ),
+      // Ruta para sign up
       GoRoute(
         path: '/signup',
         name: 'signup',
@@ -48,7 +53,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/otp-verification',
         name: 'otp_verification',
-        builder: (context, state) => OtpVerificationPage(email: state.extra as String?),
+        builder: (context, state) =>
+            OtpVerificationPage(email: state.extra as String?),
+      ),
+      GoRoute(
+        path: '/location-selection',
+        name: 'location_selection',
+        builder: (context, state) => const LocationSelectionPage(),
       ),
       GoRoute(
         path: '/',
@@ -56,7 +67,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           int? initialTabIndex;
           if (state.extra is Map<String, dynamic>) {
-            initialTabIndex = (state.extra as Map<String, dynamic>)['initialTabIndex'] as int?;
+            initialTabIndex =
+                (state.extra as Map<String, dynamic>)['initialTabIndex']
+                    as int?;
           }
           return DashboardPage(initialTabIndex: initialTabIndex);
         },
@@ -65,16 +78,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'profile',
             name: 'profile', // Nombre opcional para referenciar la ruta
-            builder: (context, state) => const ProfilePage(), // Cambia esto a tu página de perfil
+            builder: (context, state) =>
+                const ProfilePage(), // Cambia esto a tu página de perfil
           ),
           // Ruta para la página de detalles de producto (ejemplo)
           GoRoute(
-            path: 'product/:productId', // Asumo que tienes una ruta de detalle de producto
+            path:
+                'product/:productId', // Asumo que tienes una ruta de detalle de producto
             name: 'product_detail',
             builder: (context, state) {
               final productId = state.pathParameters['productId']!;
               // Aquí deberías pasar el productId a tu ProductDetailPage
-              return ProductDetailsPage(productId: productId); // Ejemplo: ProductDetailPage recibe productId
+              return ProductDetailsPage(
+                productId: productId,
+              ); // Ejemplo: ProductDetailPage recibe productId
             },
           ),
           // Ruta para la página de lista de productos por categoría o tipo
@@ -108,7 +125,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'notifications',
             name: 'notifications',
-            builder: (context, state) => const NotificationsPage(), 
+            builder: (context, state) => const NotificationsPage(),
           ),
           // New route for Orders
           GoRoute(

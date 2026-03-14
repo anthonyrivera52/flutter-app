@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_app/l10n/app_localizations.dart';
 import 'package:flutter_app/config/constants/app_constants.dart';
 import 'package:flutter_app/config/router/app_router.dart';
 import 'package:flutter_app/core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart'; // Importa geolocator
+import 'package:flutter_app/core/security/secure_local_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> _requestLocationPermission() async {
@@ -42,9 +44,11 @@ void main() async {
   await dotenv.load(fileName: ".env.development");
 
   await Supabase.initialize(
-    url: AppConstants.supabaseUrl, // <-- ¡REEMPLAZA CON TU URL DE SUPABASE!
-    anonKey: AppConstants
-        .supabaseAnonKey, // <-- ¡REEMPLAZA CON TU ANON KEY DE SUPABASE!
+    url: AppConstants.supabaseUrl,
+    anonKey: AppConstants.supabaseAnonKey,
+    authOptions: FlutterAuthClientOptions(
+      localStorage: SecureLocalStorage(),
+    ),
   );
 
   runApp(ProviderScope(child: MyApp()));
@@ -62,11 +66,12 @@ class MyApp extends ConsumerWidget {
     final appRouter = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      // Cambiado a MaterialApp.router
       debugShowCheckedModeBanner: false,
       title: 'Innotech Tienda',
       theme: AppTheme.light,
-      routerConfig: appRouter, // Asigna la configuración del router aquí
+      routerConfig: appRouter,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
     );
   }
 }

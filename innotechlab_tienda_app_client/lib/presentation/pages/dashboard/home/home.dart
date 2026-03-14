@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/config/constants/category_constants.dart';
+import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/domain/entities/category.dart';
 import 'package:flutter_app/domain/entities/product.dart';
 import 'package:flutter_app/domain/entities/shop.dart';
-import 'package:flutter_app/presentation/pages/dashboard/home/shop_logo_card.dart';
 import 'package:flutter_app/presentation/pages/dashboard/home/home_viewmodel.dart';
 import 'package:flutter_app/presentation/provider/home_provider.dart';
+import 'package:flutter_app/presentation/provider/shop_status_provider.dart';
 import 'package:flutter_app/presentation/widget/common/home_appbar.dart';
-import 'package:flutter_app/presentation/widget/common/home_skeleton_loader.dart';
 import 'package:flutter_app/presentation/widget/common/search_input_widget.dart';
+import 'package:flutter_app/presentation/widget/common/shop_map_widget.dart';
 import 'package:flutter_app/presentation/widget/product/product_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 final selectedCategoryProvider = StateProvider<String>((ref) {
   return CategoryConstants.allProductsCategoryId;
+});
+
+enum ShopViewMode { map, list }
+
+final shopViewModeProvider = StateProvider<ShopViewMode>((ref) {
+  return ShopViewMode.map;
 });
 
 /// Provider para obtener las categorías únicas de los productos cargados
@@ -33,12 +40,8 @@ final categoriesFromProductsProvider = Provider<List<Category>>((ref) {
 
   // Mapear los categoryId a Category con nombres legibles
   return uniqueCategoryIds.map((id) {
-    return Category(
-      id: id,
-      name: _getCategoryName(id),
-    );
-  }).toList()
-    ..sort((a, b) => a.name.compareTo(b.name));
+    return Category(id: id, name: _getCategoryName(id));
+  }).toList()..sort((a, b) => a.name.compareTo(b.name));
 });
 
 /// Obtener nombre legible de categoría desde el ID
@@ -118,26 +121,8 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
     final selectedCategoryId = ref.watch(selectedCategoryProvider);
     final categories = ref.watch(categoriesFromProductsProvider);
 
-    if (homeState.isLoading) {
-      return const HomeSkeletonLoader();
-    }
-
-    if (homeState.errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(homeState.errorMessage!),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: homeNotifier.refreshNearbyShops,
-              child: const Text('Reintentar'),
-            ),
-          ],
-        ),
-      );
+    if (homeState.isLoading && homeState.nearbyShops.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
     }
 
     final selectedShop = homeState.selectedShop;
@@ -154,93 +139,228 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
         title: const Text('Tiendas cercanas'),
         actions: const [HomeAppBarActions(), SizedBox(width: 8)],
       ),
-      body: RefreshIndicator(
-        onRefresh: homeNotifier.refreshNearbyShops,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildLocationBlock(context, homeState.locationMessage),
-            const SizedBox(height: 16),
-            _buildNearbyShopsCarousel(
-              nearbyShops: homeState.nearbyShops,
-              selectedShop: selectedShop,
-              onShopTap: homeNotifier.selectShop,
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: homeNotifier.refreshNearbyShops,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildLocationBlock(
+                  context,
+                  homeState.locationMessage,
+                  homeState.errorMessage,
+                ),
+                const SizedBox(height: 16),
+                _buildShopsView(context, homeState),
+                const SizedBox(height: 12),
+                _buildShopListHint(
+                  context,
+                  homeState.nearbyShops.length,
+                  homeState.selectedShop,
+                ),
+                const SizedBox(height: 20),
+                if (selectedShop == null)
+                  const _EmptyCommerceSelection()
+                else ...[
+                  _SelectedCommerceHeader(
+                    shop: selectedShop,
+                    onChangeShop: () {
+                      ref.read(selectedCategoryProvider.notifier).state =
+                          CategoryConstants.allProductsCategoryId;
+                      ref.read(homeProvider.notifier).clearSelectedShop();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SearchInputWidget(
+                    searchTermNotifier: _searchTermNotifier,
+                    initialIsSearching: true,
+                    isShowCancelButton: false,
+                    onSearchModeChanged: (_) {
+                      setState(() {});
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _CategoriesFilter(
+                    categories: categories,
+                    selectedCategoryId: selectedCategoryId,
+                    onCategorySelected: (categoryId) {
+                      ref.read(selectedCategoryProvider.notifier).state =
+                          categoryId;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _ProductsSection(products: products),
+                ],
+              ],
             ),
-            const SizedBox(height: 20),
-            if (selectedShop == null)
-              const _EmptyCommerceSelection()
-            else ...[
-              _SelectedCommerceHeader(
-                shop: selectedShop,
-                onChangeShop: () {
-                  ref.read(selectedCategoryProvider.notifier).state =
-                      CategoryConstants.allProductsCategoryId;
-                  ref.read(homeProvider.notifier).clearSelectedShop();
-                },
-              ),
-              const SizedBox(height: 16),
-              SearchInputWidget(
-                searchTermNotifier: _searchTermNotifier,
-                initialIsSearching: true,
-                isShowCancelButton: false,
-                onSearchModeChanged: (_) {
-                  setState(() {});
-                },
-              ),
-              const SizedBox(height: 14),
-              _CategoriesFilter(
-                categories: categories,
-                selectedCategoryId: selectedCategoryId,
-                onCategorySelected: (categoryId) {
-                  ref.read(selectedCategoryProvider.notifier).state = categoryId;
-                },
-              ),
-              const SizedBox(height: 16),
-              _ProductsSection(products: products),
-            ],
-          ],
-        ),
+          ),
+          if (homeState.isLoading) _buildLoadingOverlay(),
+        ],
       ),
     );
   }
 
-  List<Product> _filterProducts({
-    required List<Product> products,
-    required String selectedCategoryId,
-    required String searchTerm,
-  }) {
-    final normalizedSearch = searchTerm.trim().toLowerCase();
+  Widget _buildShopsList(HomeState homeState, HomeNotifier homeNotifier) {
+    if (homeState.nearbyShops.isEmpty) {
+      return const SizedBox(
+        height: 150,
+        child: Center(child: Text('No hay comercios cercanos')),
+      );
+    }
 
-    return products.where((product) {
-      final categoryMatch = selectedCategoryId == CategoryConstants.allProductsCategoryId
-          ? true
-          : product.categoryId == selectedCategoryId;
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: homeState.nearbyShops.length,
+        itemBuilder: (context, index) {
+          final shopDistance = homeState.nearbyShops[index];
+          final shop = shopDistance.shop;
+          final isSelected = homeState.selectedShop?.id == shop.id;
 
-      if (!categoryMatch) return false;
-      if (normalizedSearch.isEmpty) return true;
+          return _ShopCard(
+            shop: shop,
+            distanceKm: shopDistance.distanceKm,
+            isSelected: isSelected,
+            onTap: () => homeNotifier.selectShop(shop),
+          );
+        },
+      ),
+    );
+  }
 
-      return product.name.toLowerCase().contains(normalizedSearch) ||
-          product.description.toLowerCase().contains(normalizedSearch);
-    }).toList();
+  Widget _buildShopsView(BuildContext context, HomeState homeState) {
+    final viewMode = ref.watch(shopViewModeProvider);
+    final homeNotifier = ref.read(homeProvider.notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${homeState.nearbyShops.length} comercios cercanos',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            SegmentedButton<ShopViewMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ShopViewMode.map,
+                  icon: Icon(Icons.map_outlined, size: 18),
+                ),
+                ButtonSegment(
+                  value: ShopViewMode.list,
+                  icon: Icon(Icons.list, size: 18),
+                ),
+              ],
+              selected: {viewMode},
+              onSelectionChanged: (selection) {
+                ref.read(shopViewModeProvider.notifier).state = selection.first;
+              },
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (viewMode == ShopViewMode.map)
+          SizedBox(
+            height: 200,
+            child: ShopMapWidget(
+              nearbyShops: homeState.nearbyShops,
+              userLatitude: homeState.userLatitude ?? 0,
+              userLongitude: homeState.userLongitude ?? 0,
+              selectedShop: homeState.selectedShop,
+              onShopTap: homeNotifier.selectShop,
+            ),
+          )
+        else
+          _buildShopsList(homeState, homeNotifier),
+      ],
+    );
   }
 }
 
-Widget _buildLocationBlock(BuildContext context, String? locationMessage) {
+Widget _buildLoadingOverlay() {
+  return Positioned.fill(
+    child: Container(
+      color: Colors.black.withValues(alpha: 0.15),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const CircularProgressIndicator(),
+        ),
+      ),
+    ),
+  );
+}
+
+List<Product> _filterProducts({
+  required List<Product> products,
+  required String selectedCategoryId,
+  required String searchTerm,
+}) {
+  final normalizedSearch = searchTerm.trim().toLowerCase();
+
+  return products.where((product) {
+    final categoryMatch =
+        selectedCategoryId == CategoryConstants.allProductsCategoryId
+        ? true
+        : product.categoryId == selectedCategoryId;
+
+    if (!categoryMatch) return false;
+    if (normalizedSearch.isEmpty) return true;
+
+    return product.name.toLowerCase().contains(normalizedSearch) ||
+        product.description.toLowerCase().contains(normalizedSearch);
+  }).toList();
+}
+
+Widget _buildLocationBlock(
+  BuildContext context,
+  String? locationMessage,
+  String? errorMessage,
+) {
+  final hasError = errorMessage != null && locationMessage == null;
+
   return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.green.shade50,
+      color: hasError ? Colors.red.shade50 : Colors.green.shade50,
       borderRadius: BorderRadius.circular(12),
+      border: hasError ? Border.all(color: Colors.red.shade200) : null,
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.my_location, color: Colors.green),
+        Icon(
+          hasError ? Icons.location_off : Icons.my_location,
+          color: hasError ? Colors.red : Colors.green,
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            locationMessage ?? 'Buscando comercios de tu zona...',
-            style: Theme.of(context).textTheme.bodyMedium,
+            hasError
+                ? errorMessage
+                : (locationMessage ?? 'Buscando comercios de tu zona...'),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: hasError ? Colors.red.shade800 : null,
+            ),
           ),
         ),
       ],
@@ -248,30 +368,25 @@ Widget _buildLocationBlock(BuildContext context, String? locationMessage) {
   );
 }
 
-Widget _buildNearbyShopsCarousel({
-  required List<ShopDistance> nearbyShops,
-  required Shop? selectedShop,
-  required ValueChanged<Shop> onShopTap,
-}) {
-  if (nearbyShops.isEmpty) {
-    return const Text('No hay comercios cercanos en este momento.');
+Widget _buildShopListHint(
+  BuildContext context,
+  int shopsCount,
+  Shop? selectedShop,
+) {
+  if (shopsCount <= 1 || selectedShop != null) {
+    return const SizedBox.shrink();
   }
 
-  return SizedBox(
-    height: 215,
-    child: ListView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: nearbyShops.length,
-      itemBuilder: (context, index) {
-        final shopDistance = nearbyShops[index];
-        return ShopLogoCard(
-          shop: shopDistance.shop,
-          distanceKm: shopDistance.distanceKm,
-          isActive: selectedShop?.id == shopDistance.shop.id,
-          onTap: () => onShopTap(shopDistance.shop),
-        );
-      },
-    ),
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      Icon(Icons.touch_app, size: 16, color: Colors.grey.shade600),
+      const SizedBox(width: 6),
+      Text(
+        'Toca una sucursal en el mapa para ver su catálogo',
+        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+      ),
+    ],
   );
 }
 
@@ -326,7 +441,8 @@ class _SelectedCommerceHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(shop.address, style: Theme.of(context).textTheme.bodySmall),
-          Text(shop.schedule, style: Theme.of(context).textTheme.bodySmall),
+          if (shop.schedule != null && shop.schedule!.isNotEmpty)
+            Text(shop.schedule!, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
@@ -415,6 +531,195 @@ class _ProductsSection extends StatelessWidget {
           onTap: () => context.go('/product/${product.id}'),
         );
       },
+    );
+  }
+}
+
+class _ShopCard extends ConsumerWidget {
+  final Shop shop;
+  final double distanceKm;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ShopCard({
+    required this.shop,
+    required this.distanceKm,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shopStatus = ref.watch(shopStatusProvider(shop.id));
+
+    Color borderColor;
+    Color? cardColor;
+    Color statusColor;
+    String statusText;
+    IconData statusIcon;
+
+    switch (shopStatus.status) {
+      case ShopStatus.active:
+        borderColor = AppColors.primaryColor;
+        cardColor = Colors.white;
+        statusColor = Colors.green;
+        statusText = 'Abierto';
+        statusIcon = Icons.check_circle;
+        break;
+      case ShopStatus.waiting:
+        borderColor = Colors.orange;
+        cardColor = Colors.orange.shade50;
+        statusColor = Colors.orange;
+        statusText = 'Alta demanda';
+        statusIcon = Icons.warning_amber_rounded;
+        break;
+      case ShopStatus.inactive:
+        borderColor = Colors.red.shade300;
+        cardColor = Colors.red.shade50;
+        statusColor = Colors.red;
+        statusText = 'No disponible';
+        statusIcon = Icons.cancel;
+        break;
+      case ShopStatus.closed:
+        borderColor = Colors.grey.shade400;
+        cardColor = Colors.grey.shade100;
+        statusColor = Colors.grey.shade600;
+        statusText = shopStatus.nextOpenTime != null
+            ? 'Cerrado - Abre ${shopStatus.nextOpenTime}'
+            : 'Cerrado';
+        statusIcon = Icons.lock_clock;
+        break;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? AppColors.primaryColor : borderColor,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: isSelected
+              ? AppColors.primaryColor.withValues(alpha: 0.05)
+              : cardColor,
+        ),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        height: 50,
+                        width: 50,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade200,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: shop.logoUrl.isNotEmpty
+                              ? Image.network(
+                                  shop.logoUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.store,
+                                    color: Colors.grey,
+                                  ),
+                                )
+                              : const Icon(Icons.store, color: Colors.grey),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(statusIcon, size: 12, color: statusColor),
+                            const SizedBox(width: 2),
+                            Text(
+                              statusText.length > 10
+                                  ? '${statusText.substring(0, 10)}...'
+                                  : statusText,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: statusColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    shop.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    shop.address,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${distanceKm.toStringAsFixed(1)} km',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (shopStatus.status == ShopStatus.closed ||
+                shopStatus.status == ShopStatus.inactive)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.lock, color: Colors.white, size: 32),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

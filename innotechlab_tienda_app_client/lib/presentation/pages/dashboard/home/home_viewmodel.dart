@@ -12,6 +12,8 @@ class HomeState extends Equatable {
   final List<Product> products;
   final List<ShopDistance> nearbyShops;
   final Shop? selectedShop;
+  final double? userLatitude;
+  final double? userLongitude;
 
   const HomeState({
     this.isLoading = false,
@@ -21,6 +23,8 @@ class HomeState extends Equatable {
     this.products = const [],
     this.nearbyShops = const [],
     this.selectedShop,
+    this.userLatitude,
+    this.userLongitude,
   });
 
   /// Creates a new instance of HomeState with updated values.
@@ -32,6 +36,8 @@ class HomeState extends Equatable {
     List<Product>? products,
     List<ShopDistance>? nearbyShops,
     Shop? selectedShop,
+    double? userLatitude,
+    double? userLongitude,
     bool clearError = false,
     bool clearLocationMessage = false,
     bool clearSelectedShop = false,
@@ -40,24 +46,31 @@ class HomeState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isLocationLoading: isLocationLoading ?? this.isLocationLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      locationMessage:
-          clearLocationMessage ? null : (locationMessage ?? this.locationMessage),
+      locationMessage: clearLocationMessage
+          ? null
+          : (locationMessage ?? this.locationMessage),
       products: products ?? this.products,
       nearbyShops: nearbyShops ?? this.nearbyShops,
-      selectedShop: clearSelectedShop ? null : (selectedShop ?? this.selectedShop),
+      selectedShop: clearSelectedShop
+          ? null
+          : (selectedShop ?? this.selectedShop),
+      userLatitude: userLatitude ?? this.userLatitude,
+      userLongitude: userLongitude ?? this.userLongitude,
     );
   }
 
   @override
   List<Object?> get props => [
-        isLoading,
-        isLocationLoading,
-        errorMessage,
-        locationMessage,
-        products,
-        nearbyShops,
-        selectedShop,
-      ];
+    isLoading,
+    isLocationLoading,
+    errorMessage,
+    locationMessage,
+    products,
+    nearbyShops,
+    selectedShop,
+    userLatitude,
+    userLongitude,
+  ];
 }
 
 class ShopDistance extends Equatable {

@@ -20,14 +20,38 @@ void showInfoToast(
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Row(
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (icon != null) ...[
-            Icon(icon, color: textColor),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Text(message, style: TextStyle(color: textColor)),
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: textColor),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(message, style: TextStyle(color: textColor)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 1.0, end: 0.0),
+              duration: duration,
+              builder: (context, value, child) {
+                return LinearProgressIndicator(
+                  value: value,
+                  backgroundColor: Colors.black12,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    textColor.withValues(alpha: 0.7),
+                  ),
+                  minHeight: 3,
+                );
+              },
+            ),
           ),
         ],
       ),

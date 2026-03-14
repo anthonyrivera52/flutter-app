@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_app/presentation/provider/onboarding_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreenPage extends ConsumerStatefulWidget {
   const SplashScreenPage({super.key});
@@ -9,23 +11,38 @@ class SplashScreenPage extends ConsumerStatefulWidget {
   ConsumerState<SplashScreenPage> createState() => _SplashScreenPageState();
 }
 
-class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {  
+class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
+  @override
+  void initState() {
+    super.initState();
+    _navigateToNextScreen();
+  }
 
-    @override
-    void initState() {
-      super.initState();
-      _navigateToNextScreen();
-    }
-    
-    Future<void> _navigateToNextScreen() async {
-      await Future.delayed(const Duration(milliseconds: 1200));
-      if (!mounted) return;
+  Future<void> _navigateToNextScreen() async {
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    final storage = ref.read(keyValueStorageProvider);
+    final onboardingCompleted = await storage.isOnboardingCompleted();
+
+    if (!mounted) return;
+
+    if (!onboardingCompleted) {
       context.go('/onboarding');
+      return;
     }
 
-    @override
-  Widget build(BuildContext context) {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (!mounted) return;
 
+    if (session != null) {
+      context.go('/');
+    } else {
+      context.go('/signin');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -35,7 +52,10 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
 
-            colors: [Color.fromARGB(255, 255, 255, 255),Color.fromARGB(255, 255, 255, 255),]
+            colors: [
+              Color.fromARGB(255, 255, 255, 255),
+              Color.fromARGB(255, 255, 255, 255),
+            ],
           ),
         ),
         child: Column(
@@ -49,9 +69,7 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
                   width: 300.0,
                   height: 300.0,
                 ),
-                const SizedBox(
-                  height: 180.0,
-                ),
+                const SizedBox(height: 180.0),
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
@@ -67,30 +85,24 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
                     Text(
                       'Tu aplicación de pedidos a domicilio',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16.0,
-                        color: Colors.black54,
-                      ),
+                      style: TextStyle(fontSize: 16.0, color: Colors.black54),
                     ),
-             SizedBox(height: 50.0),
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-            ),
-            SizedBox(height: 10.0),
-            Text(
-              'Cargando...',
-              style: TextStyle(
-                fontSize: 16.0,
-                color: Colors.black54,
-              ),
-            ),
+                    SizedBox(height: 50.0),
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ),
+                    SizedBox(height: 10.0),
+                    Text(
+                      'Cargando...',
+                      style: TextStyle(fontSize: 16.0, color: Colors.black54),
+                    ),
                   ],
                 ),
               ],
             ),
           ],
-        )
-      )
+        ),
+      ),
     );
   }
 }

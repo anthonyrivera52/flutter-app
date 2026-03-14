@@ -4,20 +4,8 @@ import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/data/model/auth_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_app/config/constants/app_constants.dart';
+import 'package:flutter_app/core/security/security_service.dart';
 
-/// Helper to get the appropriate OTP type based on environment configuration.
-/// - 'supabase': Uses email OTP (OtpType.signup) for dev/QA
-/// - 'twilio': Uses phone SMS OTP (OtpType.sms) for production
-OtpType _getOtpType() {
-  return AppConstants.otpMethod == 'twilio' ? OtpType.sms : OtpType.signup;
-}
-
-/// Helper to get the appropriate email/phone destination based on environment.
-/// For Supabase: uses email
-/// For Twilio: expects phone number in format +1234567890
-String _getOtpDestination(String emailOrPhone) {
-  return emailOrPhone;
-}
 
 /// Proveedor para el AuthViewModel.
 /// Se encarga de crear una instancia del ViewModel y de inyectar sus dependencias.
@@ -139,18 +127,34 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
       }
 
       final email = emailController.text.trim();
+      final password = passwordController.text.trim();
+      final displayName = SecurityService.sanitizeInput(displayNameController.text.trim());
 
-      // Determinar el tipo de OTP según el método configurado
-      final otpType = AppConstants.otpMethod == 'twilio'
-          ? OtpType.sms
-          : OtpType.signup;
+      // Validar Email
+      if (!SecurityService.isValidEmail(email)) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'El formato del correo electrónico no es válido.',
+        );
+        return false;
+      }
+
+      // Validar Fuerza de Contraseña
+      final passwordError = SecurityService.validatePasswordStrength(password);
+      if (passwordError != null) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: passwordError,
+        );
+        return false;
+      }
 
       // Crear usuario y enviar código de verificación
       // Usamos signUp que crea el usuario en Supabase Auth
       final response = await Supabase.instance.client.auth.signUp(
         email: email,
-        password: passwordController.text.trim(),
-        data: {'display_name': displayNameController.text.trim()},
+        password: password,
+        data: {'display_name': displayName},
         emailRedirectTo: null, // No redirigir a URL, usaremos verificación manual
       );
 
@@ -208,21 +212,7 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
   Future<bool> verifyOtp(String email, String token) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
-    // SECURITY: Remove hardcoded OTP bypass in production
-    // This should NEVER be in production code
-    // Only for local development with explicit flag
-    const bool isDevelopment = bool.fromEnvironment('OTP_DEV_MODE', defaultValue: false);
-    if (isDevelopment && token == '123456') {
-      await Future.delayed(const Duration(milliseconds: 800));
-      state = state.copyWith(
-        isLoading: false,
-        isAuthenticated: true,
-        loggedInEmail: email,
-      );
-      return true;
-    }
-
-    // Validate OTP format before sending to API
+    // Validar formato del OTP antes de enviar a la API
     if (token.length != 6 || !RegExp(r'^\d+$').hasMatch(token)) {
       state = state.copyWith(
         isLoading: false,

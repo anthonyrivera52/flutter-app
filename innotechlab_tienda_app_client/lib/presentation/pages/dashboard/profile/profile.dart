@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/config/mock/app_mock.dart';
+import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile_viewmodel.dart';
+import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -18,34 +21,35 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     super.initState();
 
     // Escuchar los cambios en el estado de AuthNotifierProfile
-    _removeAuthProfileListener = ref.read(authProfileProvider.notifier).addListener((state) {
-      // Deferir las acciones de UI hasta después del frame actual
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return; // Asegurarse de que el widget sigue montado
+    _removeAuthProfileListener = ref
+        .read(authProfileProvider.notifier)
+        .addListener((state) {
+          // Deferir las acciones de UI hasta después del frame actual
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return; // Asegurarse de que el widget sigue montado
 
-        // Manejar el cierre de sesión exitoso
-        // previousState no está disponible directamente con addListener,
-        // pero podemos inferir el cambio si isAuthenticated pasa a ser false.
-        // También chequeamos si el user es null para confirmar el logout.
-        if (!state.isAuthenticated && (state.user == null)) {
-          // ScaffoldMessenger.of(context).showSnackBar(
-          //   const SnackBar(content: Text('¡Sesión cerrada exitosamente!')),
-          // );
-          // context.go('/signIn'); // Redirige a la pantalla de login
-        }
-        // Manejar mensajes de error
-        if (state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.errorMessage!),
-              backgroundColor: Colors.red,
-            ),
-          );
-          // Limpiar el mensaje de error en el ViewModel después de mostrarlo
-          ref.read(authProfileProvider.notifier).clearErrorMessage();
-        }
-      });
-    });
+            // Manejar el cierre de sesión exitoso
+            // previousState no está disponible directamente con addListener,
+            // pero podemos inferir el cambio si isAuthenticated pasa a ser false.
+            // También chequeamos si el user es null para confirmar el logout.
+            if (!state.isAuthenticated && (state.user == null)) {
+              // Navigate to sign in page after logout
+              context.go('/signin');
+            }
+            // Manejar mensajes de error
+            if (state.errorMessage != null) {
+              showInfoToast(
+                context,
+                message: state.errorMessage!,
+                backgroundColor: Colors.red,
+                icon: Icons.error_outline,
+                isDismissible: true,
+              );
+              // Limpiar el mensaje de error en el ViewModel después de mostrarlo
+              ref.read(authProfileProvider.notifier).clearErrorMessage();
+            }
+          });
+        });
   }
 
   @override
@@ -57,59 +61,183 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   void _signOut() async {
     // Llama al método signOut del ViewModel, que ya no necesita 'context'
     ref.read(authProfileProvider.notifier).signOut();
-    // La navegación y los mensajes se manejarán en el listener de initState
+    // La navegación se manejará en el listener de initState
   }
 
   @override
   Widget build(BuildContext context) {
     final authProfileState = ref.watch(authProfileProvider);
 
-    // Usar el usuario mock si authProfileState.user es nulo, de lo contrario usar el real
-    final currentUser = authProfileState.user ?? MockData().mockUser;
+    if (!authProfileState.isAuthenticated || authProfileState.user == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'No hay sesión activa',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Por favor inicia sesión para ver tu perfil',
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.go('/signin'),
+                child: const Text('Iniciar sesión'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final User currentUser = authProfileState.user!;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: const Text('Perfil'),
         centerTitle: true,
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Mostrar información del usuario (siempre se muestra, usando mock si el real es nulo)
-            CircleAvatar(
-              radius: 50,
-              backgroundImage: NetworkImage(currentUser.userMetadata?['avatar_url'] ?? 'https://placehold.co/100x100'),
+      body: Column(
+        children: [
+          // User info section
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              currentUser.userMetadata?['display_name'] ?? 'Usuario',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            Text(
-              currentUser.email ?? 'No email',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 30), // Este SizedBox siempre se renderizará
-            // Indicador de carga
-            if (authProfileState.isLoading)
-              const CircularProgressIndicator()
-            else
-              // Botón de cierre de sesión
-              ElevatedButton(
-                onPressed: _signOut,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundImage: NetworkImage(
+                    currentUser.userMetadata?['avatar_url'] as String? ??
+                        'https://placehold.co/100x100',
                   ),
                 ),
-                child: const Text('Cerrar Sesión'),
-              ),
-          ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        currentUser.userMetadata?['display_name'] as String? ??
+                            'Usuario',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        currentUser.email ?? 'No email',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () {
+                    // Navigate to edit profile
+                  },
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              children: [
+                _buildMenuItem(
+                  context,
+                  icon: Icons.location_on_outlined,
+                  title: 'Direcciones',
+                  onTap: () {
+                    // Navigate to addresses page
+                  },
+                ),
+                _buildMenuItem(
+                  context,
+                  icon: Icons.payment_outlined,
+                  title: 'Métodos de pago',
+                  onTap: () {
+                    // Navigate to payment methods page
+                  },
+                ),
+                _buildMenuItem(
+                  context,
+                  icon: Icons.local_offer_outlined,
+                  title: 'Promociones',
+                  onTap: () {
+                    // Navigate to promotions page
+                  },
+                ),
+                _buildMenuItem(
+                  context,
+                  icon: Icons.support_agent_outlined,
+                  title: 'Soporte',
+                  onTap: () {
+                    // Navigate to support page
+                  },
+                ),
+                _buildMenuItem(
+                  context,
+                  icon: Icons.settings_outlined,
+                  title: 'Configuración',
+                  onTap: () {
+                    // Navigate to settings page
+                  },
+                ),
+                const Divider(height: 1, thickness: 1),
+                _buildMenuItem(
+                  context,
+                  icon: Icons.logout_outlined,
+                  title: 'Cerrar sesión',
+                  onTap: _signOut,
+                  color: Colors.red,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? AppColors.primaryColor),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: color ?? Colors.black,
+          fontWeight: FontWeight.w500,
         ),
       ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
     );
   }
 }

@@ -1,0 +1,23 @@
+{
+  "@@locale": "es",
+  "appTitle": "Innotech Tienda",
+  "@appTitle": {
+    "description": "El título de la aplicación"
+  },
+  "loginTitle": "Iniciar Sesión",
+  "loginWelcome": "Bienvenido de nuevo",
+  "emailLabel": "Correo Electrónico",
+  "emailHint": "ejemplo@dominio.com",
+  "passwordLabel": "Contraseña",
+  "passwordHint": "Tu contraseña secreta",
+  "loginButton": "Iniciar Sesión",
+  "dontHaveAccount": "¿No tienes una cuenta? Regístrate",
+  "registerTitle": "Registrarse",
+  "registerButton": "Registrarse",
+  "emailRequired": "El correo es requerido",
+  "invalidEmail": "Introduce un correo válido",
+  "passwordRequired": "La contraseña es requerida",
+  "welcomeMessage": "¡Bienvenido!",
+  "unexpectedError": "Error inesperado",
+  "invalidCredentials": "Credenciales incorrectas. Inténtalo de nuevo."
+}

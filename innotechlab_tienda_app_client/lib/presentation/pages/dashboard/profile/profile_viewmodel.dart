@@ -1,113 +1,120 @@
-import 'package:flutter_app/core/errors/failures.dart';
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter_app/data/model/profile_model.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Para NoParams
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Proveedor para AuthNotifierProfile.
-/// Inyecta las dependencias necesarias (casos de uso).
 final authProfileProvider =
     StateNotifierProvider<AuthNotifierProfile, AuthStateProfileModel>(
       (ref) => AuthNotifierProfile(),
     );
 
-/// ViewModel para la gestión del perfil de usuario y el cierre de sesión.
 class AuthNotifierProfile extends StateNotifier<AuthStateProfileModel> {
-  AuthNotifierProfile() : super(const AuthStateProfileModel());
+  StreamSubscription<AuthState>? _authSubscription;
 
-  /// Actualiza el perfil del usuario.
+  AuthNotifierProfile() : super(const AuthStateProfileModel()) {
+    _init();
+  }
+
+  void _init() {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser != null) {
+      state = state.copyWith(user: currentUser, isAuthenticated: true);
+    }
+
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
+      final session = data.session;
+      if (session != null) {
+        state = state.copyWith(user: session.user, isAuthenticated: true);
+      } else {
+        state = const AuthStateProfileModel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> updateUserProfile({String? username, String? avatarUrl}) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-    // final result = await _updateUserProfileUseCase(
-    //   UpdateUserProfileParams(username: username, avatarUrl: avatarUrl),
-    // );
-    // result.fold(
-    //   (failure) {
-    //     state = state.copyWith(isLoading: false, errorMessage: _mapFailureToMessage(failure));
-    //   },
-    //   (updatedUser) {
-    //     state = state.copyWith(isLoading: false, user: updatedUser);
-    //   },
-    // );
-    return Future.delayed(const Duration(seconds: 2), () {
-      state = state.copyWith(
-        isLoading: false,
-        user: null, // Simulación de actualización
-      );
-    });
+    try {
+      final updates = <String, dynamic>{};
+      if (username != null) updates['display_name'] = username;
+      if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+
+      if (updates.isNotEmpty) {
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(data: updates),
+        );
+      }
+
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      state = state.copyWith(isLoading: false, user: currentUser);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+    }
   }
 
-  /// Sube una imagen de perfil.
   Future<String?> uploadProfileImage(String filePath) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-    // final result = await _uploadProfileImageUseCase(UploadProfileImageParams(filePath: filePath));
-    // return result.fold(
-    //   (failure) {
-    //     state = state.copyWith(isLoading: false, errorMessage: _mapFailureToMessage(failure));
-    //     return null;
-    //   },
-    //   (imageUrl) {
-    //     state = state.copyWith(isLoading: false);
-    //     return imageUrl;
-    //   },
-    // );
-    return Future.delayed(const Duration(seconds: 2), () {
-      state = state.copyWith(
-        isLoading: false,
-        user: null, // Simulación de subida de imagen
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'No hay usuario autenticado',
+        );
+        return null;
+      }
+
+      await Supabase.instance.client.storage
+          .from('avatars')
+          .uploadBinary(
+            '$userId/profile.jpg',
+            await File(filePath).readAsBytes(),
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
+          );
+
+      final publicUrl = Supabase.instance.client.storage
+          .from('avatars')
+          .getPublicUrl('$userId/profile.jpg');
+
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(data: {'avatar_url': publicUrl}),
       );
-      return 'https://example.com/new-avatar.png'; // URL simulada
-    });
+
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      state = state.copyWith(isLoading: false, user: currentUser);
+      return publicUrl;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      return null;
+    }
   }
 
-  /// Realiza el cierre de sesión del usuario.
-  /// Este método ya NO recibe BuildContext.
   Future<void> signOut() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-    // final result = await _signOutUseCase(const NoParams()); // Llama al caso de uso de cierre de sesión
-
-    // result.fold(
-    //   (failure) {
-    //     state = state.copyWith(
-    //       isLoading: false,
-    //       errorMessage: _mapFailureToMessage(failure),
-    //       isAuthenticated: true, // Sigue autenticado si falla el cierre de sesión
-    //     );
-    //   },
-    //   (_) {
-    //     state = state.copyWith(
-    //       isLoading: false,
-    //       user: null, // Limpia el usuario al cerrar sesión
-    //       errorMessage: null,
-    //       isAuthenticated: false, // Establece como no autenticado
-    //     );
-    //   },
-    // );
-    return Future.delayed(const Duration(seconds: 2), () {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      state = const AuthStateProfileModel();
+    } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        user: null, // Simulación de cierre de sesión
-        errorMessage: null,
-        isAuthenticated: false, // Establece como no autenticado
+        errorMessage: e.toString(),
+        isAuthenticated: true,
       );
-    });
+    }
   }
 
-  /// Limpia el mensaje de error actual.
   void clearErrorMessage() {
     state = state.copyWith(errorMessage: null);
-  }
-
-  /// Mapea un objeto Failure a un mensaje de error legible.
-  // ignore: unused_element
-  String _mapFailureToMessage(Failure failure) {
-    if (failure is ServerFailure) {
-      return failure.message;
-    } else if (failure is AuthFailure) {
-      return failure.message;
-    } else if (failure is NetworkFailure) {
-      // Añadido NetworkFailure si lo tienes
-      return 'Problemas de conexión a internet. Por favor, revisa tu conexión.';
-    } else {
-      return 'Ocurrió un error inesperado.';
-    }
   }
 }

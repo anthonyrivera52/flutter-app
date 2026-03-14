@@ -69,7 +69,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         .verifyOtp(_emailController.text.trim(), _otpController.text.trim());
 
     if (success && mounted) {
-      context.go('/');
+      // Navigate to location selection instead of directly to home
+      context.go('/location-selection');
     }
   }
 

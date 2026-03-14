@@ -1,28 +1,27 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_app/presentation/pages/dashboard/home/home.dart';
 import 'package:flutter_app/presentation/pages/dashboard/orders/order_list.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
+import 'package:flutter_app/presentation/pages/dashboard/search/search_page.dart';
+import 'package:flutter_app/presentation/pages/dashboard/favorites/favorites_page.dart';
 // Import for GoRouter
 import 'package:motion_tab_bar/MotionTabBar.dart';
 import 'package:motion_tab_bar/MotionTabBarController.dart';
-// CartPage and NotificationsPage imports are not strictly needed if using path-based navigation
-// and not directly referencing their routeName constants.
-// However, ProfilePage is used directly in _widgetOptions.
-
 
 class DashboardPage extends StatefulWidget {
   final int? initialTabIndex; // Accept initialTabIndex
 
   const DashboardPage({super.key, this.initialTabIndex});
 
-  static const String routeName = '/dashboard'; // Or just '/' if it's the new home
+  static const String routeName =
+      '/dashboard'; // Or just '/' if it's the new home
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> with TickerProviderStateMixin {
+class _DashboardPageState extends State<DashboardPage>
+    with TickerProviderStateMixin {
   late int _selectedIndex; // Use late to initialize in initState
   MotionTabBarController? _motionTabBarController;
 
@@ -30,10 +29,10 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
   void initState() {
     super.initState();
     _selectedIndex = widget.initialTabIndex ?? 0; // Set initial index
-       //// use "MotionTabBarController" to replace with "TabController", if you need to programmatically change the tab
+    //// use "MotionTabBarController" to replace with "TabController", if you need to programmatically change the tab
     _motionTabBarController = MotionTabBarController(
       initialIndex: _selectedIndex,
-      length: 3,
+      length: 5,
       vsync: this,
     );
   }
@@ -41,8 +40,10 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
   // Define titles for each tab to update AppBar dynamically
   static const List<String> _appBarTitles = <String>[
     'Home', // For Home tab
-    'Orders',  // For Orders tab
-    'Profile', // For Profile tab
+    'Buscar', // For Search tab
+    'Pedidos', // For Orders tab
+    'Favoritos', // For Favorites tab
+    'Perfil', // For Profile tab
   ];
 
   @override
@@ -53,9 +54,11 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
 
   static List<Widget> _widgetOptions(BuildContext context) {
     return <Widget>[
-      const HomeTabPageContent(), // Content of old HomePage
-      const OrdersListPage(),     // New Orders List Page
-      const ProfilePage(),
+      const HomeTabPageContent(), // Home content
+      const SearchPage(), // Search content
+      const OrdersListPage(), // Orders content
+      const FavoritesPage(), // Favorites content
+      const ProfilePage(), // Profile content
     ];
   }
 
@@ -99,19 +102,19 @@ class _DashboardPageState extends State<DashboardPage> with TickerProviderStateM
       //     //         _onItemTapped(2);
       //     //       }
       //     //       // If you wanted to navigate to the profile page via router (e.g., from a deep link scenario)
-      //     //       // else { context.go('/profile'); } 
+      //     //       // else { context.go('/profile'); }
       //     //     },
       //     //   ),
       //   ],
       // ),
-      body: Center(
-        child: currentWidgetOptions.elementAt(_selectedIndex),
-      ),
+      body: Center(child: currentWidgetOptions.elementAt(_selectedIndex)),
       bottomNavigationBar: MotionTabBar(
         labels: _appBarTitles,
         icons: const [
           Icons.home,
+          Icons.search,
           Icons.list_alt,
+          Icons.favorite_border,
           Icons.person,
         ],
         initialSelectedTab: _appBarTitles[_selectedIndex],

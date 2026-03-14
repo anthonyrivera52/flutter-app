@@ -5,6 +5,8 @@ import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
 import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
+import 'package:flutter_app/core/security/security_service.dart';
+import 'package:flutter_app/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -37,9 +39,10 @@ class _SignInPageState extends ConsumerState<SignInPage> {
       // and then true only on success.
       if (state.isAuthenticated) {
         if (mounted) {
+          final l10n = AppLocalizations.of(context)!;
           showInfoToast(
             context,
-            message: '¡Bienvenido!',
+            message: l10n.welcomeMessage,
             backgroundColor: Colors.green,
             icon: Icons.check_circle_outline,
             isDismissible: true,
@@ -93,13 +96,14 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Observe the ViewModel's state to rebuild the UI when it changes.
     final authState = ref.watch(authViewModelProvider);
     // Access the ViewModel's notifier to call its methods.
     final authVM = ref.read(authViewModelProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Iniciar Sesión'), centerTitle: true),
+      appBar: AppBar(title: Text(l10n.loginTitle), centerTitle: true),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -109,7 +113,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Bienvenido de nuevo',
+                  l10n.loginWelcome,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: AppColors.textColor,
                     fontWeight: FontWeight.bold,
@@ -119,17 +123,17 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                 CustomTextField(
                   controller:
                       authVM.emailController, // Use the ViewModel's controller
-                  labelText: 'Correo Electrónico',
-                  hintText: 'ejemplo@dominio.com',
+                  labelText: l10n.emailLabel,
+                  hintText: l10n.emailHint,
                   prefixIcon: Icons.email,
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'El correo es requerido';
+                      return l10n.emailRequired;
                     }
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                      return 'Introduce un correo válido';
+                    if (!SecurityService.isValidEmail(value)) {
+                      return l10n.invalidEmail;
                     }
                     return null;
                   },
@@ -138,8 +142,8 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                 CustomTextField(
                   controller: authVM
                       .passwordController, // Use the ViewModel's controller
-                  labelText: 'Contraseña',
-                  hintText: 'Tu contraseña secreta',
+                  labelText: l10n.passwordLabel,
+                  hintText: l10n.passwordHint,
                   prefixIcon: Icons.lock,
                   obscureText: authState
                       .isPasswordObscured, // Observe the ViewModel's state
@@ -158,7 +162,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'La contraseña es requerida';
+                      return l10n.passwordRequired;
                     }
                     return null;
                   },
@@ -168,7 +172,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                         .isLoading // Use the ViewModel's loading state
                     ? const LoadingIndicator()
                     : CustomButton(
-                        text: 'Iniciar Sesión',
+                        text: l10n.loginButton,
                         onPressed:
                             _onSignInButtonPressed, // Call the method that interacts with the ViewModel
                       ),
@@ -178,7 +182,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
                     context.go('/signup');
                   },
                   child: Text(
-                    '¿No tienes una cuenta? Regístrate',
+                    l10n.dontHaveAccount,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.secondary,
                     ),

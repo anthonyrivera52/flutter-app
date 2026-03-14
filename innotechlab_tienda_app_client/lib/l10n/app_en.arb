@@ -1,0 +1,20 @@
+{
+  "@@locale": "en",
+  "appTitle": "Innotech Store",
+  "loginTitle": "Sign In",
+  "loginWelcome": "Welcome back",
+  "emailLabel": "Email address",
+  "emailHint": "example@domain.com",
+  "passwordLabel": "Password",
+  "passwordHint": "Your secret password",
+  "loginButton": "Sign In",
+  "dontHaveAccount": "Don't have an account? Sign Up",
+  "registerTitle": "Sign Up",
+  "registerButton": "Sign Up",
+  "emailRequired": "Email is required",
+  "invalidEmail": "Enter a valid email",
+  "passwordRequired": "Password is required",
+  "welcomeMessage": "Welcome!",
+  "unexpectedError": "Unexpected error",
+  "invalidCredentials": "Invalid credentials. Try again."
+}

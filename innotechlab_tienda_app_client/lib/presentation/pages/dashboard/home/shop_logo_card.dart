@@ -69,12 +69,13 @@ class ShopLogoCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            Text(
-              shop.schedule,
-              style: Theme.of(context).textTheme.bodySmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            if (shop.schedule != null && shop.schedule!.isNotEmpty)
+              Text(
+                shop.schedule!,
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             const SizedBox(height: 4),
             Text(
               '${distanceKm.toStringAsFixed(1)} km de distancia',

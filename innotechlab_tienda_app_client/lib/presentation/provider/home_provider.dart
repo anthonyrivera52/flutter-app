@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+
 import 'package:flutter_app/core/error/error_logger.dart';
 import 'package:flutter_app/core/location/location_result.dart';
 import 'package:flutter_app/core/location/location_service.dart';
@@ -17,17 +19,43 @@ final locationServiceProvider = Provider<LocationService>((ref) {
 final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>((ref) {
   final supabase = Supabase.instance.client;
   final locationService = ref.watch(locationServiceProvider);
-  return HomeNotifier(supabase, locationService)..initialize();
+  return HomeNotifier(supabase, locationService);
 });
 
 class HomeNotifier extends StateNotifier<HomeState> {
   final SupabaseClient _supabase;
   final LocationService _locationService;
-  final String _userId;
+  late String _userId;
+  StreamSubscription<AuthState>? _authSubscription;
 
   HomeNotifier(this._supabase, this._locationService)
-      : _userId = _supabase.auth.currentUser?.id ?? 'anonymous',
-        super(const HomeState());
+    : super(const HomeState()) {
+    _userId = _supabase.auth.currentUser?.id ?? 'anonymous';
+
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((data) {
+      final AuthChangeEvent event = data.event;
+      if (event == AuthChangeEvent.signedIn ||
+          event == AuthChangeEvent.tokenRefreshed) {
+        _userId = data.session?.user.id ?? 'anonymous';
+        initialize();
+      } else if (event == AuthChangeEvent.signedOut) {
+        _userId = 'anonymous';
+        state = state.copyWith(nearbyShops: [], products: []);
+        // Reset state or perform other cleanup if needed
+      }
+    });
+
+    // If already authenticated, initialize
+    if (_supabase.auth.currentUser != null) {
+      initialize();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
 
   Future<void> initialize() async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -46,20 +74,23 @@ class HomeNotifier extends StateNotifier<HomeState> {
           isLoading: false,
           products: const [],
           nearbyShops: const [],
-          errorMessage: 'No hay comercios cercanos para tu ubicación. Ajusta tu zona o cambia dirección.',
+          errorMessage:
+              'No hay comercios cercanos para tu ubicación. Ajusta tu zona o cambia dirección.',
           clearSelectedShop: true,
         );
         return;
       }
 
       final activeShop = nearbyShops.first.shop;
-      final catalog = await _getCatalogForShop(activeShop.id);
+      final catalog = await _getCatalogForShop(activeShop.slug);
 
       state = state.copyWith(
         isLoading: false,
         nearbyShops: nearbyShops,
         selectedShop: activeShop,
         products: catalog,
+        userLatitude: location.latitude,
+        userLongitude: location.longitude,
         locationMessage:
             'Mostrando comercios cercanos a ${_formatCoordinate(location.latitude)}, ${_formatCoordinate(location.longitude)}',
       );
@@ -71,9 +102,35 @@ class HomeNotifier extends StateNotifier<HomeState> {
         action: ErrorAction.getLocation,
         error: e,
       );
+
+      String userMessage;
+      switch (e.type) {
+        case LocationErrorType.permissionDenied:
+          userMessage =
+              'Se requiere acceso a tu ubicación para mostrar comercios cercanos. Por favor, habilita el permiso de ubicación.';
+          break;
+        case LocationErrorType.permissionDeniedForever:
+          userMessage =
+              'El permiso de ubicación está bloqueado. Por favor, habilítalo en la configuración de la app.';
+          break;
+        case LocationErrorType.serviceDisabled:
+          userMessage =
+              'El servicio de ubicación está desactivado. Por favor, habilítalo en tu dispositivo.';
+          break;
+        case LocationErrorType.timeout:
+          userMessage =
+              'La obtención de ubicación tardó demasiado. Por favor, intenta de nuevo.';
+          break;
+        default:
+          userMessage = e.message.isNotEmpty
+              ? e.message
+              : 'Error al obtener tu ubicación. Por favor, intenta de nuevo.';
+      }
+
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.message,
+        errorMessage: userMessage,
+        locationMessage: null,
       );
     } catch (e, stackTrace) {
       // Log error and show error state - no mock fallback
@@ -86,7 +143,8 @@ class HomeNotifier extends StateNotifier<HomeState> {
       );
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Error al cargar los comercios. Por favor, verifica tu conexión e intenta de nuevo.',
+        errorMessage:
+            'Error al cargar los comercios. Por favor, verifica tu conexión e intenta de nuevo.',
       );
     }
   }
@@ -97,9 +155,13 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> selectShop(Shop shop) async {
-    state = state.copyWith(isLoading: true, clearError: true, selectedShop: shop);
+    state = state.copyWith(
+      isLoading: true,
+      clearError: true,
+      selectedShop: shop,
+    );
     try {
-      final catalog = await _getCatalogForShop(shop.id);
+      final catalog = await _getCatalogForShop(shop.slug);
       state = state.copyWith(
         isLoading: false,
         selectedShop: shop,
@@ -115,7 +177,8 @@ class HomeNotifier extends StateNotifier<HomeState> {
       );
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Error al cargar los productos. Por favor, intenta de nuevo.',
+        errorMessage:
+            'Error al cargar los productos. Por favor, intenta de nuevo.',
       );
     }
   }
@@ -128,7 +191,9 @@ class HomeNotifier extends StateNotifier<HomeState> {
     await initialize();
   }
 
-  Future<List<ShopDistance>> _resolveNearbyShopsFromApi(LocationResult location) async {
+  Future<List<ShopDistance>> _resolveNearbyShopsFromApi(
+    LocationResult location,
+  ) async {
     try {
       final response = await _supabase.functions.invoke(
         'get-nearby-shops',
@@ -147,13 +212,15 @@ class HomeNotifier extends StateNotifier<HomeState> {
         final shop = Shop(
           id: map['id'] as String,
           name: (map['name'] ?? '') as String,
+          slug: (map['slug'] ?? '') as String,
           logoUrl: (map['logoUrl'] ?? '') as String,
           address: (map['address'] ?? '') as String,
-          schedule: (map['schedule'] ?? '') as String,
+          schedule: (map['schedule'] ?? '') as String?,
           latitude: (map['latitude'] as num?)?.toDouble() ?? 0,
           longitude: (map['longitude'] as num?)?.toDouble() ?? 0,
-          serviceRadiusKm: (map['serviceRadiusKm'] as num?)?.toDouble() ?? 0,
+          serviceRadiusKm: (map['serviceRadiusKm'] as num?)?.toDouble(),
           productIds: const [],
+          city: (map['city'] as String?) ?? '',
         );
 
         // Calculate distance from user location
@@ -164,12 +231,8 @@ class HomeNotifier extends StateNotifier<HomeState> {
           shop.longitude,
         );
 
-        return ShopDistance(
-          shop: shop,
-          distanceKm: distance,
-        );
-      }).toList()
-        ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+        return ShopDistance(shop: shop, distanceKm: distance);
+      }).toList()..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
     } catch (e, stackTrace) {
       await errorLogger.logCaughtError(
         userId: _userId,
@@ -182,14 +245,15 @@ class HomeNotifier extends StateNotifier<HomeState> {
     }
   }
 
-  Future<List<Product>> _getCatalogForShop(String shopId) async {
+  Future<List<Product>> _getCatalogForShop(String shopSlug) async {
     try {
       final response = await _supabase.functions.invoke(
         'get-catalog',
-        body: {'shopId': shopId},
+        body: {'slug': shopSlug},
       );
 
-      final productsJson = (response.data['products'] as List<dynamic>? ?? const []);
+      final productsJson =
+          (response.data['products'] as List<dynamic>? ?? const []);
       return productsJson.map((raw) {
         final map = raw as Map<String, dynamic>;
         return Product(
@@ -197,10 +261,9 @@ class HomeNotifier extends StateNotifier<HomeState> {
           name: (map['name'] ?? '') as String,
           description: (map['description'] ?? '') as String,
           price: (map['price'] as num?)?.toDouble() ?? 0,
-          imageUrl: (map['image_url'] ?? '') as String,
+          imageUrl: (map['imageUrl'] ?? '') as String,
           unit: (map['unit'] ?? 'unidad') as String,
-          categoryId: (map['category_id'] ?? '') as String,
-          discountedPrice: (map['discounted_price'] as num?)?.toDouble(),
+          categoryId: '',
         );
       }).toList();
     } catch (e, stackTrace) {
