@@ -35,79 +35,86 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          // Mapa completo
-          Positioned.fill(
-            child: FullMapWidget(
-              nearbyShops: homeState.nearbyShops,
-              userLatitude: homeState.userLatitude ?? 0,
-              userLongitude: homeState.userLongitude ?? 0,
-              selectedShop: selectedShop,
-              onShopSelected: (shop) {
-                ref.read(selectedCategoryProvider.notifier).state =
-                    CategoryConstants.allProductsCategoryId;
-                homeNotifier.selectShop(shop);
-              },
-            ),
-          ),
-
-          // Banner de ubicación
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: _LocationBanner(
-                  locationMessage: homeState.locationMessage,
-                  errorMessage: homeState.errorMessage,
-                  onRefresh: homeNotifier.refreshNearbyShops,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              // Mapa completo
+              SizedBox.expand(
+                child: FullMapWidget(
+                  nearbyShops: homeState.nearbyShops,
+                  userLatitude: homeState.userLatitude ?? 0,
+                  userLongitude: homeState.userLongitude ?? 0,
+                  selectedShop: selectedShop,
+                  onShopSelected: (shop) {
+                    ref.read(selectedCategoryProvider.notifier).state =
+                        CategoryConstants.allProductsCategoryId;
+                    homeNotifier.selectShop(shop);
+                  },
                 ),
               ),
-            ),
-          ),
 
-          // Panel de comercio seleccionado
-          if (selectedShop != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: ShopPanelWidget(
-                shop: selectedShop,
-                products: _filterProducts(
-                  products: products,
-                  selectedCategoryId: selectedCategoryId,
+              // Banner de ubicación
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _LocationBanner(
+                      locationMessage: homeState.locationMessage,
+                      errorMessage: homeState.errorMessage,
+                      onRefresh: homeNotifier.refreshNearbyShops,
+                    ),
+                  ),
                 ),
-                categories: categories,
-                selectedCategory: selectedCategoryId,
-                onCategorySelected: (category) {
-                  ref.read(selectedCategoryProvider.notifier).state = category;
-                },
-                onClose: () {
-                  ref.read(selectedCategoryProvider.notifier).state =
-                      CategoryConstants.allProductsCategoryId;
-                  homeNotifier.clearSelectedShop();
-                },
-                onChangeShop: () {
-                  ref.read(selectedCategoryProvider.notifier).state =
-                      CategoryConstants.allProductsCategoryId;
-                  homeNotifier.clearSelectedShop();
-                },
               ),
-            ),
 
-          // Loading overlay
-          if (homeState.isLoading)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.15),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-            ),
-        ],
+              // Panel de comercio seleccionado
+              if (selectedShop != null)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: ShopPanelWidget(
+                    shop: selectedShop,
+                    products: _filterProducts(
+                      products: products,
+                      selectedCategoryId: selectedCategoryId,
+                    ),
+                    categories: categories,
+                    selectedCategory: selectedCategoryId,
+                    onCategorySelected: (category) {
+                      ref.read(selectedCategoryProvider.notifier).state =
+                          category;
+                    },
+                    onClose: () {
+                      ref.read(selectedCategoryProvider.notifier).state =
+                          CategoryConstants.allProductsCategoryId;
+                      homeNotifier.clearSelectedShop();
+                    },
+                    onChangeShop: () {
+                      ref.read(selectedCategoryProvider.notifier).state =
+                          CategoryConstants.allProductsCategoryId;
+                      homeNotifier.clearSelectedShop();
+                    },
+                    shopHours: homeState.selectedShopHours,
+                    isLoadingHours: homeState.isLoadingHours,
+                  ),
+                ),
+
+              // Loading overlay
+              if (homeState.isLoading)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

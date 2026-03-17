@@ -46,9 +46,6 @@ Deno.serve(async (req) => {
           isActive: loc.is_active
         };
       })
-          distanceKm: Number(dist.toFixed(2)),
-        };
-      })
       .filter((shop) => shop.distanceKm <= Math.min(shop.serviceRadiusKm ?? radiusKm, radiusKm))
       .sort((a, b) => a.distanceKm - b.distanceKm);
 

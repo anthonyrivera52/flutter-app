@@ -5,6 +5,7 @@ import 'package:flutter_app/core/location/location_result.dart';
 import 'package:flutter_app/core/location/location_service.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
+import 'package:flutter_app/features/products/domain/models/location_hour.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,6 +21,8 @@ class HomeState extends Equatable {
   final Shop? selectedShop;
   final double? userLatitude;
   final double? userLongitude;
+  final List<LocationHour> selectedShopHours;
+  final bool isLoadingHours;
 
   const HomeState({
     this.isLoading = false,
@@ -30,6 +33,8 @@ class HomeState extends Equatable {
     this.selectedShop,
     this.userLatitude,
     this.userLongitude,
+    this.selectedShopHours = const [],
+    this.isLoadingHours = false,
   });
 
   HomeState copyWith({
@@ -41,6 +46,8 @@ class HomeState extends Equatable {
     Shop? selectedShop,
     double? userLatitude,
     double? userLongitude,
+    List<LocationHour>? selectedShopHours,
+    bool? isLoadingHours,
     bool clearError = false,
     bool clearSelectedShop = false,
   }) {
@@ -55,6 +62,10 @@ class HomeState extends Equatable {
           : selectedShop ?? this.selectedShop,
       userLatitude: userLatitude ?? this.userLatitude,
       userLongitude: userLongitude ?? this.userLongitude,
+      selectedShopHours: clearSelectedShop
+          ? const []
+          : selectedShopHours ?? this.selectedShopHours,
+      isLoadingHours: isLoadingHours ?? this.isLoadingHours,
     );
   }
 
@@ -68,6 +79,8 @@ class HomeState extends Equatable {
     selectedShop,
     userLatitude,
     userLongitude,
+    selectedShopHours,
+    isLoadingHours,
   ];
 }
 
@@ -91,6 +104,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
   final LocationService _locationService;
   late String _userId;
   StreamSubscription<AuthState>? _authSub;
+  Timer? _pollingTimer;
 
   HomeNotifier(this._supabase, this._locationService)
     : super(const HomeState()) {
@@ -113,7 +127,67 @@ class HomeNotifier extends StateNotifier<HomeState> {
   @override
   void dispose() {
     _authSub?.cancel();
+    _pollingTimer?.cancel();
     super.dispose();
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _refreshShopStatus();
+    });
+  }
+
+  Future<void> _refreshShopStatus() async {
+    if (state.selectedShop == null) return;
+    try {
+      final location = await _locationService.getCurrentPosition(
+        accuracy: LocationAccuracy.low,
+        timeout: const Duration(seconds: 5),
+        maxRetries: 1,
+      );
+      final nearbyShops = await _fetchNearbyShops(location);
+
+      final updatedShop = nearbyShops.firstWhere(
+        (sd) => sd.shop.id == state.selectedShop!.id,
+        orElse: () => ShopDistance(shop: state.selectedShop!, distanceKm: 0),
+      );
+
+      state = state.copyWith(
+        nearbyShops: nearbyShops,
+        selectedShop: updatedShop.shop,
+      );
+    } catch (_) {
+      // Silently fail on polling errors
+    }
+  }
+
+  Future<void> loadShopHours(String locationId) async {
+    state = state.copyWith(isLoadingHours: true);
+    try {
+      final response = await _supabase.rpc(
+        'get_location_hours',
+        params: {'p_location_id': locationId},
+      );
+
+      final hoursJson = response as List<dynamic>?;
+      if (hoursJson != null) {
+        final hours = hoursJson
+            .map((h) => LocationHour.fromJson(h as Map<String, dynamic>))
+            .toList();
+        state = state.copyWith(selectedShopHours: hours, isLoadingHours: false);
+      } else {
+        state = state.copyWith(
+          selectedShopHours: const [],
+          isLoadingHours: false,
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        selectedShopHours: const [],
+        isLoadingHours: false,
+      );
+    }
   }
 
   Future<void> initialize() async {
@@ -180,13 +254,17 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> selectShop(Shop shop) async {
+    _startPolling();
+
     state = state.copyWith(
       isLoading: true,
       clearError: true,
       selectedShop: shop,
+      selectedShopHours: const [],
     );
     try {
       final catalog = await _fetchCatalog(shop.slug);
+      await loadShopHours(shop.id);
       state = state.copyWith(isLoading: false, products: catalog);
     } catch (e, st) {
       await errorLogger.logCaughtError(
@@ -203,8 +281,10 @@ class HomeNotifier extends StateNotifier<HomeState> {
     }
   }
 
-  void clearSelectedShop() =>
-      state = state.copyWith(clearSelectedShop: true, products: const []);
+  void clearSelectedShop() {
+    _pollingTimer?.cancel();
+    state = state.copyWith(clearSelectedShop: true, products: const []);
+  }
 
   Future<void> refreshNearbyShops() => initialize();
 
@@ -216,15 +296,27 @@ class HomeNotifier extends StateNotifier<HomeState> {
       params: {
         'p_lat': location.latitude,
         'p_lng': location.longitude,
-        'p_radius_km': 12.0,
+        'p_radius_km': 10.0,
       },
     );
 
     final shopsJson = response as List<dynamic>?;
     if (shopsJson == null || shopsJson.isEmpty) return [];
 
-    return (shopsJson.map((raw) {
+    final seenOrganizationIds = <String>{};
+    final shopsWithCoverage = <ShopDistance>[];
+
+    for (final raw in shopsJson) {
       final map = raw as Map<String, dynamic>;
+      final organizationId = map['organization_id'] as String?;
+
+      // Skip if organization ID is null or already seen (deduplication)
+      if (organizationId == null ||
+          seenOrganizationIds.contains(organizationId)) {
+        continue;
+      }
+      seenOrganizationIds.add(organizationId);
+
       final shop = Shop(
         id: map['id'] as String,
         name: (map['name'] ?? '') as String,
@@ -242,11 +334,22 @@ class HomeNotifier extends StateNotifier<HomeState> {
         deliveryStatus: Shop.parseDeliveryStatus(
           map['delivery_status'] as String?,
         ),
+        pickupStatus: Shop.parseDeliveryStatus(map['pickup_status'] as String?),
         organizationName: map['organization_name'] as String?,
       );
       final distance = (map['distance_km'] as num?)?.toDouble() ?? 0;
-      return ShopDistance(shop: shop, distanceKm: distance);
-    }).toList()..sort((a, b) => a.distanceKm.compareTo(b.distanceKm)));
+      shopsWithCoverage.add(ShopDistance(shop: shop, distanceKm: distance));
+    }
+
+    shopsWithCoverage.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+
+    // Client-side radius filtering as backup (match cf-re-sites default)
+    const maxRadius = 10.0;
+    shopsWithCoverage.removeWhere(
+      (shopDistance) => shopDistance.distanceKm > maxRadius,
+    );
+
+    return shopsWithCoverage;
   }
 
   Future<List<Product>> _fetchCatalog(String shopSlug) async {

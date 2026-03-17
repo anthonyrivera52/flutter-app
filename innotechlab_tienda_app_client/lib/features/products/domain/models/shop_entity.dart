@@ -17,6 +17,7 @@ class Shop extends Equatable {
   final bool isOpen;
   final String? statusText;
   final ShopDeliveryStatus? deliveryStatus;
+  final ShopDeliveryStatus? pickupStatus;
   final String? organizationName;
 
   const Shop({
@@ -34,6 +35,7 @@ class Shop extends Equatable {
     this.isOpen = false,
     this.statusText,
     this.deliveryStatus,
+    this.pickupStatus,
     this.organizationName,
   });
 
@@ -52,6 +54,7 @@ class Shop extends Equatable {
     bool? isOpen,
     String? statusText,
     ShopDeliveryStatus? deliveryStatus,
+    ShopDeliveryStatus? pickupStatus,
     String? organizationName,
   }) {
     return Shop(
@@ -69,6 +72,7 @@ class Shop extends Equatable {
       isOpen: isOpen ?? this.isOpen,
       statusText: statusText ?? this.statusText,
       deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+      pickupStatus: pickupStatus ?? this.pickupStatus,
       organizationName: organizationName ?? this.organizationName,
     );
   }
@@ -103,6 +107,7 @@ class Shop extends Equatable {
     isOpen,
     statusText,
     deliveryStatus,
+    pickupStatus,
     organizationName,
   ];
 }

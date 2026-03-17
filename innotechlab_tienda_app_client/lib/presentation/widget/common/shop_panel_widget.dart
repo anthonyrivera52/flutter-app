@@ -2,7 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
+import 'package:flutter_app/features/products/domain/models/location_hour.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/presentation/widget/common/schedule_dialog.dart';
 import 'package:go_router/go_router.dart';
 
 class ShopPanelWidget extends StatefulWidget {
@@ -13,6 +15,8 @@ class ShopPanelWidget extends StatefulWidget {
   final ValueChanged<String> onCategorySelected;
   final VoidCallback onClose;
   final VoidCallback onChangeShop;
+  final List<LocationHour> shopHours;
+  final bool isLoadingHours;
 
   const ShopPanelWidget({
     super.key,
@@ -23,6 +27,8 @@ class ShopPanelWidget extends StatefulWidget {
     required this.onCategorySelected,
     required this.onClose,
     required this.onChangeShop,
+    this.shopHours = const [],
+    this.isLoadingHours = false,
   });
 
   @override
@@ -67,12 +73,21 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
           child: Column(
             children: [
               _buildHandle(),
-              _buildHeader(),
-              _buildCategories(scrollController),
-              Expanded(
-                child: filteredProducts.isEmpty
-                    ? _buildEmptyState()
-                    : _buildProductsGrid(filteredProducts, scrollController),
+              Flexible(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildHeader(),
+                      _buildCategories(),
+                      if (filteredProducts.isEmpty)
+                        _buildEmptyState()
+                      else
+                        _buildProductsGrid(filteredProducts),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -115,79 +130,214 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.grey.shade100,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: widget.shop.logoUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: widget.shop.logoUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) =>
-                          Icon(Icons.store, color: Colors.grey.shade400),
-                    )
-                  : Icon(Icons.store, color: Colors.grey.shade400),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (widget.shop.organizationName != null)
-                  Text(
-                    widget.shop.organizationName!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                Text(
-                  widget.shop.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.grey.shade100,
                 ),
-                const SizedBox(height: 4),
-                Row(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: widget.shop.logoUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: widget.shop.logoUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              Icon(Icons.store, color: Colors.grey.shade400),
+                        )
+                      : Icon(Icons.store, color: Colors.grey.shade400),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildStatusBadge(),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.access_time,
-                      size: 14,
-                      color: Colors.grey.shade500,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '15-25 min',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
+                    if (widget.shop.organizationName != null)
+                      Text(
+                        widget.shop.organizationName!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
+                    Text(
+                      widget.shop.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _buildStatusBadge(),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.access_time,
+                          size: 14,
+                          color: Colors.grey.shade500,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '15-25 min',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
+                ),
+              ),
+              IconButton(
+                onPressed: widget.onChangeShop,
+                icon: Icon(Icons.swap_horiz, color: Colors.grey.shade600),
+                tooltip: 'Cambiar comercio',
+              ),
+            ],
+          ),
+          _buildChannelsRow(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelsRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildChannelChip(
+              icon: Icons.local_shipping_outlined,
+              label: 'Delivery',
+              status: widget.shop.deliveryStatus,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildChannelChip(
+              icon: Icons.storefront_outlined,
+              label: 'Pickup',
+              status: widget.shop.pickupStatus,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _buildScheduleButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelChip({
+    required IconData icon,
+    required String label,
+    required ShopDeliveryStatus? status,
+  }) {
+    final isActive = status == ShopDeliveryStatus.active;
+    final isWaiting = status == ShopDeliveryStatus.waiting;
+
+    Color bgColor;
+    Color textColor;
+    Color iconColor;
+    String statusText;
+
+    if (isActive) {
+      bgColor = Colors.green.shade50;
+      textColor = Colors.green.shade700;
+      iconColor = Colors.green;
+      statusText = 'Activo';
+    } else if (isWaiting) {
+      bgColor = Colors.amber.shade50;
+      textColor = Colors.amber.shade700;
+      iconColor = Colors.amber;
+      statusText = 'Alta demanda';
+    } else {
+      bgColor = Colors.grey.shade100;
+      textColor = Colors.grey.shade600;
+      iconColor = Colors.grey;
+      statusText = 'No disponible';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: iconColor),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                  ),
+                ),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: textColor.withValues(alpha: 0.8),
+                  ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: widget.onChangeShop,
-            icon: Icon(Icons.swap_horiz, color: Colors.grey.shade600),
-            tooltip: 'Cambiar comercio',
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleButton() {
+    return GestureDetector(
+      onTap: () {
+        ScheduleDialog.show(
+          context,
+          hours: widget.shopHours,
+          locationName: widget.shop.name,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.primaryColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule, size: 18, color: AppColors.primaryColor),
+            const SizedBox(width: 6),
+            Text(
+              'Horarios',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -239,12 +389,11 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
     );
   }
 
-  Widget _buildCategories(ScrollController scrollController) {
+  Widget _buildCategories() {
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: ListView.builder(
-        controller: scrollController,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: widget.categories.length,
@@ -313,12 +462,10 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
     );
   }
 
-  Widget _buildProductsGrid(
-    List<Product> products,
-    ScrollController controller,
-  ) {
+  Widget _buildProductsGrid(List<Product> products) {
     return GridView.builder(
-      controller: controller,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
