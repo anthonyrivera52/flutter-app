@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_app/core/location/location_result.dart';
 import 'package:flutter_app/core/location/location_service.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/provider/cart_provider.dart';
-import 'package:flutter_app/presentation/provider/checkout_provider.dart'
-    show checkoutDeliveryFee, checkoutProvider;
-import 'package:flutter_app/presentation/provider/home_provider.dart';
+import 'package:flutter_app/features/cart/presentation/viewmodels/cart_viewmodel.dart';
+import 'package:flutter_app/features/orders/presentation/viewmodels/checkout_viewmodel.dart';
+import 'package:flutter_app/features/products/presentation/viewmodels/home_viewmodel.dart';
 import 'package:flutter_app/presentation/provider/shop_status_provider.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
@@ -91,7 +90,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
   Future<void> _confirmOrder() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final cartItems = ref.read(cartProvider).cartItems;
+    final cartItems = ref.read(cartProvider).items;
     final selectedShop = ref.read(homeProvider).selectedShop;
 
     if (selectedShop == null) {
@@ -105,12 +104,10 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       return;
     }
 
-    // Check shop status before proceeding
     final shopStatus = ref.read(shopStatusProvider(selectedShop.id));
     if (!shopStatus.canOrder) {
       String message =
-          shopStatus.message ??
-          'El comercio no acepta pedidos en este momento.';
+          shopStatus.message ?? 'El comercio no acepta pedidos en este momento.';
 
       if (shopStatus.status == ShopStatus.waiting) {
         message =
@@ -139,18 +136,13 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       return;
     }
 
-    final shopId = selectedShop.id;
-
-    // Sanitize inputs for security
     final sanitizedAddress = _addressController.text.trim();
     final sanitizedNotes = _notesController.text.trim().isEmpty
         ? null
         : _notesController.text.trim();
 
-    final success = await ref
-        .read(checkoutProvider.notifier)
-        .placeOrder(
-          shopId: shopId,
+    final success = await ref.read(checkoutProvider.notifier).placeOrder(
+          shopId: selectedShop.id,
           cartItems: cartItems,
           shippingAddress: sanitizedAddress,
           notes: sanitizedNotes,
@@ -162,8 +154,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
 
     if (!success) {
       final error =
-          ref.read(checkoutProvider).errorMessage ??
-          'No se pudo crear la orden.';
+          ref.read(checkoutProvider).errorMessage ?? 'No se pudo crear la orden.';
       showInfoToast(
         context,
         message: error,
@@ -174,9 +165,8 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       return;
     }
 
-    ref.read(cartProvider.notifier).clearCart();
+    ref.read(cartProvider.notifier).clear();
 
-    // Obtener el código de orden para mostrar en la confirmación
     final orderCode = ref.read(checkoutProvider).createdOrderCode;
 
     showInfoToast(
@@ -189,7 +179,6 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       isDismissible: true,
     );
 
-    // Navegar a la página de confirmación para mostrar el código prominently
     context.go('/order-confirmation');
   }
 
@@ -197,10 +186,9 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
   Widget build(BuildContext context) {
     final cartState = ref.watch(cartProvider);
     final checkoutState = ref.watch(checkoutProvider);
-    final checkoutNotifier = ref.read(checkoutProvider.notifier);
 
-    final subtotal = checkoutNotifier.subtotal(cartState.cartItems);
-    final total = checkoutNotifier.total(cartState.cartItems);
+    final subtotal = checkoutState.subtotal(cartState.items);
+    final total = checkoutState.total(cartState.items);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout'), centerTitle: true),
@@ -248,29 +236,17 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
             SwitchListTile(
               title: const Text('Llamar cuando llegue'),
               value: _callWhenArrive,
-              onChanged: (value) {
-                setState(() {
-                  _callWhenArrive = value;
-                });
-              },
+              onChanged: (value) => setState(() => _callWhenArrive = value),
             ),
             SwitchListTile(
               title: const Text('Dejar en la puerta'),
               value: _leaveAtDoor,
-              onChanged: (value) {
-                setState(() {
-                  _leaveAtDoor = value;
-                });
-              },
+              onChanged: (value) => setState(() => _leaveAtDoor = value),
             ),
             SwitchListTile(
               title: const Text('No tocar timbre'),
               value: _dontRingBell,
-              onChanged: (value) {
-                setState(() {
-                  _dontRingBell = value;
-                });
-              },
+              onChanged: (value) => setState(() => _dontRingBell = value),
             ),
             const Divider(height: 32),
             const Text(
@@ -278,7 +254,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
-            ...cartState.cartItems.map(
+            ...cartState.items.map(
               (item) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(item.name),
@@ -303,7 +279,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Envío'),
-                Text('\$${checkoutDeliveryFee.toStringAsFixed(2)}'),
+                Text('\$${kDeliveryFee.toStringAsFixed(2)}'),
               ],
             ),
             const Divider(height: 18),
@@ -326,11 +302,8 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
             const SizedBox(height: 24),
             CustomButton(
               text: 'Confirmar pedido',
-              onPressed: () {
-                if (!checkoutState.isSubmitting) {
-                  _confirmOrder();
-                }
-              },
+              isLoading: checkoutState.isSubmitting,
+              onPressed: _confirmOrder,
             ),
           ],
         ),

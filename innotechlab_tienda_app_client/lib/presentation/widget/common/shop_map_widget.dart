@@ -1,8 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_app/domain/entities/shop.dart';
-import 'package:flutter_app/presentation/pages/dashboard/home/home_viewmodel.dart';
+import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'package:latlong2/latlong.dart';
 
 class ShopMapWidget extends StatefulWidget {

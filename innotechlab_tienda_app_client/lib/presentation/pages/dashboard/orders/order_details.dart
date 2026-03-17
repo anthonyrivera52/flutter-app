@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/provider/order_details_provider.dart';
-import 'package:flutter_app/domain/entities/orden.dart';
+import 'package:flutter_app/features/orders/domain/models/order_entity.dart';
+import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -68,13 +68,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
       return const Center(child: Text('No se encontró el pedido.'));
     }
 
-    final formattedDate = DateFormat(
-      'dd/MM/yyyy HH:mm',
-    ).format(order.createdAt.toLocal());
-    final userLocation = LatLng(
-      order.shippingLatitude,
-      order.shippingLongitude,
-    );
+    final formattedDate =
+        DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt.toLocal());
+    final userLocation =
+        LatLng(order.shippingLatitude, order.shippingLongitude);
     final storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
     final markers = {
       Marker(
@@ -101,9 +98,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           const SizedBox(height: 8),
           Text(
             'Pedido #${order.id.length > 8 ? order.id.substring(0, 8) : order.id}',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
           Text(formattedDate),
@@ -117,14 +115,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           const SizedBox(height: 16),
           _StatusTimeline(status: order.status),
           const SizedBox(height: 16),
-
-           // Sección de información del domiciliario (si está asignado)
-           if (order.driverId != null) _buildDriverInfo(context, order),
-           if (order.driverId != null) const SizedBox(height: 16),
-
-           // Sección de desglose de costos
-           _buildPaymentBreakdown(context, order),
-           const SizedBox(height: 16),
+          if (order.driverId != null) _buildDriverInfo(context, order),
+          if (order.driverId != null) const SizedBox(height: 16),
+          _buildPaymentBreakdown(context, order),
+          const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
@@ -171,8 +165,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                           width: 52,
                           height: 52,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _imageFallback(),
+                          errorBuilder: (_, __, ___) => _imageFallback(),
                         )
                       : _imageFallback(),
                 ),
@@ -205,15 +198,15 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     );
   }
 
-
-  Widget _buildDriverInfo(BuildContext context, Orden order) {
+  Widget _buildDriverInfo(BuildContext context, AppOrder order) {
     return Card(
       child: ListTile(
         leading: CircleAvatar(
           backgroundImage: order.driverPhotoUrl != null
               ? NetworkImage(order.driverPhotoUrl!)
               : null,
-          child: order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
+          child:
+              order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
         ),
         title: Text(
           order.driverName ?? 'Domiciliario',
@@ -230,14 +223,12 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
           ],
         ),
         trailing: const Icon(Icons.chat),
-        onTap: () {
-          // Navegar a chat con repartidor
-        },
+        onTap: () {},
       ),
     );
   }
 
-  Widget _buildPaymentBreakdown(BuildContext context, Orden order) {
+  Widget _buildPaymentBreakdown(BuildContext context, AppOrder order) {
     final subtotal = order.subtotalAmount ?? order.totalAmount;
     final shipping = order.shippingAmount ?? 0.0;
     final tax = order.taxIvaAmount ?? 0.0;
@@ -254,39 +245,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Subtotal'),
-                Text('\$${subtotal.toStringAsFixed(2)}'),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Envío'),
-                Text('\$${shipping.toStringAsFixed(2)}'),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Impuestos'),
-                Text('\$${tax.toStringAsFixed(2)}'),
-              ],
-            ),
-            if (tip > 0) ...[
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Propina'),
-                  Text('\$${tip.toStringAsFixed(2)}'),
-                ],
-              ),
-            ],
+            _PayRow(label: 'Subtotal', value: subtotal),
+            _PayRow(label: 'Envío', value: shipping),
+            _PayRow(label: 'Impuestos', value: tax),
+            if (tip > 0) _PayRow(label: 'Propina', value: tip),
             const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -298,9 +260,7 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                 Text(
                   '\$${order.totalAmount.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                      fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ],
             ),
@@ -311,9 +271,25 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
   }
 }
 
+class _PayRow extends StatelessWidget {
+  final String label;
+  final double value;
+  const _PayRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [Text(label), Text('\$${value.toStringAsFixed(2)}')],
+      ),
+    );
+  }
+}
+
 class _StatusTimeline extends StatelessWidget {
   final String status;
-
   const _StatusTimeline({required this.status});
 
   @override
@@ -329,21 +305,15 @@ class _StatusTimeline extends StatelessWidget {
       );
     }
 
-    final steps = <_StepData>[
-      const _StepData(title: 'Pendiente', subtitle: 'Esperando confirmación'),
-      const _StepData(
-        title: 'Aceptado',
-        subtitle: 'Pedido confirmado por la tienda',
-      ),
-      const _StepData(
-        title: 'Preparando',
-        subtitle: 'Estamos preparando tu pedido',
-      ),
-      const _StepData(title: 'En camino', subtitle: 'El pedido va en ruta'),
-      const _StepData(title: 'Entregado', subtitle: 'Pedido completado'),
+    const steps = [
+      _StepData(title: 'Pendiente', subtitle: 'Esperando confirmación'),
+      _StepData(title: 'Aceptado', subtitle: 'Pedido confirmado por la tienda'),
+      _StepData(title: 'Preparando', subtitle: 'Estamos preparando tu pedido'),
+      _StepData(title: 'En camino', subtitle: 'El pedido va en ruta'),
+      _StepData(title: 'Entregado', subtitle: 'Pedido completado'),
     ];
 
-    final indexByStatus = {
+    const indexByStatus = {
       'pending': 0,
       'accepted': 1,
       'processing': 2,
@@ -396,9 +366,8 @@ class _StatusTimeline extends StatelessWidget {
                 ),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    color: active ? Colors.black87 : Colors.grey,
-                  ),
+                  style:
+                      TextStyle(color: active ? Colors.black87 : Colors.grey),
                 ),
               ],
             ),
@@ -407,13 +376,10 @@ class _StatusTimeline extends StatelessWidget {
       ),
     );
   }
-
-  /// Widget para mostrar el código de verificación del pedido
 }
 
 class _StepData {
   final String title;
   final String subtitle;
-
   const _StepData({required this.title, required this.subtitle});
 }

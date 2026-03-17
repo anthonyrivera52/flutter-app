@@ -1,70 +1,61 @@
-import 'package:flutter_app/presentation/pages/auth/OTP/otp_verification_page.dart';
-import 'package:flutter_app/presentation/pages/auth/signIn/sign_in_page.dart';
-import 'package:flutter_app/presentation/pages/auth/signUp/sign_up_page.dart';
+import 'package:flutter_app/features/auth/presentation/views/otp_verification_page.dart';
+import 'package:flutter_app/features/auth/presentation/views/sign_in_page.dart';
+import 'package:flutter_app/features/auth/presentation/views/sign_up_page.dart';
+import 'package:flutter_app/features/orders/presentation/views/order_details_page.dart';
+import 'package:flutter_app/features/orders/presentation/views/orders_list_page.dart';
+import 'package:flutter_app/features/profile/presentation/views/profile_page.dart';
+import 'package:flutter_app/features/products/presentation/views/product_detail_page.dart';
+import 'package:flutter_app/features/products/presentation/views/product_list_page.dart';
 import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/dashboard_page.dart';
-import 'package:flutter_app/presentation/pages/dashboard/orders/order_details.dart';
-import 'package:flutter_app/presentation/pages/dashboard/orders/order_list.dart';
-import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 import 'package:flutter_app/presentation/pages/location/location_selection_page.dart';
 import 'package:flutter_app/presentation/pages/notifications/notifications_page.dart';
-import 'package:flutter_app/presentation/pages/order_confirmation/order_confirmation_page.dart';
-import 'package:flutter_app/presentation/pages/products/detail_page.dart';
 import 'package:flutter_app/presentation/pages/onboarding/onboarding_page.dart';
-import 'package:flutter_app/presentation/pages/products/product_list_page.dart';
+import 'package:flutter_app/presentation/pages/order_confirmation/order_confirmation_page.dart';
 import 'package:flutter_app/presentation/pages/splash_screen/splash_screen_page.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Necesario para usar Provider en el router
 
-/// Proveedor de GoRouter para la configuración de rutas de la aplicación.
-/// Este proveedor es accesible globalmente para la navegación.
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    // La ruta inicial de la aplicación.
     initialLocation: '/splash_screen',
     routes: [
-      // Ruta para la página de inicio
       GoRoute(
         path: '/splash_screen',
-        name: 'splash_screen', // Nombre opcional para referenciar la ruta
-        builder: (context, state) =>
-            const SplashScreenPage(), // Cambia esto a tu página de splash
+        name: 'splash_screen',
+        builder: (_, __) => const SplashScreenPage(),
       ),
-      // Ruta para la página de onboarding
       GoRoute(
         path: '/onboarding',
-        name: 'onboarding', // Nombre opcional para referenciar la ruta
-        builder: (context, state) =>
-            const OnboardingPage(), // Cambia esto a tu página de onboarding
+        name: 'onboarding',
+        builder: (_, __) => const OnboardingPage(),
       ),
-      // Ruta para sign in
       GoRoute(
         path: '/signin',
         name: 'signin',
-        builder: (context, state) => const SignInPage(),
+        builder: (_, __) => const SignInPage(),
       ),
-      // Ruta para sign up
       GoRoute(
         path: '/signup',
         name: 'signup',
-        builder: (context, state) => const SignUpPage(),
+        builder: (_, __) => const SignUpPage(),
       ),
       GoRoute(
         path: '/otp-verification',
         name: 'otp_verification',
-        builder: (context, state) =>
+        builder: (_, state) =>
             OtpVerificationPage(email: state.extra as String?),
       ),
       GoRoute(
         path: '/location-selection',
         name: 'location_selection',
-        builder: (context, state) => const LocationSelectionPage(),
+        builder: (_, __) => const LocationSelectionPage(),
       ),
       GoRoute(
         path: '/',
-        name: 'dashboard', // Nombre opcional para referenciar la ruta
-        builder: (context, state) {
+        name: 'dashboard',
+        builder: (_, state) {
           int? initialTabIndex;
           if (state.extra is Map<String, dynamic>) {
             initialTabIndex =
@@ -74,79 +65,60 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return DashboardPage(initialTabIndex: initialTabIndex);
         },
         routes: [
-          // Ruta para la pestaña de perfil dentro del dashboard
           GoRoute(
             path: 'profile',
-            name: 'profile', // Nombre opcional para referenciar la ruta
-            builder: (context, state) =>
-                const ProfilePage(), // Cambia esto a tu página de perfil
+            name: 'profile',
+            builder: (_, __) => const ProfilePage(),
           ),
-          // Ruta para la página de detalles de producto (ejemplo)
           GoRoute(
-            path:
-                'product/:productId', // Asumo que tienes una ruta de detalle de producto
+            path: 'product/:productId',
             name: 'product_detail',
-            builder: (context, state) {
-              final productId = state.pathParameters['productId']!;
-              // Aquí deberías pasar el productId a tu ProductDetailPage
-              return ProductDetailsPage(
-                productId: productId,
-              ); // Ejemplo: ProductDetailPage recibe productId
-            },
+            builder: (_, state) => ProductDetailsPage(
+              productId: state.pathParameters['productId']!,
+            ),
           ),
-          // Ruta para la página de lista de productos por categoría o tipo
           GoRoute(
-            path: 'products/:categoryId/:categoryName', // Rutas con parámetros
-            name: 'product_list', // Nombre para una navegación más fácil
-            builder: (context, state) {
-              final categoryId = state.pathParameters['categoryId']!;
-              final categoryName = state.pathParameters['categoryName']!;
-              return ProductListPage(
-                categoryId: categoryId,
-                categoryName: categoryName,
-              );
-            },
+            path: 'products/:categoryId/:categoryName',
+            name: 'product_list',
+            builder: (_, state) => ProductListPage(
+              categoryId: state.pathParameters['categoryId']!,
+              categoryName: state.pathParameters['categoryName']!,
+            ),
           ),
           GoRoute(
             path: 'cart',
             name: 'cart',
-            builder: (context, state) => const CartModalContent(),
+            builder: (_, __) => const CartModalContent(),
           ),
           GoRoute(
             path: 'checkout',
             name: 'checkout',
-            builder: (context, state) => CheckoutPageModal(),
+            builder: (_, __) => CheckoutPageModal(),
           ),
           GoRoute(
             path: 'order-confirmation',
             name: 'order_confirmation',
-            builder: (context, state) => OrderConfirmationPage(),
+            builder: (_, __) => OrderConfirmationPage(),
           ),
           GoRoute(
             path: 'notifications',
             name: 'notifications',
-            builder: (context, state) => const NotificationsPage(),
+            builder: (_, __) => const NotificationsPage(),
           ),
-          // New route for Orders
           GoRoute(
             path: 'order-list',
             name: 'order',
-            builder: (context, state) => const OrdersListPage(),
+            builder: (_, __) => const OrdersListPage(),
           ),
-          // New route for OrderDetailsPage
           GoRoute(
             path: 'order-details/:orderId',
             name: 'order_details',
-            builder: (context, state) {
-              final orderId = state.pathParameters['orderId']!;
-              return OrderDetailsPage(orderId: orderId);
-            },
+            builder: (_, state) => OrderDetailsPage(
+              orderId: state.pathParameters['orderId']!,
+            ),
           ),
         ],
       ),
-      // Puedes añadir más rutas aquí según sea necesario
     ],
-    // Puedes añadir un manejador de errores o redirecciones aquí si lo necesitas
-    // errorBuilder: (context, state) => const Text('Error de ruta'),
   );
 });

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/features/cart/presentation/viewmodels/cart_viewmodel.dart';
+import 'package:flutter_app/features/orders/presentation/viewmodels/checkout_viewmodel.dart';
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
-import 'package:flutter_app/presentation/provider/checkout_provider.dart';
-import 'package:flutter_app/presentation/provider/cart_provider.dart';
 import 'package:flutter_app/presentation/widget/cart_item_card.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
-import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class CartModalContent extends ConsumerWidget {
@@ -15,10 +14,10 @@ class CartModalContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cartState = ref.watch(cartProvider);
     final cartNotifier = ref.read(cartProvider.notifier);
-    final checkoutNotifier = ref.read(checkoutProvider.notifier);
+    final checkoutState = ref.watch(checkoutProvider);
 
-    final subtotal = checkoutNotifier.subtotal(cartState.cartItems);
-    final total = checkoutNotifier.total(cartState.cartItems);
+    final subtotal = checkoutState.subtotal(cartState.items);
+    final total = checkoutState.total(cartState.items);
 
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -40,18 +39,13 @@ class CartModalContent extends ConsumerWidget {
           ),
           Text(
             'Mi carrito',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          if (cartState.isLoading)
-            const Expanded(child: Center(child: LoadingIndicator()))
-          else if (cartState.errorMessage != null)
-            Expanded(
-              child: Center(child: Text('Error: ${cartState.errorMessage}')),
-            )
-          else if (cartState.cartItems.isEmpty)
+          if (cartState.isEmpty)
             const Expanded(
               child: Center(
                 child: Text(
@@ -66,32 +60,26 @@ class CartModalContent extends ConsumerWidget {
           else
             Expanded(
               child: ListView.builder(
-                itemCount: cartState.cartItems.length,
+                itemCount: cartState.items.length,
                 itemBuilder: (context, index) {
-                  final item = cartState.cartItems[index];
+                  final item = cartState.items[index];
                   return CartItemCard(
                     item: item,
-                    onRemove: () =>
-                        cartNotifier.removeItemFromCart(item.productId),
-                    onAddQuantity: () => cartNotifier.updateItemQuantity(
-                      item.productId,
-                      item.quantity + 1,
-                    ),
+                    onRemove: () => cartNotifier.removeItem(item.productId),
+                    onAddQuantity: () =>
+                        cartNotifier.updateQuantity(item.productId, item.quantity + 1),
                     onDecreaseQuantity: () {
                       if (item.quantity > 1) {
-                        cartNotifier.updateItemQuantity(
-                          item.productId,
-                          item.quantity - 1,
-                        );
+                        cartNotifier.updateQuantity(item.productId, item.quantity - 1);
                       } else {
-                        cartNotifier.removeItemFromCart(item.productId);
+                        cartNotifier.removeItem(item.productId);
                       }
                     },
                   );
                 },
               ),
             ),
-          if (cartState.cartItems.isNotEmpty)
+          if (!cartState.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 14),
               child: Column(
@@ -102,7 +90,7 @@ class CartModalContent extends ConsumerWidget {
                   ),
                   _SummaryRow(
                     label: 'Envío',
-                    value: '\$${checkoutDeliveryFee.toStringAsFixed(2)}',
+                    value: '\$${kDeliveryFee.toStringAsFixed(2)}',
                   ),
                   const Divider(height: 18),
                   _SummaryRow(
@@ -146,7 +134,7 @@ class CartModalContent extends ConsumerWidget {
                             ),
                             TextButton(
                               onPressed: () {
-                                cartNotifier.clearCart();
+                                cartNotifier.clear();
                                 Navigator.of(ctx).pop();
                               },
                               child: const Text(

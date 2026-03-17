@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/provider/order_list_provider.dart';
+import 'package:flutter_app/features/orders/presentation/viewmodels/orders_list_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';

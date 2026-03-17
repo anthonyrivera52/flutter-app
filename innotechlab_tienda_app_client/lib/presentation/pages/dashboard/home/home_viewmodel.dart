@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'package:flutter_app/domain/entities/product.dart';
-import 'package:flutter_app/domain/entities/shop.dart';
+import 'package:flutter_app/features/products/domain/models/product_entity.dart';
+import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 
 /// Represents the state of the Home screen.
 /// It is immutable and used with the HomeNotifier.

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/presentation/pages/dashboard/profile/profile_viewmodel.dart';
+import 'package:flutter_app/features/profile/presentation/viewmodels/profile_viewmodel.dart';
 import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,21 +22,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     // Escuchar los cambios en el estado de AuthNotifierProfile
     _removeAuthProfileListener = ref
-        .read(authProfileProvider.notifier)
+        .read(profileProvider.notifier)
         .addListener((state) {
-          // Deferir las acciones de UI hasta después del frame actual
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return; // Asegurarse de que el widget sigue montado
-
-            // Manejar el cierre de sesión exitoso
-            // previousState no está disponible directamente con addListener,
-            // pero podemos inferir el cambio si isAuthenticated pasa a ser false.
-            // También chequeamos si el user es null para confirmar el logout.
-            if (!state.isAuthenticated && (state.user == null)) {
-              // Navigate to sign in page after logout
+            if (!mounted) return;
+            if (!state.isAuthenticated && state.user == null) {
               context.go('/signin');
             }
-            // Manejar mensajes de error
             if (state.errorMessage != null) {
               showInfoToast(
                 context,
@@ -45,8 +37,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 icon: Icons.error_outline,
                 isDismissible: true,
               );
-              // Limpiar el mensaje de error en el ViewModel después de mostrarlo
-              ref.read(authProfileProvider.notifier).clearErrorMessage();
+              ref.read(profileProvider.notifier).clearError();
             }
           });
         });
@@ -59,14 +50,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   void _signOut() async {
-    // Llama al método signOut del ViewModel, que ya no necesita 'context'
-    ref.read(authProfileProvider.notifier).signOut();
-    // La navegación se manejará en el listener de initState
+    ref.read(profileProvider.notifier).signOut();
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProfileState = ref.watch(authProfileProvider);
+    final authProfileState = ref.watch(profileProvider);
 
     if (!authProfileState.isAuthenticated || authProfileState.user == null) {
       return Scaffold(

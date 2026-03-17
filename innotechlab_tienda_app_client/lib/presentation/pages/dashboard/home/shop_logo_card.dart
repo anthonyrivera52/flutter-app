@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_app/domain/entities/shop.dart';
+import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 
 class ShopLogoCard extends StatelessWidget {
   final Shop shop;
