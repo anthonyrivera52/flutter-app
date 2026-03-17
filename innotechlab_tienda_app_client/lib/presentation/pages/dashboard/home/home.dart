@@ -3,6 +3,7 @@ import 'package:flutter_app/config/constants/category_constants.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 import 'package:flutter_app/features/products/presentation/viewmodels/home_viewmodel.dart';
+import 'package:flutter_app/presentation/provider/shops_polling_provider.dart';
 import 'package:flutter_app/presentation/widget/common/full_map_widget.dart';
 import 'package:flutter_app/presentation/widget/common/shop_panel_widget.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,11 +22,12 @@ class HomeTabPageContent extends ConsumerStatefulWidget {
 class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
   @override
   Widget build(BuildContext context) {
+    final pollingState = ref.watch(shopsPollingProvider);
     final homeState = ref.watch(homeProvider);
     final homeNotifier = ref.read(homeProvider.notifier);
     final selectedCategoryId = ref.watch(selectedCategoryProvider);
 
-    if (homeState.isLoading && homeState.nearbyShops.isEmpty) {
+    if (pollingState.isLoading && pollingState.shops.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -42,7 +44,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
               // Mapa completo
               SizedBox.expand(
                 child: FullMapWidget(
-                  nearbyShops: homeState.nearbyShops,
+                  nearbyShops: pollingState.shops,
                   userLatitude: homeState.userLatitude ?? 0,
                   userLongitude: homeState.userLongitude ?? 0,
                   selectedShop: selectedShop,
@@ -64,8 +66,12 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                     padding: const EdgeInsets.all(16),
                     child: _LocationBanner(
                       locationMessage: homeState.locationMessage,
-                      errorMessage: homeState.errorMessage,
-                      onRefresh: homeNotifier.refreshNearbyShops,
+                      errorMessage:
+                          pollingState.error ?? homeState.errorMessage,
+                      onRefresh: () {
+                        // Trigger refresh from polling provider
+                        ref.read(shopsPollingProvider.notifier).startPolling();
+                      },
                     ),
                   ),
                 ),
@@ -105,7 +111,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                 ),
 
               // Loading overlay
-              if (homeState.isLoading)
+              if (pollingState.isLoading)
                 Positioned.fill(
                   child: Container(
                     color: Colors.black.withValues(alpha: 0.15),

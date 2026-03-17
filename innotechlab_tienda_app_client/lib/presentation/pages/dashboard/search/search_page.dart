@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'package:flutter_app/features/products/presentation/viewmodels/home_viewmodel.dart';
+import 'package:flutter_app/presentation/provider/shops_polling_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -28,10 +29,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final homeState = ref.watch(homeProvider);
+    final pollingState = ref.watch(shopsPollingProvider);
     final searchQuery = ref.watch(searchQueryProvider).toLowerCase();
 
-    final filteredShops = homeState.nearbyShops.where((shopDistance) {
+    final filteredShops = pollingState.shops.where((shopDistance) {
       if (searchQuery.isEmpty) return true;
       final shop = shopDistance.shop;
       final name = (shop.organizationName ?? shop.name).toLowerCase();
@@ -44,12 +45,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(homeState),
+            _buildHeader(pollingState),
             _buildSearchBar(),
             Expanded(
               child: filteredShops.isEmpty
                   ? _buildEmptyState(searchQuery.isNotEmpty)
-                  : _buildShopsList(filteredShops, homeState),
+                  : _buildShopsList(filteredShops, pollingState),
             ),
           ],
         ),
@@ -57,7 +58,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
-  Widget _buildHeader(HomeState homeState) {
+  Widget _buildHeader(ShopsPollingState pollingState) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -67,7 +68,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
-          if (homeState.locationMessage != null)
+          if (pollingState.lastUpdate != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -78,21 +79,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.location_on,
-                    size: 16,
+                    Icons.access_time,
+                    size: 14,
                     color: Colors.grey.shade600,
                   ),
                   const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      _formatLocation(homeState.locationMessage ?? ''),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    'Actualizado: ${pollingState.lastUpdate!.hour}:${pollingState.lastUpdate!.minute.toString().padLeft(2, '0')}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
                 ],
               ),
@@ -100,14 +94,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ],
       ),
     );
-  }
-
-  String _formatLocation(String message) {
-    if (message.contains(',')) {
-      final parts = message.split(',');
-      return parts.first.trim();
-    }
-    return message.length > 20 ? '${message.substring(0, 20)}...' : message;
   }
 
   Widget _buildSearchBar() {
@@ -178,7 +164,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
-  Widget _buildShopsList(List<ShopDistance> shops, HomeState homeState) {
+  Widget _buildShopsList(
+    List<ShopDistance> shops,
+    ShopsPollingState pollingState,
+  ) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: shops.length,

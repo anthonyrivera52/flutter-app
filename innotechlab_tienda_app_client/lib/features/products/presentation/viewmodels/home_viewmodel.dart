@@ -104,7 +104,6 @@ class HomeNotifier extends StateNotifier<HomeState> {
   final LocationService _locationService;
   late String _userId;
   StreamSubscription<AuthState>? _authSub;
-  Timer? _pollingTimer;
 
   HomeNotifier(this._supabase, this._locationService)
     : super(const HomeState()) {
@@ -127,40 +126,10 @@ class HomeNotifier extends StateNotifier<HomeState> {
   @override
   void dispose() {
     _authSub?.cancel();
-    _pollingTimer?.cancel();
     super.dispose();
   }
 
-  void _startPolling() {
-    _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      _refreshShopStatus();
-    });
-  }
-
-  Future<void> _refreshShopStatus() async {
-    if (state.selectedShop == null) return;
-    try {
-      final location = await _locationService.getCurrentPosition(
-        accuracy: LocationAccuracy.low,
-        timeout: const Duration(seconds: 5),
-        maxRetries: 1,
-      );
-      final nearbyShops = await _fetchNearbyShops(location);
-
-      final updatedShop = nearbyShops.firstWhere(
-        (sd) => sd.shop.id == state.selectedShop!.id,
-        orElse: () => ShopDistance(shop: state.selectedShop!, distanceKm: 0),
-      );
-
-      state = state.copyWith(
-        nearbyShops: nearbyShops,
-        selectedShop: updatedShop.shop,
-      );
-    } catch (_) {
-      // Silently fail on polling errors
-    }
-  }
+  // Polling moved to shopsPollingProvider
 
   Future<void> loadShopHours(String locationId) async {
     state = state.copyWith(isLoadingHours: true);
@@ -199,28 +168,8 @@ class HomeNotifier extends StateNotifier<HomeState> {
         maxRetries: 2,
       );
 
-      final nearbyShops = await _fetchNearbyShops(location);
-
-      if (nearbyShops.isEmpty) {
-        state = state.copyWith(
-          isLoading: false,
-          products: const [],
-          nearbyShops: const [],
-          errorMessage:
-              'No hay comercios cercanos. Ajusta tu zona o cambia dirección.',
-          clearSelectedShop: true,
-        );
-        return;
-      }
-
-      final activeShop = nearbyShops.first.shop;
-      final catalog = await _fetchCatalog(activeShop.slug);
-
       state = state.copyWith(
         isLoading: false,
-        nearbyShops: nearbyShops,
-        selectedShop: activeShop,
-        products: catalog,
         userLatitude: location.latitude,
         userLongitude: location.longitude,
         locationMessage:
@@ -254,8 +203,6 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   Future<void> selectShop(Shop shop) async {
-    _startPolling();
-
     state = state.copyWith(
       isLoading: true,
       clearError: true,
@@ -282,75 +229,12 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   void clearSelectedShop() {
-    _pollingTimer?.cancel();
     state = state.copyWith(clearSelectedShop: true, products: const []);
   }
 
   Future<void> refreshNearbyShops() => initialize();
 
   // ── Private ──────────────────────────────────────────────────────────────
-
-  Future<List<ShopDistance>> _fetchNearbyShops(LocationResult location) async {
-    final response = await _supabase.rpc(
-      'find_nearby_locations',
-      params: {
-        'p_lat': location.latitude,
-        'p_lng': location.longitude,
-        'p_radius_km': 10.0,
-      },
-    );
-
-    final shopsJson = response as List<dynamic>?;
-    if (shopsJson == null || shopsJson.isEmpty) return [];
-
-    final seenOrganizationIds = <String>{};
-    final shopsWithCoverage = <ShopDistance>[];
-
-    for (final raw in shopsJson) {
-      final map = raw as Map<String, dynamic>;
-      final organizationId = map['organization_id'] as String?;
-
-      // Skip if organization ID is null or already seen (deduplication)
-      if (organizationId == null ||
-          seenOrganizationIds.contains(organizationId)) {
-        continue;
-      }
-      seenOrganizationIds.add(organizationId);
-
-      final shop = Shop(
-        id: map['id'] as String,
-        name: (map['name'] ?? '') as String,
-        slug: (map['organization_slug'] ?? '') as String,
-        logoUrl: (map['brand_logo_url'] ?? map['image_url'] ?? '') as String,
-        address: (map['address_line1'] ?? '') as String,
-        schedule: map['status_text'] as String?,
-        latitude: (map['latitude'] as num?)?.toDouble() ?? 0,
-        longitude: (map['longitude'] as num?)?.toDouble() ?? 0,
-        serviceRadiusKm: (map['distance_km'] as num?)?.toDouble(),
-        productIds: const [],
-        city: '',
-        isOpen: map['is_open'] as bool? ?? false,
-        statusText: map['status_text'] as String?,
-        deliveryStatus: Shop.parseDeliveryStatus(
-          map['delivery_status'] as String?,
-        ),
-        pickupStatus: Shop.parseDeliveryStatus(map['pickup_status'] as String?),
-        organizationName: map['organization_name'] as String?,
-      );
-      final distance = (map['distance_km'] as num?)?.toDouble() ?? 0;
-      shopsWithCoverage.add(ShopDistance(shop: shop, distanceKm: distance));
-    }
-
-    shopsWithCoverage.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
-
-    // Client-side radius filtering as backup (match cf-re-sites default)
-    const maxRadius = 10.0;
-    shopsWithCoverage.removeWhere(
-      (shopDistance) => shopDistance.distanceKm > maxRadius,
-    );
-
-    return shopsWithCoverage;
-  }
 
   Future<List<Product>> _fetchCatalog(String shopSlug) async {
     final response = await _supabase.functions.invoke(
