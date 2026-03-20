@@ -17,6 +17,7 @@ class ShopPanelWidget extends StatefulWidget {
   final VoidCallback onChangeShop;
   final List<LocationHour> shopHours;
   final bool isLoadingHours;
+  final bool isViewOnly;
 
   const ShopPanelWidget({
     super.key,
@@ -29,6 +30,7 @@ class ShopPanelWidget extends StatefulWidget {
     required this.onChangeShop,
     this.shopHours = const [],
     this.isLoadingHours = false,
+    this.isViewOnly = false,
   });
 
   @override
@@ -199,10 +201,15 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
                   ],
                 ),
               ),
+              // IconButton(
+              //   onPressed: widget.onChangeShop,
+              //   icon: Icon(Icons.swap_horiz, color: Colors.grey.shade600),
+              //   tooltip: 'Cambiar comercio',
+              // ),
               IconButton(
-                onPressed: widget.onChangeShop,
-                icon: Icon(Icons.swap_horiz, color: Colors.grey.shade600),
-                tooltip: 'Cambiar comercio',
+                onPressed: widget.onClose,
+                icon: Icon(Icons.close, color: Colors.grey.shade600),
+                tooltip: 'Cerrar',
               ),
             ],
           ),
@@ -233,7 +240,7 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
             ),
           ),
           const SizedBox(width: 8),
-          _buildScheduleButton(),
+          // _buildScheduleButton(),
         ],
       ),
     );
@@ -253,18 +260,18 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
     String statusText;
 
     if (isActive) {
-      bgColor = Colors.green.shade50;
       textColor = Colors.green.shade700;
+      bgColor = textColor.withValues(alpha: 0.1);
       iconColor = Colors.green;
       statusText = 'Activo';
     } else if (isWaiting) {
-      bgColor = Colors.amber.shade50;
       textColor = Colors.amber.shade700;
+      bgColor = textColor.withValues(alpha: 0.1);
       iconColor = Colors.amber;
       statusText = 'Alta demanda';
     } else {
-      bgColor = Colors.grey.shade100;
       textColor = Colors.grey.shade600;
+      bgColor = textColor.withValues(alpha: 0.1);
       iconColor = Colors.grey;
       statusText = 'No disponible';
     }
@@ -349,18 +356,18 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
     IconData icon;
 
     if (widget.shop.deliveryStatus == ShopDeliveryStatus.waiting) {
-      bgColor = Colors.amber.shade100;
       textColor = Colors.amber.shade800;
+      bgColor = textColor.withValues(alpha: 0.1);
       text = 'Alta demanda';
       icon = Icons.warning_amber_rounded;
     } else if (widget.shop.isOpen) {
-      bgColor = Colors.green.shade100;
       textColor = Colors.green.shade700;
+      bgColor = textColor.withValues(alpha: 0.1);
       text = 'Abierto';
       icon = Icons.check_circle;
     } else {
-      bgColor = Colors.red.shade100;
       textColor = Colors.red.shade700;
+      bgColor = textColor.withValues(alpha: 0.1);
       text = 'Cerrado';
       icon = Icons.cancel;
     }
@@ -478,7 +485,40 @@ class _ShopPanelWidgetState extends State<ShopPanelWidget> {
         final product = products[index];
         return _ProductCard(
           product: product,
-          onTap: () => context.go('/product/${product.id}'),
+          onTap: () {
+            final isShopOpen = widget.shop.isOpen;
+            final hasActiveChannels =
+                (widget.shop.deliveryStatus == ShopDeliveryStatus.active ||
+                    widget.shop.deliveryStatus == ShopDeliveryStatus.waiting) ||
+                (widget.shop.pickupStatus == ShopDeliveryStatus.active ||
+                    widget.shop.pickupStatus == ShopDeliveryStatus.waiting);
+            final canViewDetail = isShopOpen && hasActiveChannels;
+
+            if (widget.isViewOnly) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Selecciona este comercio en el inicio para comprar',
+                  ),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            } else if (!canViewDetail) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    !isShopOpen
+                        ? 'El comercio está cerrado. No se puede ver el detalle.'
+                        : 'El comercio no tiene canales de atención activos.',
+                  ),
+                  backgroundColor: Colors.orange.shade800,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            } else {
+              context.go('/product/${product.id}');
+            }
+          },
         );
       },
     );

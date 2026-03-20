@@ -35,7 +35,6 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
   @override
   void initState() {
     super.initState();
-    _addressController.text = 'Dirección de entrega';
   }
 
   @override
@@ -60,8 +59,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
 
       showInfoToast(
         context,
-        message:
-            'Ubicación aplicada. Precisión: ${_locationService.getAccuracyDescription(_currentLocation!.accuracy)}',
+        message: 'Ubicación aplicada con éxito.',
         backgroundColor: AppColors.successColor,
         icon: Icons.my_location,
         isDismissible: true,
@@ -109,26 +107,16 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       String message =
           shopStatus.message ?? 'El comercio no acepta pedidos en este momento.';
 
-      if (shopStatus.status == ShopStatus.waiting) {
-        message =
-            'Temporalmente en pausa por alta demanda. Puedes ver los productos pero no puedes realizar pedidos.';
-      } else if (shopStatus.status == ShopStatus.closed) {
-        message = shopStatus.nextOpenTime != null
-            ? 'El comercio está cerrado. Próxima apertura: ${shopStatus.nextOpenTime}'
-            : 'El comercio está cerrado en este momento.';
-      } else if (shopStatus.status == ShopStatus.inactive) {
-        message = 'El comercio no está disponible actualmente.';
-      }
-
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('No disponible'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Comercio no disponible'),
           content: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: const Text('Entendido'),
             ),
           ],
         ),
@@ -167,18 +155,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
 
     ref.read(cartProvider.notifier).clear();
 
-    final orderCode = ref.read(checkoutProvider).createdOrderCode;
-
-    showInfoToast(
-      context,
-      message: orderCode != null
-          ? 'Orden creada. Código: $orderCode'
-          : 'Orden creada correctamente.',
-      backgroundColor: AppColors.successColor,
-      icon: Icons.check_circle_outline,
-      isDismissible: true,
-    );
-
+    // Redirigir a confirmación
     context.go('/order-confirmation');
   }
 
@@ -190,124 +167,346 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
     final subtotal = checkoutState.subtotal(cartState.items);
     final total = checkoutState.total(cartState.items);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Checkout'), centerTitle: true),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text(
-              'Entrega',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-            Row(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8),
+            child: Column(
               children: [
-                Expanded(
-                  child: CustomTextField(
-                    controller: _addressController,
-                    hintText: 'Escribe tu dirección',
-                    prefixIcon: Icons.location_on_outlined,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'La dirección es obligatoria';
-                      }
-                      return null;
-                    },
+                Container(
+                  height: 4,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _useCurrentLocation,
-                  icon: const Icon(Icons.my_location),
-                  color: AppColors.primaryColor,
+                const SizedBox(height: 16),
+                const Text(
+                  'Finalizar Pedido',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              controller: _notesController,
-              hintText: 'Notas adicionales (opcional)',
-              prefixIcon: Icons.note_outlined,
-              maxLines: 2,
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('Llamar cuando llegue'),
-              value: _callWhenArrive,
-              onChanged: (value) => setState(() => _callWhenArrive = value),
-            ),
-            SwitchListTile(
-              title: const Text('Dejar en la puerta'),
-              value: _leaveAtDoor,
-              onChanged: (value) => setState(() => _leaveAtDoor = value),
-            ),
-            SwitchListTile(
-              title: const Text('No tocar timbre'),
-              value: _dontRingBell,
-              onChanged: (value) => setState(() => _dontRingBell = value),
-            ),
-            const Divider(height: 32),
-            const Text(
-              'Resumen del pedido',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-            ...cartState.items.map(
-              (item) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(item.name),
-                subtitle: Text(
-                  '${item.quantity} x \$${item.price.toStringAsFixed(2)}',
-                ),
-                trailing: Text(
-                  '\$${(item.price * item.quantity).toStringAsFixed(2)}',
-                ),
+          ),
+          
+          Expanded(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                children: [
+                  _buildSectionTitle('Ubicación de entrega'),
+                  _buildDeliverySection(),
+                  const SizedBox(height: 24),
+                  
+                  _buildSectionTitle('Instrucciones de entrega'),
+                  _buildOptionsSection(),
+                  const SizedBox(height: 24),
+                  
+                  _buildSectionTitle('Resumen del pedido'),
+                  _buildOrderSummary(cartState.items),
+                  const SizedBox(height: 24),
+                  
+                  _buildPaymentSummary(subtotal, total),
+                  const SizedBox(height: 32),
+                  
+                  CustomButton(
+                    text: 'Confirmar y Pagar',
+                    isLoading: checkoutState.isSubmitting,
+                    onPressed: _confirmOrder,
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
             ),
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Subtotal'),
-                Text('\$${subtotal.toStringAsFixed(2)}'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Envío'),
-                Text('\$${kDeliveryFee.toStringAsFixed(2)}'),
-              ],
-            ),
-            const Divider(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                Text(
-                  '\$${total.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            CustomButton(
-              text: 'Confirmar pedido',
-              isLoading: checkoutState.isSubmitting,
-              onPressed: _confirmOrder,
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: Colors.black87,
         ),
       ),
+    );
+  }
+
+  Widget _buildDeliverySection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: CustomTextField(
+                  controller: _addressController,
+                  hintText: 'Ej: Calle Principal 123',
+                  prefixIcon: Icons.location_on_rounded,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Por favor ingresa tu dirección';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: _useCurrentLocation,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Icon(
+                    Icons.my_location_rounded,
+                    color: AppColors.primaryColor,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          CustomTextField(
+            controller: _notesController,
+            hintText: 'Apartamento, piso, oficina o referencias...',
+            prefixIcon: Icons.notes_rounded,
+            maxLines: 2,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionsSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _buildOptionTile(
+            title: 'Llamar al llegar',
+            subtitle: 'El repartidor te llamará por teléfono',
+            icon: Icons.phone_in_talk_rounded,
+            value: _callWhenArrive,
+            onChanged: (v) => setState(() => _callWhenArrive = v),
+          ),
+          const Divider(height: 1, indent: 60),
+          _buildOptionTile(
+            title: 'Dejar en la puerta',
+            subtitle: 'Entrega sin contacto personal',
+            icon: Icons.door_front_door_rounded,
+            value: _leaveAtDoor,
+            onChanged: (v) => setState(() => _leaveAtDoor = v),
+          ),
+          const Divider(height: 1, indent: 60),
+          _buildOptionTile(
+            title: 'No tocar el timbre',
+            subtitle: 'Ideal si tienes bebés o mascotas',
+            icon: Icons.notifications_off_rounded,
+            value: _dontRingBell,
+            onChanged: (v) => setState(() => _dontRingBell = v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptionTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile.adaptive(
+      activeTrackColor: AppColors.primaryColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+      ),
+      secondary: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: Colors.grey.shade700, size: 20),
+      ),
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildOrderSummary(List<dynamic> items) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: items.map((item) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    '${item.quantity}x',
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '\$${(item.price * item.quantity).toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPaymentSummary(double subtotal, double total) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        children: [
+          _RowSummary(label: 'Subtotal', value: '\$${subtotal.toStringAsFixed(2)}'),
+          const SizedBox(height: 8),
+          _RowSummary(label: 'Tarifa de envío', value: '\$${kDeliveryFee.toStringAsFixed(2)}'),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Final',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              Text(
+                '\$${total.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RowSummary extends StatelessWidget {
+  final String label;
+  final String value;
+  const _RowSummary({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        ),
+      ],
     );
   }
 }

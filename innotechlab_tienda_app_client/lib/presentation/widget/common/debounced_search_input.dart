@@ -68,14 +68,18 @@ class _DebouncedSearchInputState extends State<DebouncedSearchInput> {
       onSubmitted: _onSubmitted,
       decoration: InputDecoration(
         hintText: widget.hintText ?? 'Buscar productos...',
-        prefixIcon: const Icon(Icons.search),
+        prefixIcon: const Icon(Icons.search, color: Colors.grey),
         suffixIcon: _controller.text.isNotEmpty
-            ? IconButton(icon: const Icon(Icons.clear), onPressed: clear)
+            ? IconButton(
+                icon: const Icon(Icons.clear, color: Colors.grey),
+                onPressed: clear,
+              )
             : null,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: InputBorder.none,
+        hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 12,
+          vertical: 14,
         ),
       ),
     );

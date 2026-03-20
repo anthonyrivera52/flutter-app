@@ -4,8 +4,9 @@ import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'package:flutter_app/features/products/presentation/viewmodels/home_viewmodel.dart';
 import 'package:flutter_app/presentation/provider/shops_polling_provider.dart';
+import 'package:flutter_app/presentation/provider/dashboard_provider.dart';
+import 'package:flutter_app/presentation/provider/favorites_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -40,17 +41,27 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       return name.contains(searchQuery) || address.contains(searchQuery);
     }).toList();
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white, Colors.grey.shade50],
+        ),
+      ),
+      child: SafeArea(
         child: Column(
           children: [
             _buildHeader(pollingState),
             _buildSearchBar(),
+            const SizedBox(height: 16),
             Expanded(
-              child: filteredShops.isEmpty
-                  ? _buildEmptyState(searchQuery.isNotEmpty)
-                  : _buildShopsList(filteredShops, pollingState),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: filteredShops.isEmpty
+                    ? _buildEmptyState(searchQuery.isNotEmpty)
+                    : _buildShopsList(filteredShops, pollingState),
+              ),
             ),
           ],
         ),
@@ -59,38 +70,36 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Widget _buildHeader(ShopsPollingState pollingState) {
-    return Container(
-      padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          const Text(
-            'Comercios',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Descubre',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryColor.withOpacity(0.7),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const Text(
+                'Comercios',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -1,
+                ),
+              ),
+            ],
           ),
           const Spacer(),
           if (pollingState.lastUpdate != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Actualizado: ${pollingState.lastUpdate!.hour}:${pollingState.lastUpdate!.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                  ),
-                ],
-              ),
-            ),
+            _LastUpdateBadge(lastUpdate: pollingState.lastUpdate!),
         ],
       ),
     );
@@ -99,35 +108,42 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget _buildSearchBar() {
     final searchQuery = ref.watch(searchQueryProvider);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _focusNode,
-        onChanged: (value) {
-          ref.read(searchQueryProvider.notifier).state = value;
-        },
-        decoration: InputDecoration(
-          hintText: 'Buscar por nombre o dirección...',
-          hintStyle: TextStyle(color: Colors.grey.shade500),
-          prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
-          suffixIcon: searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear, color: Colors.grey.shade500),
-                  onPressed: () {
-                    _searchController.clear();
-                    ref.read(searchQueryProvider.notifier).state = '';
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          focusNode: _focusNode,
+          onChanged: (value) {
+            ref.read(searchQueryProvider.notifier).state = value;
+          },
+          style: const TextStyle(fontSize: 16),
+          decoration: InputDecoration(
+            hintText: 'Busca por nombre o dirección...',
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
+            prefixIcon: Icon(Icons.search_rounded, color: AppColors.primaryColor, size: 22),
+            suffixIcon: searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(searchQueryProvider.notifier).state = '';
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           ),
         ),
       ),
@@ -136,55 +152,85 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   Widget _buildEmptyState(bool hasSearch) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            hasSearch ? Icons.search_off : Icons.store_mall_directory,
-            size: 64,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            hasSearch
-                ? 'No se encontraron comercios'
-                : 'No hay comercios cercanos',
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-          ),
-          if (hasSearch)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Intenta con otro nombre o dirección',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                hasSearch ? Icons.search_off_rounded : Icons.store_rounded,
+                size: 64,
+                color: Colors.grey.shade300,
               ),
             ),
-        ],
+            const SizedBox(height: 24),
+            Text(
+              hasSearch ? 'Sin resultados' : 'No hay comercios cercanos',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              hasSearch
+                  ? 'No pudimos encontrar lo que buscas. Prueba con otros términos.'
+                  : 'Parece que no hay tiendas en tu área en este momento.',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildShopsList(
-    List<ShopDistance> shops,
-    ShopsPollingState pollingState,
-  ) {
+  Widget _buildShopsList(List<ShopDistance> shops, ShopsPollingState pollingState) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       itemCount: shops.length,
+      physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
         final shopDistance = shops[index];
-        final shop = shopDistance.shop;
         return _ShopCard(
-          shop: shop,
+          shop: shopDistance.shop,
           distanceKm: shopDistance.distanceKm,
-          onTap: () async {
-            await ref.read(homeProvider.notifier).selectShop(shop);
-            if (context.mounted) {
-              context.go('/');
-            }
+          onTap: () {
+            ref.read(homeProvider.notifier).selectShop(shopDistance.shop);
+            ref.read(dashboardTabIndexProvider.notifier).state = 0;
           },
         );
       },
+    );
+  }
+}
+
+class _LastUpdateBadge extends StatelessWidget {
+  final DateTime lastUpdate;
+  const _LastUpdateBadge({required this.lastUpdate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.sync, size: 14, color: Colors.green.shade700),
+          const SizedBox(width: 4),
+          Text(
+            '${lastUpdate.hour}:${lastUpdate.minute.toString().padLeft(2, '0')}',
+            style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -194,184 +240,208 @@ class _ShopCard extends StatelessWidget {
   final double distanceKm;
   final VoidCallback onTap;
 
-  const _ShopCard({
-    required this.shop,
-    required this.distanceKm,
-    required this.onTap,
-  });
+  const _ShopCard({required this.shop, required this.distanceKm, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: shop.isOpen ? onTap : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Logo
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.grey.shade100,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GestureDetector(
+        onTap: shop.isOpen ? onTap : null,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: shop.logoUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: shop.logoUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => const Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Hero Section (Logo + Basic Info)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: LinearGradient(
+                          colors: [Colors.grey.shade100, Colors.grey.shade50],
                         ),
-                        errorWidget: (_, __, ___) =>
-                            Icon(Icons.store, color: Colors.grey.shade400),
-                      )
-                    : Icon(Icons.store, color: Colors.grey.shade400),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      if (shop.organizationName != null)
-                        Text(
-                          '${shop.organizationName} • ',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: shop.logoUrl.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: shop.logoUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                errorWidget: (_, __, ___) => Icon(Icons.storefront_rounded, color: Colors.grey.shade400, size: 30),
+                              )
+                            : Icon(Icons.storefront_rounded, color: Colors.grey.shade400, size: 30),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (shop.organizationName != null)
+                            Text(
+                              shop.organizationName!.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.primaryColor,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          Text(
+                            shop.name,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      Expanded(
-                        child: Text(
-                          shop.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              _buildStatusBadge(),
+                              const SizedBox(width: 8),
+                              Icon(Icons.location_on, size: 14, color: Colors.grey.shade400),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${distanceKm.toStringAsFixed(1)} km',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                              ),
+                            ],
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _buildStatusBadge(),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${distanceKm.toStringAsFixed(1)} km',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    shop.address,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Button
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: shop.isOpen
-                    ? AppColors.primaryColor
-                    : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                shop.isOpen ? 'Ver menú' : 'Cerrado',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: shop.isOpen ? Colors.white : Colors.grey.shade600,
+                    ),
+                    _FavoriteButton(shopId: shop.id),
+                  ],
                 ),
               ),
-            ),
-          ],
+              // Footer Section (Address + Action)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(Icons.directions_rounded, size: 14, color: Colors.grey.shade400),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              shop.address,
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: shop.isOpen ? AppColors.primaryColor : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: shop.isOpen
+                            ? [BoxShadow(color: AppColors.primaryColor.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))]
+                            : null,
+                      ),
+                      child: Text(
+                        shop.isOpen ? 'Ver menú' : 'Cerrado',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: shop.isOpen ? Colors.white : Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildStatusBadge() {
-    Color bgColor;
     Color textColor;
     String text;
     IconData icon;
 
     if (shop.deliveryStatus == ShopDeliveryStatus.waiting) {
-      bgColor = Colors.amber.shade100;
-      textColor = Colors.amber.shade800;
-      text = 'Alta demanda';
-      icon = Icons.warning_amber_rounded;
+      textColor = Colors.amber.shade700;
+      text = 'Demora';
+      icon = Icons.access_time_filled_rounded;
     } else if (shop.isOpen) {
-      bgColor = Colors.green.shade100;
-      textColor = Colors.green.shade700;
+      textColor = Colors.green.shade600;
       text = 'Abierto';
-      icon = Icons.check_circle;
+      icon = Icons.check_circle_rounded;
     } else {
-      bgColor = Colors.red.shade100;
-      textColor = Colors.red.shade700;
+      textColor = Colors.grey.shade500;
       text = 'Cerrado';
-      icon = Icons.cancel;
+      icon = Icons.remove_circle_rounded;
     }
 
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: textColor),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+        ),
+      ],
+    );
+  }
+}
+
+class _FavoriteButton extends ConsumerWidget {
+  final String shopId;
+  const _FavoriteButton({required this.shopId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favorites = ref.watch(favoriteShopIdsProvider);
+    final isFavorite = favorites.contains(shopId);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(8),
+        color: isFavorite ? Colors.red.shade50 : Colors.grey.shade100,
+        shape: BoxShape.circle,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: textColor),
-          const SizedBox(width: 3),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: textColor,
-            ),
+      child: IconButton(
+        onPressed: () => ref.read(favoriteShopIdsProvider.notifier).toggleFavorite(shopId),
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: Icon(
+            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            key: ValueKey(isFavorite),
+            color: isFavorite ? Colors.red : Colors.grey.shade400,
+            size: 22,
           ),
-        ],
+        ),
+        padding: const EdgeInsets.all(10),
+        constraints: const BoxConstraints(),
       ),
     );
   }

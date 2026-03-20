@@ -32,7 +32,19 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     final state = ref.watch(orderDetailsProvider(widget.orderId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Estado del pedido')),
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text('Detalle del Pedido', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed: () {}, // Support/Help link
+          ),
+        ],
+      ),
       body: _buildBody(context, state),
     );
   }
@@ -45,16 +57,16 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     if (state.errorMessage != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(state.errorMessage!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+              const SizedBox(height: 16),
+              Text(state.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => ref
-                    .read(orderDetailsProvider(widget.orderId).notifier)
-                    .fetchOrderDetails(widget.orderId),
+                onPressed: () => ref.read(orderDetailsProvider(widget.orderId).notifier).fetchOrderDetails(widget.orderId),
                 child: const Text('Reintentar'),
               ),
             ],
@@ -64,166 +76,127 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     }
 
     final order = state.order;
-    if (order == null) {
-      return const Center(child: Text('No se encontró el pedido.'));
-    }
+    if (order == null) return const Center(child: Text('No se encontró el pedido.'));
 
-    final formattedDate =
-        DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt.toLocal());
-    final userLocation =
-        LatLng(order.shippingLatitude, order.shippingLongitude);
+    final formattedDate = DateFormat('dd MMM yyyy, HH:mm', 'es_ES').format(order.createdAt.toLocal());
+    final userLocation = LatLng(order.shippingLatitude, order.shippingLongitude);
     final storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
-    final markers = {
-      Marker(
-        markerId: const MarkerId('userLocation'),
-        position: userLocation,
-        infoWindow: const InfoWindow(title: 'Tu ubicación'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-      ),
-      Marker(
-        markerId: const MarkerId('storeLocation'),
-        position: storeLocation,
-        infoWindow: const InfoWindow(title: 'Comercio'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-      ),
-    };
 
     return RefreshIndicator(
-      onRefresh: () => ref
-          .read(orderDetailsProvider(widget.orderId).notifier)
-          .fetchOrderDetails(widget.orderId),
-      child: ListView(
+      onRefresh: () => ref.read(orderDetailsProvider(widget.orderId).notifier).fetchOrderDetails(widget.orderId),
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        children: [
-          const SizedBox(height: 8),
-          Text(
-            'Pedido #${order.id.length > 8 ? order.id.substring(0, 8) : order.id}',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          Text(formattedDate),
-          const SizedBox(height: 4),
-          Text(
-            'Total: \$${order.totalAmount.toStringAsFixed(2)}',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          Text('Entrega: ${order.shippingAddress}'),
-          const SizedBox(height: 16),
-          _StatusTimeline(status: order.status),
-          const SizedBox(height: 16),
-          if (order.driverId != null) _buildDriverInfo(context, order),
-          if (order.driverId != null) const SizedBox(height: 16),
-          _buildPaymentBreakdown(context, order),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              height: 220,
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(
-                    (userLocation.latitude + storeLocation.latitude) / 2,
-                    (userLocation.longitude + storeLocation.longitude) / 2,
-                  ),
-                  zoom: 12,
-                ),
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                markers: markers,
-                circles: {
-                  Circle(
-                    circleId: const CircleId('store_radius_details'),
-                    center: storeLocation,
-                    radius: 1000,
-                    fillColor: AppColors.primaryColor.withValues(alpha: 0.08),
-                    strokeColor: AppColors.primaryColor,
-                    strokeWidth: 1,
-                  ),
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Productos',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          ...order.items.map(
-            (item) => Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: item.product.imageUrl.isNotEmpty
-                      ? Image.network(
-                          item.product.imageUrl,
-                          width: 52,
-                          height: 52,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _imageFallback(),
-                        )
-                      : _imageFallback(),
-                ),
-                title: Text(
-                  item.product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  '${item.quantity} x \$${item.priceAtPurchase.toStringAsFixed(2)}',
-                ),
-                trailing: Text(
-                  '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}',
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status Header
+            _OrderHeader(order: order, formattedDate: formattedDate),
+            const SizedBox(height: 24),
 
-  Widget _imageFallback() {
-    return Container(
-      width: 52,
-      height: 52,
-      color: Colors.grey.shade200,
-      alignment: Alignment.center,
-      child: const Icon(Icons.image_not_supported_outlined),
+            // Map Section
+            const Text('Seguimiento', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                height: 200,
+                child: Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: LatLng(
+                          (userLocation.latitude + storeLocation.latitude) / 2,
+                          (userLocation.longitude + storeLocation.longitude) / 2,
+                        ),
+                        zoom: 13,
+                      ),
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      markers: {
+                        Marker(markerId: const MarkerId('u'), position: userLocation, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure)),
+                        Marker(markerId: const MarkerId('s'), position: storeLocation, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)),
+                      },
+                    ),
+                    PositionRectangle(
+                      bottom: 12,
+                      right: 12,
+                      child: FloatingActionButton.small(
+                        onPressed: () {}, // Center map
+                        backgroundColor: Colors.white,
+                        child: const Icon(Icons.my_location, color: Colors.blue),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Timeline Section
+            _StatusTimeline(status: order.status),
+            const SizedBox(height: 24),
+
+            // Driver Info if any
+            if (order.driverId != null) ...[
+              const Text('Repartidor', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              _buildDriverInfo(context, order),
+              const SizedBox(height: 24),
+            ],
+
+            // Order Items
+            const Text('Productos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ...order.items.map((item) => _OrderItemRow(item: item)),
+            const SizedBox(height: 24),
+
+            // Payment Summary
+            const Text('Resumen de Pago', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _buildPaymentBreakdown(context, order),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildDriverInfo(BuildContext context, AppOrder order) {
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundImage: order.driverPhotoUrl != null
-              ? NetworkImage(order.driverPhotoUrl!)
-              : null,
-          child:
-              order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
-        ),
-        title: Text(
-          order.driverName ?? 'Domiciliario',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (order.driverPhone != null) Text('📱 ${order.driverPhone}'),
-            if (order.vehicleType != null)
-              Text(
-                '🚗 ${order.vehicleType}${order.vehiclePlate != null ? ' (${order.vehiclePlate})' : ''}',
-              ),
-          ],
-        ),
-        trailing: const Icon(Icons.chat),
-        onTap: () {},
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundImage: order.driverPhotoUrl != null ? NetworkImage(order.driverPhotoUrl!) : null,
+            child: order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(order.driverName ?? 'Asignando repartidor...', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                if (order.vehicleType != null)
+                  Text('${order.vehicleType} • ${order.vehiclePlate ?? ""}', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              ],
+            ),
+          ),
+          if (order.driverPhone != null)
+            IconButton(
+              icon: const Icon(Icons.phone_in_talk, color: Colors.green),
+              onPressed: () {}, // Call driver
+            ),
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue),
+            onPressed: () {}, // Chat with driver
+          ),
+        ],
       ),
     );
   }
@@ -234,56 +207,196 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     final tax = order.taxIvaAmount ?? 0.0;
     final tip = order.tipAmount ?? 0.0;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Resumen de Pago',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        children: [
+          _PayDetailRow(label: 'Subtotal', value: subtotal),
+          const SizedBox(height: 8),
+          _PayDetailRow(label: 'Costo de envío', value: shipping),
+          const SizedBox(height: 8),
+          _PayDetailRow(label: 'Impuestos (IVA)', value: tax),
+          if (tip > 0) ...[
             const SizedBox(height: 8),
-            _PayRow(label: 'Subtotal', value: subtotal),
-            _PayRow(label: 'Envío', value: shipping),
-            _PayRow(label: 'Impuestos', value: tax),
-            if (tip > 0) _PayRow(label: 'Propina', value: tip),
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                Text(
-                  '\$${order.totalAmount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ],
-            ),
+            _PayDetailRow(label: 'Propina', value: tip),
           ],
-        ),
+          const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Total Pagado', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text('\$${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.black)),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-class _PayRow extends StatelessWidget {
-  final String label;
-  final double value;
-  const _PayRow({required this.label, required this.value});
+class _OrderHeader extends StatelessWidget {
+  final AppOrder order;
+  final String formattedDate;
+
+  const _OrderHeader({required this.order, required this.formattedDate});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [Text(label), Text('\$${value.toStringAsFixed(2)}')],
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
       ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _statusColor(order.status).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(_statusIcon(order.status), color: _statusColor(order.status), size: 32),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_humanStatus(order.status), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+                    const SizedBox(height: 4),
+                    Text('Orden #${order.id.substring(0, 8)}', style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontFamily: 'monospace')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
+              const SizedBox(width: 8),
+              Expanded(child: Text(order.shippingAddress, style: TextStyle(color: Colors.grey.shade700, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 16, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(formattedDate, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _humanStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return 'Pendiente de Pago';
+      case 'accepted': return 'Pedido Aceptado';
+      case 'processing': return 'Preparando Pedido';
+      case 'shipped': return 'En camino a tu casa';
+      case 'delivered':
+      case 'completed': return 'Pedido Entregado';
+      case 'cancelled': return 'Pedido Cancelado';
+      default: return status;
+    }
+  }
+
+  static Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return Colors.orange;
+      case 'accepted':
+      case 'processing': return Colors.blue;
+      case 'shipped': return Colors.purple;
+      case 'delivered':
+      case 'completed': return Colors.green;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
+
+  static IconData _statusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending': return Icons.hourglass_top;
+      case 'accepted': return Icons.check_circle;
+      case 'processing': return Icons.restaurant;
+      case 'shipped': return Icons.delivery_dining;
+      case 'delivered':
+      case 'completed': return Icons.verified;
+      case 'cancelled': return Icons.cancel;
+      default: return Icons.shopping_bag;
+    }
+  }
+}
+
+class _OrderItemRow extends StatelessWidget {
+  final OrderItem item;
+  const _OrderItemRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: item.product.imageUrl.isNotEmpty
+                ? Image.network(item.product.imageUrl, width: 60, height: 60, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback())
+                : _fallback(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 4),
+                Text('${item.quantity} un. x \$${item.priceAtPurchase.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              ],
+            ),
+          ),
+          Text('\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return Container(width: 60, height: 60, color: Colors.grey.shade100, child: const Icon(Icons.image_not_supported, color: Colors.grey));
+  }
+}
+
+class _PayDetailRow extends StatelessWidget {
+  final String label;
+  final double value;
+  const _PayDetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+        Text('\$${value.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }
@@ -295,91 +408,117 @@ class _StatusTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
-
+    
     if (normalized == 'cancelled') {
-      return _statusRow(
-        title: 'Cancelado',
-        subtitle: 'El pedido fue cancelado.',
-        active: true,
-        activeColor: Colors.red,
-      );
+       return const _TimelineItem(title: 'Cancelado', subtitle: 'Tu pedido ha sido cancelado.', icon: Icons.cancel, color: Colors.red, isLast: true, isActive: true);
     }
 
-    const steps = [
-      _StepData(title: 'Pendiente', subtitle: 'Esperando confirmación'),
-      _StepData(title: 'Aceptado', subtitle: 'Pedido confirmado por la tienda'),
-      _StepData(title: 'Preparando', subtitle: 'Estamos preparando tu pedido'),
-      _StepData(title: 'En camino', subtitle: 'El pedido va en ruta'),
-      _StepData(title: 'Entregado', subtitle: 'Pedido completado'),
+    final steps = [
+      ('Pendiente', 'Recibimos tu orden', Icons.timer_outlined),
+      ('Aceptado', 'La tienda ha confirmado', Icons.store),
+      ('Preparando', 'Tu orden se está alistando', Icons.soup_kitchen),
+      ('En camino', 'El repartidor va en ruta', Icons.delivery_dining),
+      ('Entregado', '¡Disfruta tu pedido!', Icons.auto_awesome),
     ];
 
-    const indexByStatus = {
-      'pending': 0,
-      'accepted': 1,
-      'processing': 2,
-      'shipped': 3,
-      'delivered': 4,
-      'completed': 4,
+    final indexByStatus = {
+      'pending': 0, 'accepted': 1, 'processing': 2, 'shipped': 3, 'delivered': 4, 'completed': 4,
     };
-
     final activeIndex = indexByStatus[normalized] ?? 0;
 
-    return Column(
-      children: [
-        for (var i = 0; i < steps.length; i++)
-          _statusRow(
-            title: steps[i].title,
-            subtitle: steps[i].subtitle,
-            active: i <= activeIndex,
-            activeColor: AppColors.primaryColor,
-          ),
-      ],
-    );
-  }
-
-  Widget _statusRow({
-    required String title,
-    required String subtitle,
-    required bool active,
-    required Color activeColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            active ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: active ? activeColor : Colors.grey,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: active ? Colors.black : Colors.grey[700],
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style:
-                      TextStyle(color: active ? Colors.black87 : Colors.grey),
-                ),
-              ],
-            ),
-          ),
-        ],
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        children: List.generate(steps.length, (i) {
+          final s = steps[i];
+          return _TimelineItem(
+            title: s.$1,
+            subtitle: s.$2,
+            icon: s.$3,
+            color: i <= activeIndex ? AppColors.primaryColor : Colors.grey.shade300,
+            isLast: i == steps.length - 1,
+            isActive: i <= activeIndex,
+            isCurrent: i == activeIndex,
+          );
+        }),
       ),
     );
   }
 }
 
-class _StepData {
+class _TimelineItem extends StatelessWidget {
   final String title;
   final String subtitle;
-  const _StepData({required this.title, required this.subtitle});
+  final IconData icon;
+  final Color color;
+  final bool isLast;
+  final bool isActive;
+  final bool isCurrent;
+
+  const _TimelineItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.isLast,
+    required this.isActive,
+    this.isCurrent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isActive ? color : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: 2),
+                boxShadow: isCurrent ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, spreadRadius: 2)] : null,
+              ),
+              child: Icon(icon, size: 16, color: isActive ? Colors.white : color),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 40,
+                color: isActive ? color : Colors.grey.shade200,
+              ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              Text(title, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal, color: isActive ? Colors.black : Colors.grey.shade400, fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(color: isActive ? Colors.grey.shade600 : Colors.grey.shade300, fontSize: 12)),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Helper for Stack alignment in Map
+class PositionRectangle extends StatelessWidget {
+  final double? bottom, right, left, top;
+  final Widget child;
+  const PositionRectangle({super.key, this.bottom, this.right, this.left, this.top, required this.child});
+  @override
+  Widget build(BuildContext context) => Positioned(bottom: bottom, right: right, left: left, top: top, child: child);
 }

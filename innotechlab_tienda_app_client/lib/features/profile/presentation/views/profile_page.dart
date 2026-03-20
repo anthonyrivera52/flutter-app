@@ -71,55 +71,48 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     final User user = state.user!;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text('Perfil'),
-        centerTitle: true,
-      ),
-      body: Column(
+    return SingleChildScrollView(
+      child: Column(
         children: [
           _ProfileHeader(user: user),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              children: [
-                _MenuItem(
-                  icon: Icons.location_on_outlined,
-                  title: 'Direcciones',
-                  onTap: () {},
-                ),
-                _MenuItem(
-                  icon: Icons.payment_outlined,
-                  title: 'Métodos de pago',
-                  onTap: () {},
-                ),
-                _MenuItem(
-                  icon: Icons.local_offer_outlined,
-                  title: 'Promociones',
-                  onTap: () {},
-                ),
-                _MenuItem(
-                  icon: Icons.support_agent_outlined,
-                  title: 'Soporte',
-                  onTap: () {},
-                ),
-                _MenuItem(
-                  icon: Icons.settings_outlined,
-                  title: 'Configuración',
-                  onTap: () {},
-                ),
-                const Divider(height: 1),
-                _MenuItem(
-                  icon: Icons.logout_outlined,
-                  title: 'Cerrar sesión',
-                  onTap: () =>
-                      ref.read(profileProvider.notifier).signOut(),
-                  color: Colors.red,
-                ),
-              ],
-            ),
+          ListView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            children: [
+              _MenuItem(
+                icon: Icons.location_on_outlined,
+                title: 'Direcciones',
+                onTap: () {},
+              ),
+              _MenuItem(
+                icon: Icons.payment_outlined,
+                title: 'Métodos de pago',
+                onTap: () {},
+              ),
+              _MenuItem(
+                icon: Icons.local_offer_outlined,
+                title: 'Promociones',
+                onTap: () {},
+              ),
+              _MenuItem(
+                icon: Icons.support_agent_outlined,
+                title: 'Soporte',
+                onTap: () {},
+              ),
+              _MenuItem(
+                icon: Icons.settings_outlined,
+                title: 'Configuración',
+                onTap: () {},
+              ),
+              const Divider(height: 1),
+              _MenuItem(
+                icon: Icons.logout_outlined,
+                title: 'Cerrar sesión',
+                onTap: () => ref.read(profileProvider.notifier).signOut(),
+                color: Colors.red,
+              ),
+            ],
           ),
         ],
       ),

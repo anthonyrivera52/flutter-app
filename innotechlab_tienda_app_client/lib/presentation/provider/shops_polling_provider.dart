@@ -82,6 +82,11 @@ class ShopsPollingNotifier extends StateNotifier<ShopsPollingState> {
     _isPollingStarted = false;
   }
 
+  // Refrescar manualmente
+  Future<void> refresh() async {
+    await _refreshShops();
+  }
+
   // Refrescar comercios
   Future<void> _refreshShops() async {
     try {
@@ -92,6 +97,7 @@ class ShopsPollingNotifier extends StateNotifier<ShopsPollingState> {
         timeout: const Duration(seconds: 10),
         maxRetries: 1,
       );
+      if (!mounted) return;
 
       final response = await _supabase.rpc(
         'find_nearby_locations',
@@ -101,6 +107,7 @@ class ShopsPollingNotifier extends StateNotifier<ShopsPollingState> {
           'p_radius_km': 10.0,
         },
       );
+      if (!mounted) return;
 
       final shopsJson = response as List<dynamic>?;
       if (shopsJson == null || shopsJson.isEmpty) {
@@ -167,6 +174,7 @@ class ShopsPollingNotifier extends StateNotifier<ShopsPollingState> {
         lastUpdate: DateTime.now(),
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

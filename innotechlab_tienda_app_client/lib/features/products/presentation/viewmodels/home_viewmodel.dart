@@ -18,6 +18,8 @@ class HomeState extends Equatable {
   final String? locationMessage;
   final List<Product> products;
   final List<ShopDistance> nearbyShops;
+  final List<ShopDistance> filteredNearbyShops;
+  final String searchQuery;
   final Shop? selectedShop;
   final double? userLatitude;
   final double? userLongitude;
@@ -30,6 +32,8 @@ class HomeState extends Equatable {
     this.locationMessage,
     this.products = const [],
     this.nearbyShops = const [],
+    this.filteredNearbyShops = const [],
+    this.searchQuery = '',
     this.selectedShop,
     this.userLatitude,
     this.userLongitude,
@@ -43,6 +47,8 @@ class HomeState extends Equatable {
     String? locationMessage,
     List<Product>? products,
     List<ShopDistance>? nearbyShops,
+    List<ShopDistance>? filteredNearbyShops,
+    String? searchQuery,
     Shop? selectedShop,
     double? userLatitude,
     double? userLongitude,
@@ -57,6 +63,8 @@ class HomeState extends Equatable {
       locationMessage: locationMessage ?? this.locationMessage,
       products: products ?? this.products,
       nearbyShops: nearbyShops ?? this.nearbyShops,
+      filteredNearbyShops: filteredNearbyShops ?? this.filteredNearbyShops,
+      searchQuery: searchQuery ?? this.searchQuery,
       selectedShop: clearSelectedShop
           ? null
           : selectedShop ?? this.selectedShop,
@@ -76,6 +84,8 @@ class HomeState extends Equatable {
     locationMessage,
     products,
     nearbyShops,
+    filteredNearbyShops,
+    searchQuery,
     selectedShop,
     userLatitude,
     userLongitude,
@@ -230,6 +240,33 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   void clearSelectedShop() {
     state = state.copyWith(clearSelectedShop: true, products: const []);
+  }
+
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
+    _applyFilter();
+  }
+
+  void updateNearbyShops(List<ShopDistance> nearbyShops) {
+    if (state.nearbyShops == nearbyShops) return;
+    state = state.copyWith(nearbyShops: nearbyShops);
+    _applyFilter();
+  }
+
+  void _applyFilter() {
+    if (state.searchQuery.isEmpty) {
+      state = state.copyWith(filteredNearbyShops: state.nearbyShops);
+      return;
+    }
+
+    final query = state.searchQuery.toLowerCase();
+    final filtered = state.nearbyShops.where((shopDistance) {
+      final name = shopDistance.shop.name.toLowerCase();
+      final orgName = (shopDistance.shop.organizationName ?? '').toLowerCase();
+      return name.contains(query) || orgName.contains(query);
+    }).toList();
+
+    state = state.copyWith(filteredNearbyShops: filtered);
   }
 
   Future<void> refreshNearbyShops() => initialize();

@@ -8,6 +8,10 @@ import 'package:flutter_app/presentation/widget/common/full_map_widget.dart';
 import 'package:flutter_app/presentation/widget/common/shop_panel_widget.dart';
 import 'package:flutter_app/presentation/widget/common/responsive_widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_app/presentation/widget/common/debounced_search_input.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
+import 'dart:ui';
 
 final selectedCategoryProvider = StateProvider<String>((ref) {
   return CategoryConstants.allProductsCategoryId;
@@ -27,6 +31,19 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
     final homeState = ref.watch(homeProvider);
     final homeNotifier = ref.read(homeProvider.notifier);
     final selectedCategoryId = ref.watch(selectedCategoryProvider);
+
+    ref.listen(shopsPollingProvider, (previous, next) {
+      if (next.shops != previous?.shops) {
+        ref.read(homeProvider.notifier).updateNearbyShops(next.shops);
+      }
+    });
+
+    // Ensure state is updated on initial load
+    if (homeState.nearbyShops.isEmpty && pollingState.shops.isNotEmpty) {
+      Future.microtask(
+        () => ref.read(homeProvider.notifier).updateNearbyShops(pollingState.shops),
+      );
+    }
 
     if (pollingState.isLoading && pollingState.shops.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -87,7 +104,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
       children: [
         SizedBox.expand(
           child: FullMapWidget(
-            nearbyShops: pollingState.shops,
+            nearbyShops: homeState.filteredNearbyShops,
             userLatitude: homeState.userLatitude ?? 0,
             userLongitude: homeState.userLongitude ?? 0,
             selectedShop: selectedShop,
@@ -98,28 +115,14 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
             },
           ),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _LocationBanner(
-                locationMessage: homeState.locationMessage,
-                errorMessage: pollingState.error ?? homeState.errorMessage,
-                onRefresh: () {
-                  ref.read(shopsPollingProvider.notifier).startPolling();
-                },
-              ),
-            ),
-          ),
+        _buildFloatingHeader(
+          context: context,
+          ref: ref,
+          homeNotifier: homeNotifier,
+          isLoading: pollingState.isLoading,
         ),
         if (selectedShop != null)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
+          Positioned.fill(
             child: ShopPanelWidget(
               shop: selectedShop,
               products: _filterProducts(
@@ -145,14 +148,64 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
               isLoadingHours: homeState.isLoadingHours,
             ),
           ),
-        if (pollingState.isLoading)
+        if (pollingState.isLoading && homeState.nearbyShops.isEmpty)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: Colors.black.withOpacity(0.15),
               child: const Center(child: CircularProgressIndicator()),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildFloatingHeader({
+    required BuildContext context,
+    required WidgetRef ref,
+    required HomeNotifier homeNotifier,
+    required bool isLoading,
+  }) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 10,
+      left: 16,
+      right: 16,
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: Container(
+                    color: Colors.white.withOpacity(0.9),
+                    child: DebouncedSearchInput(
+                      onChanged: (v) => homeNotifier.setSearchQuery(v),
+                      hintText: 'Buscar comercios...',
+                      debounceDuration: const Duration(milliseconds: 300),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          _FloatingCircleButton(
+            icon: Icons.refresh,
+            onPressed: () => ref.read(shopsPollingProvider.notifier).refresh(),
+            isLoading: isLoading,
+          ),
+        ],
+      ),
     );
   }
 
@@ -174,7 +227,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
           child: Stack(
             children: [
               FullMapWidget(
-                nearbyShops: pollingState.shops,
+                nearbyShops: homeState.filteredNearbyShops,
                 userLatitude: homeState.userLatitude ?? 0,
                 userLongitude: homeState.userLongitude ?? 0,
                 selectedShop: selectedShop,
@@ -184,24 +237,16 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                   homeNotifier.selectShop(shop);
                 },
               ),
-              Positioned(
-                top: 16,
-                left: 16,
-                right: 16,
-                child: SafeArea(
-                  child: _LocationBanner(
-                    locationMessage: homeState.locationMessage,
-                    errorMessage: pollingState.error ?? homeState.errorMessage,
-                    onRefresh: () {
-                      ref.read(shopsPollingProvider.notifier).startPolling();
-                    },
-                  ),
-                ),
+              _buildFloatingHeader(
+                context: context,
+                ref: ref,
+                homeNotifier: homeNotifier,
+                isLoading: pollingState.isLoading,
               ),
-              if (pollingState.isLoading && pollingState.shops.isEmpty)
+              if (pollingState.isLoading && homeState.nearbyShops.isEmpty)
                 Positioned.fill(
                   child: Container(
-                    color: Colors.black.withValues(alpha: 0.15),
+                    color: Colors.black.withOpacity(0.15),
                     child: const Center(child: CircularProgressIndicator()),
                   ),
                 ),
@@ -293,6 +338,54 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
       return products;
     }
     return products.where((p) => p.categoryId == selectedCategoryId).toList();
+  }
+}
+
+class _FloatingCircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool isLoading;
+
+  const _FloatingCircleButton({
+    required this.icon,
+    required this.onPressed,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: IconButton(
+            onPressed: isLoading ? null : onPressed,
+            icon: isLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(icon, color: AppColors.primaryColor),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              padding: const EdgeInsets.all(12),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -439,7 +532,10 @@ class _FixedShopPanel extends StatelessWidget {
                   ),
                   itemCount: products.length,
                   itemBuilder: (context, index) {
-                    return _ProductCard(product: products[index]);
+                    return _ProductCard(
+                      product: products[index],
+                      shop: shop,
+                    );
                   },
                 ),
         ),
@@ -457,157 +553,95 @@ class _FixedShopPanel extends StatelessWidget {
 
 class _ProductCard extends StatelessWidget {
   final Product product;
+  final dynamic shop;
 
-  const _ProductCard({required this.product});
+  const _ProductCard({required this.product, required this.shop});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: AspectRatio(
-              aspectRatio: 1.2,
-              child: product.imageUrl.isNotEmpty
-                  ? Image.network(
-                      product.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+    return GestureDetector(
+      onTap: () {
+        final bool isShopOpen = shop.isOpen ?? false;
+        final bool hasActiveChannels =
+            (shop.deliveryStatus == ShopDeliveryStatus.active ||
+                    shop.deliveryStatus == ShopDeliveryStatus.waiting) ||
+                (shop.pickupStatus == ShopDeliveryStatus.active ||
+                    shop.pickupStatus == ShopDeliveryStatus.waiting);
+        final bool canViewDetail = isShopOpen && hasActiveChannels;
+
+        if (!canViewDetail) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                !isShopOpen
+                    ? 'El comercio está cerrado. No se puede ver el detalle.'
+                    : 'El comercio no tiene canales de atención activos.',
+              ),
+              backgroundColor: Colors.orange.shade800,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        } else {
+          context.go('/product/${product.id}');
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
+              child: AspectRatio(
+                aspectRatio: 1.2,
+                child: product.imageUrl.isNotEmpty
+                    ? Image.network(
+                        product.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade100,
+                          child: Icon(Icons.image, color: Colors.grey.shade400),
+                        ),
+                      )
+                    : Container(
                         color: Colors.grey.shade100,
                         child: Icon(Icons.image, color: Colors.grey.shade400),
                       ),
-                    )
-                  : Container(
-                      color: Colors.grey.shade100,
-                      child: Icon(Icons.image, color: Colors.grey.shade400),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '\$${product.price.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryColor,
+                  const SizedBox(height: 4),
+                  Text(
+                    '\$${product.price.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryColor,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LocationBanner extends StatelessWidget {
-  final String? locationMessage;
-  final String? errorMessage;
-  final VoidCallback onRefresh;
-
-  const _LocationBanner({
-    required this.locationMessage,
-    required this.errorMessage,
-    required this.onRefresh,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasError = errorMessage != null && locationMessage == null;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: hasError ? Colors.red.shade50 : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: hasError ? Colors.red.shade200 : Colors.grey.shade200,
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: hasError
-                  ? Colors.red.shade100
-                  : AppColors.primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              hasError ? Icons.location_off : Icons.near_me,
-              color: hasError ? Colors.red : AppColors.primaryColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  hasError ? 'Ubicación no disponible' : 'Tu ubicación',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  hasError
-                      ? (errorMessage ?? 'Error de ubicación')
-                      : (locationMessage ?? 'Detectando...'),
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: hasError ? Colors.red.shade700 : Colors.black87,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          if (!hasError)
-            IconButton(
-              onPressed: onRefresh,
-              icon: Icon(Icons.refresh, color: Colors.grey.shade600, size: 20),
-              tooltip: 'Actualizar',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-        ],
       ),
     );
   }

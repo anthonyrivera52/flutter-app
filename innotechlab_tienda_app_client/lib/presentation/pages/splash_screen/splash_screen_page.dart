@@ -19,7 +19,7 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
   }
 
   Future<void> _navigateToNextScreen() async {
-    await Future.delayed(const Duration(milliseconds: 1500));
+    await Future.delayed(const Duration(seconds: 3));
 
     final storage = ref.read(keyValueStorageProvider);
     final onboardingCompleted = await storage.isOnboardingCompleted();

@@ -47,6 +47,7 @@ class _FullMapWidgetState extends State<FullMapWidget>
   }
 
   void _fitBounds() {
+    if (!mounted) return;
     if (widget.nearbyShops.isEmpty) return;
 
     final shopLocations = widget.nearbyShops
@@ -59,11 +60,18 @@ class _FullMapWidgetState extends State<FullMapWidget>
 
     if (shopLocations.isEmpty) return;
 
-    final bounds = LatLngBounds.fromPoints(shopLocations);
-    _mapController.fitCamera(
-      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
-    );
-    _hasAnimated = true;
+    try {
+      final bounds = LatLngBounds.fromPoints(shopLocations);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.all(80),
+        ),
+      );
+      setState(() => _hasAnimated = true);
+    } catch (e) {
+      debugPrint('Error fitting bounds: $e');
+    }
   }
 
   void _animateToLocation(LatLng point, double zoom) {
@@ -73,33 +81,52 @@ class _FullMapWidgetState extends State<FullMapWidget>
   @override
   void didUpdateWidget(FullMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_hasAnimated && widget.nearbyShops.isNotEmpty) {
+
+    // If selectedShop changed and is not null, animate to it
+    if (widget.selectedShop != null &&
+        widget.selectedShop?.id != oldWidget.selectedShop?.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _animateToLocation(
+          LatLng(widget.selectedShop!.latitude, widget.selectedShop!.longitude),
+          16, // Zoom in closer when selected and center it
+        );
+      });
+    }
+    // If nearbyShops changed and no shop is selected, re-fit bounds
+    else if (widget.selectedShop == null &&
+        (widget.nearbyShops.length != oldWidget.nearbyShops.length ||
+            (widget.nearbyShops.isNotEmpty &&
+                oldWidget.nearbyShops.isNotEmpty &&
+                widget.nearbyShops.first.shop.id !=
+                    oldWidget.nearbyShops.first.shop.id))) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+    } else if (!_hasAnimated && widget.nearbyShops.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.nearbyShops.isEmpty) {
-      return _buildEmptyState();
-    }
-
     final userLocation = LatLng(widget.userLatitude, widget.userLongitude);
     final shopLocations = widget.nearbyShops
         .map((sd) => LatLng(sd.shop.latitude, sd.shop.longitude))
         .toList();
-    final allPoints = [...shopLocations, userLocation];
+    final allPoints = [...shopLocations, if (widget.userLatitude != 0) userLocation];
 
     LatLngBounds? bounds;
-    try {
-      bounds = LatLngBounds.fromPoints(allPoints);
-    } catch (_) {
-      bounds = null;
+    if (allPoints.isNotEmpty) {
+      try {
+        bounds = LatLngBounds.fromPoints(allPoints);
+      } catch (_) {
+        bounds = null;
+      }
     }
 
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
+        initialCenter: userLocation.latitude != 0 ? userLocation : const LatLng(0, 0),
+        initialZoom: userLocation.latitude != 0 ? 15 : 2,
         initialCameraFit: bounds != null
             ? CameraFit.bounds(
                 bounds: bounds,
@@ -174,31 +201,8 @@ class _FullMapWidgetState extends State<FullMapWidget>
     final lngDiff = (point1.longitude - point2.longitude).abs();
     return latDiff + lngDiff;
   }
-
-  Widget _buildEmptyState() {
-    return Container(
-      color: Colors.grey.shade100,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.map_outlined, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'No hay comercios cercanos',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Activa el servicio de domicilio en tu zona',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
+
 
 class _UserMarker extends StatefulWidget {
   @override
