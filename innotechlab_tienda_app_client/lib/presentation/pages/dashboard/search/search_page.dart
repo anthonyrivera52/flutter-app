@@ -177,9 +177,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         return _ShopCard(
           shop: shop,
           distanceKm: shopDistance.distanceKm,
-          onTap: () {
-            ref.read(homeProvider.notifier).selectShop(shop);
-            context.go('/');
+          onTap: () async {
+            await ref.read(homeProvider.notifier).selectShop(shop);
+            if (context.mounted) {
+              context.go('/');
+            }
           },
         );
       },

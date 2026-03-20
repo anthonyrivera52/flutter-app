@@ -114,6 +114,9 @@ class _FullMapWidgetState extends State<FullMapWidget>
             _fitBounds();
           }
         },
+        onTap: (tapPosition, point) {
+          _handleMapTap(point);
+        },
       ),
       children: [
         TileLayer(
@@ -137,21 +140,13 @@ class _FullMapWidgetState extends State<FullMapWidget>
               final isSelected = widget.selectedShop?.id == shop.id;
               return Marker(
                 point: LatLng(shop.latitude, shop.longitude),
-                width: isSelected ? 64 : 54,
-                height: isSelected ? 64 : 54,
-                child: GestureDetector(
-                  onTap: () {
-                    _animateToLocation(
-                      LatLng(shop.latitude, shop.longitude),
-                      15,
-                    );
-                    widget.onShopSelected(shop);
-                  },
-                  child: _ShopMarker(
-                    shop: shop,
-                    distanceKm: shopDistance.distanceKm,
-                    isSelected: isSelected,
-                  ),
+                width: isSelected ? 70 : 60,
+                height: 85,
+                key: ValueKey(shop.id),
+                child: _ShopMarker(
+                  shop: shop,
+                  distanceKm: shopDistance.distanceKm,
+                  isSelected: isSelected,
                 ),
               );
             }),
@@ -159,6 +154,25 @@ class _FullMapWidgetState extends State<FullMapWidget>
         ),
       ],
     );
+  }
+
+  void _handleMapTap(LatLng tappedPoint) {
+    for (final shopDistance in widget.nearbyShops) {
+      final shop = shopDistance.shop;
+      final shopPoint = LatLng(shop.latitude, shop.longitude);
+      final distance = _calculateDistance(tappedPoint, shopPoint);
+      if (distance < 0.001) {
+        _animateToLocation(shopPoint, 15);
+        widget.onShopSelected(shop);
+        break;
+      }
+    }
+  }
+
+  double _calculateDistance(LatLng point1, LatLng point2) {
+    final latDiff = (point1.latitude - point2.latitude).abs();
+    final lngDiff = (point1.longitude - point2.longitude).abs();
+    return latDiff + lngDiff;
   }
 
   Widget _buildEmptyState() {

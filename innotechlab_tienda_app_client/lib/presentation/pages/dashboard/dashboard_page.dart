@@ -4,61 +4,59 @@ import 'package:flutter_app/presentation/pages/dashboard/orders/order_list.dart'
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
 import 'package:flutter_app/presentation/pages/dashboard/search/search_page.dart';
 import 'package:flutter_app/presentation/pages/dashboard/favorites/favorites_page.dart';
-// Import for GoRouter
-import 'package:motion_tab_bar/MotionTabBar.dart';
-import 'package:motion_tab_bar/MotionTabBarController.dart';
+import 'package:flutter_app/presentation/widget/common/responsive_widgets.dart';
 
 class DashboardPage extends StatefulWidget {
-  final int? initialTabIndex; // Accept initialTabIndex
+  final int? initialTabIndex;
 
   const DashboardPage({super.key, this.initialTabIndex});
 
-  static const String routeName =
-      '/dashboard'; // Or just '/' if it's the new home
+  static const String routeName = '/dashboard';
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage>
-    with TickerProviderStateMixin {
-  late int _selectedIndex; // Use late to initialize in initState
-  MotionTabBarController? _motionTabBarController;
+class _DashboardPageState extends State<DashboardPage> {
+  late int _selectedIndex;
+
+  static const List<String> _appBarTitles = <String>[
+    'Home',
+    'Buscar',
+    'Pedidos',
+    'Favoritos',
+    'Perfil',
+  ];
+
+  static const List<IconData> _appBarIcons = <IconData>[
+    Icons.home,
+    Icons.search,
+    Icons.list_alt,
+    Icons.favorite_border,
+    Icons.person,
+  ];
+
+  static const List<IconData> _selectedIcons = <IconData>[
+    Icons.home,
+    Icons.search,
+    Icons.list_alt,
+    Icons.favorite,
+    Icons.person,
+  ];
 
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialTabIndex ?? 0; // Set initial index
-    //// use "MotionTabBarController" to replace with "TabController", if you need to programmatically change the tab
-    _motionTabBarController = MotionTabBarController(
-      initialIndex: _selectedIndex,
-      length: 5,
-      vsync: this,
-    );
-  }
-
-  // Define titles for each tab to update AppBar dynamically
-  static const List<String> _appBarTitles = <String>[
-    'Home', // For Home tab
-    'Buscar', // For Search tab
-    'Pedidos', // For Orders tab
-    'Favoritos', // For Favorites tab
-    'Perfil', // For Profile tab
-  ];
-
-  @override
-  void dispose() {
-    _motionTabBarController?.dispose(); // Dispose the controller if used
-    super.dispose();
+    _selectedIndex = widget.initialTabIndex ?? 0;
   }
 
   static List<Widget> _widgetOptions(BuildContext context) {
     return <Widget>[
-      const HomeTabPageContent(), // Home content
-      const SearchPage(), // Search content
-      const OrdersListPage(), // Orders content
-      const FavoritesPage(), // Favorites content
-      const ProfilePage(), // Profile content
+      const HomeTabPageContent(),
+      const SearchPage(),
+      const OrdersListPage(),
+      const FavoritesPage(),
+      const ProfilePage(),
     ];
   }
 
@@ -70,60 +68,78 @@ class _DashboardPageState extends State<DashboardPage>
 
   @override
   Widget build(BuildContext context) {
-    // Get the current list of widgets for the body
-    final List<Widget> currentWidgetOptions = _widgetOptions(context);
+    final isDesktop = context.isDesktop;
+    final isTablet = context.isTablet;
+    final isExpanded = isDesktop || isTablet;
+
+    final widgets = _widgetOptions(context);
 
     return Scaffold(
-      // appBar: AppBar(
-      //   actions: <Widget>[
-      //     IconButton(
-      //       icon: const Icon(Icons.notifications_none),
-      //       onPressed: () {
-      //         context.go('/notifications');
-      //       },
-      //     ),
-      //     IconButton(
-      //       icon: const Icon(Icons.shopping_cart_outlined),
-      //       onPressed: () {
-      //         context.go('/cart');
-      //       },
-      //     ),
-      //     // Conditionally show profile icon in AppBar if not on Profile tab,
-      //     // or always show if it navigates to a different screen e.g. edit profile.
-      //     // For now, keeping it as per original instruction (will review redundancy later)
-      //     // if (_selectedIndex != 2) // Only show if not on Profile tab
-      //     //   IconButton(
-      //     //     icon: const Icon(Icons.person_outline),
-      //     //     onPressed: () {
-      //     //       // This could navigate to ProfilePage using context.go('/profile')
-      //     //       // or switch to the profile tab.
-      //     //       // Current logic: switch to the profile tab if not already there.
-      //     //       if (_selectedIndex != 2) {
-      //     //         _onItemTapped(2);
-      //     //       }
-      //     //       // If you wanted to navigate to the profile page via router (e.g., from a deep link scenario)
-      //     //       // else { context.go('/profile'); }
-      //     //     },
-      //     //   ),
-      //   ],
-      // ),
-      body: Center(child: currentWidgetOptions.elementAt(_selectedIndex)),
-      bottomNavigationBar: MotionTabBar(
-        labels: _appBarTitles,
-        icons: const [
-          Icons.home,
-          Icons.search,
-          Icons.list_alt,
-          Icons.favorite_border,
-          Icons.person,
-        ],
-        initialSelectedTab: _appBarTitles[_selectedIndex],
-        tabIconColor: Colors.grey,
-        tabSelectedColor: Theme.of(context).primaryColor,
-        onTabItemSelected: (index) {
-          _onItemTapped(index);
-        },
-        controller: _motionTabBarController, // Use the MotionTabBarController
+      body: isExpanded
+          ? _buildExpandedLayout(widgets)
+          : _buildCompactLayout(widgets),
+      bottomNavigationBar: isExpanded ? null : _buildBottomNavigationBar(),
+    );
+  }
+
+  Widget _buildCompactLayout(List<Widget> widgets) {
+    return Column(
+      children: [
+        Expanded(child: widgets.elementAt(_selectedIndex)),
+        _buildBottomNavigationBar(),
+      ],
+    );
+  }
+
+  Widget _buildExpandedLayout(List<Widget> widgets) {
+    return Row(
+      children: [
+        _buildNavigationRail(),
+        const VerticalDivider(thickness: 1, width: 1),
+        Expanded(child: widgets.elementAt(_selectedIndex)),
+      ],
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return NavigationBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: _onItemTapped,
+      destinations: List.generate(
+        _appBarTitles.length,
+        (index) => NavigationDestination(
+          icon: Icon(_appBarIcons[index]),
+          selectedIcon: Icon(_selectedIcons[index]),
+          label: _appBarTitles[index],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationRail() {
+    final isWideDesktop = MediaQuery.sizeOf(context).width >= 1200;
+
+    return NavigationRail(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: _onItemTapped,
+      labelType: isWideDesktop
+          ? NavigationRailLabelType.all
+          : NavigationRailLabelType.selected,
+      leading: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Icon(
+          Icons.store,
+          size: isWideDesktop ? 40 : 32,
+          color: Theme.of(context).primaryColor,
+        ),
+      ),
+      destinations: List.generate(
+        _appBarTitles.length,
+        (index) => NavigationRailDestination(
+          icon: Icon(_appBarIcons[index]),
+          selectedIcon: Icon(_selectedIcons[index]),
+          label: Text(_appBarTitles[index]),
+        ),
       ),
     );
   }

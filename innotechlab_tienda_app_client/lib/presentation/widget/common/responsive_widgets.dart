@@ -2,6 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../provider/connectivity_provider.dart';
 
+/// Breakpoints basados en Material 3 Design
+class Breakpoints {
+  static const double mobile = 600;
+  static const double tablet = 840;
+  static const double desktop = 1200;
+
+  Breakpoints._();
+}
+
+enum DeviceType { mobile, tablet, desktop }
+
+enum WindowType { compact, medium, expanded }
+
+extension DeviceTypeExtension on DeviceType {
+  bool get isMobile => this == DeviceType.mobile;
+  bool get isTablet => this == DeviceType.tablet;
+  bool get isDesktop => this == DeviceType.desktop;
+
+  String get label {
+    switch (this) {
+      case DeviceType.mobile:
+        return 'Mobile';
+      case DeviceType.tablet:
+        return 'Tablet';
+      case DeviceType.desktop:
+        return 'Desktop';
+    }
+  }
+}
+
+extension WindowTypeExtension on WindowType {
+  bool get isCompact => this == WindowType.compact;
+  bool get isMedium => this == WindowType.medium;
+  bool get isExpanded => this == WindowType.expanded;
+}
+
 /// Banner that shows when device is offline
 class ConnectivityBanner extends ConsumerWidget {
   const ConnectivityBanner({super.key});
@@ -67,18 +103,101 @@ class ResponsiveBuilder extends StatelessWidget {
   }
 
   static DeviceType getDeviceType(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width < 600) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < Breakpoints.mobile) {
       return DeviceType.mobile;
-    } else if (width < 900) {
+    } else if (width < Breakpoints.tablet) {
       return DeviceType.tablet;
     } else {
       return DeviceType.desktop;
     }
   }
+
+  static WindowType getWindowType(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width < Breakpoints.mobile) {
+      return WindowType.compact;
+    } else if (width < Breakpoints.tablet) {
+      return WindowType.medium;
+    } else {
+      return WindowType.expanded;
+    }
+  }
 }
 
-enum DeviceType { mobile, tablet, desktop }
+/// Extension to easily access device type in any BuildContext
+extension DeviceContext on BuildContext {
+  DeviceType get deviceType => ResponsiveBuilder.getDeviceType(this);
+  WindowType get windowType => ResponsiveBuilder.getWindowType(this);
+
+  bool get isMobile => deviceType == DeviceType.mobile;
+  bool get isTablet => deviceType == DeviceType.tablet;
+  bool get isDesktop => deviceType == DeviceType.desktop;
+
+  bool get isCompact => windowType == WindowType.compact;
+  bool get isMedium => windowType == WindowType.medium;
+  bool get isExpanded => windowType == WindowType.expanded;
+
+  double get screenWidth => MediaQuery.sizeOf(this).width;
+  double get screenHeight => MediaQuery.sizeOf(this).height;
+
+  EdgeInsets get viewPadding => MediaQuery.viewPaddingOf(this);
+  EdgeInsets get viewInsets => MediaQuery.viewInsetsOf(this);
+
+  bool get isLandscape =>
+      MediaQuery.orientationOf(this) == Orientation.landscape;
+  bool get isPortrait => MediaQuery.orientationOf(this) == Orientation.portrait;
+}
+
+/// Responsive layout widget with breakpoint callbacks
+class AdaptiveLayout extends StatelessWidget {
+  final Widget Function(BuildContext context)? mobile;
+  final Widget Function(BuildContext context)? tablet;
+  final Widget Function(BuildContext context)? desktop;
+  final Widget Function(BuildContext context)? compact;
+  final Widget Function(BuildContext context)? medium;
+  final Widget Function(BuildContext context)? expanded;
+  final Widget Function(BuildContext context)? fallback;
+
+  const AdaptiveLayout({
+    super.key,
+    this.mobile,
+    this.tablet,
+    this.desktop,
+    this.compact,
+    this.medium,
+    this.expanded,
+    this.fallback,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final deviceType = ResponsiveBuilder.getDeviceType(context);
+    final windowType = ResponsiveBuilder.getWindowType(context);
+
+    if (windowType == WindowType.expanded && expanded != null) {
+      return expanded!(context);
+    }
+    if (windowType == WindowType.medium && medium != null) {
+      return medium!(context);
+    }
+    if (windowType == WindowType.compact && compact != null) {
+      return compact!(context);
+    }
+
+    if (deviceType == DeviceType.desktop && desktop != null) {
+      return desktop!(context);
+    }
+    if (deviceType == DeviceType.tablet && tablet != null) {
+      return tablet!(context);
+    }
+    if (deviceType == DeviceType.mobile && mobile != null) {
+      return mobile!(context);
+    }
+
+    return fallback?.call(context) ?? const SizedBox.shrink();
+  }
+}
 
 /// Responsive grid that adapts columns based on screen size
 class ResponsiveGrid extends StatelessWidget {
@@ -86,6 +205,10 @@ class ResponsiveGrid extends StatelessWidget {
   final double crossAxisSpacing;
   final double mainAxisSpacing;
   final double childAspectRatio;
+  final EdgeInsets? padding;
+  final ScrollController? controller;
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
 
   const ResponsiveGrid({
     super.key,
@@ -93,6 +216,10 @@ class ResponsiveGrid extends StatelessWidget {
     this.crossAxisSpacing = 16,
     this.mainAxisSpacing = 16,
     this.childAspectRatio = 0.7,
+    this.padding,
+    this.controller,
+    this.shrinkWrap = false,
+    this.physics,
   });
 
   @override
@@ -113,8 +240,10 @@ class ResponsiveGrid extends StatelessWidget {
         }
 
         return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+          controller: controller,
+          shrinkWrap: shrinkWrap,
+          physics: physics,
+          padding: padding,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: crossAxisSpacing,
@@ -132,8 +261,17 @@ class ResponsiveGrid extends StatelessWidget {
 /// Responsive padding
 class ResponsivePadding extends StatelessWidget {
   final Widget child;
+  final double? mobile;
+  final double? tablet;
+  final double? desktop;
 
-  const ResponsivePadding({super.key, required this.child});
+  const ResponsivePadding({
+    super.key,
+    required this.child,
+    this.mobile,
+    this.tablet,
+    this.desktop,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -142,16 +280,137 @@ class ResponsivePadding extends StatelessWidget {
         double padding;
         switch (deviceType) {
           case DeviceType.mobile:
-            padding = 16;
+            padding = mobile ?? 16;
             break;
           case DeviceType.tablet:
-            padding = 24;
+            padding = tablet ?? 24;
             break;
           case DeviceType.desktop:
-            padding = 32;
+            padding = desktop ?? 32;
             break;
         }
         return Padding(padding: EdgeInsets.all(padding), child: child);
+      },
+    );
+  }
+}
+
+/// Responsive width constraint
+class ResponsiveConstrainedBox extends StatelessWidget {
+  final Widget child;
+  final double? maxWidthMobile;
+  final double? maxWidthTablet;
+  final double? maxWidthDesktop;
+  final double? minWidthMobile;
+  final double? minWidthTablet;
+  final double? minWidthDesktop;
+
+  const ResponsiveConstrainedBox({
+    super.key,
+    required this.child,
+    this.maxWidthMobile,
+    this.maxWidthTablet,
+    this.maxWidthDesktop,
+    this.minWidthMobile,
+    this.minWidthTablet,
+    this.minWidthDesktop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsiveBuilder(
+      builder: (context, deviceType) {
+        BoxConstraints constraints;
+        switch (deviceType) {
+          case DeviceType.mobile:
+            constraints = BoxConstraints(
+              minWidth: minWidthMobile ?? 0,
+              maxWidth: maxWidthMobile ?? double.infinity,
+            );
+            break;
+          case DeviceType.tablet:
+            constraints = BoxConstraints(
+              minWidth: minWidthTablet ?? 0,
+              maxWidth: maxWidthTablet ?? double.infinity,
+            );
+            break;
+          case DeviceType.desktop:
+            constraints = BoxConstraints(
+              minWidth: minWidthDesktop ?? 0,
+              maxWidth: maxWidthDesktop ?? double.infinity,
+            );
+            break;
+        }
+        return ConstrainedBox(constraints: constraints, child: child);
+      },
+    );
+  }
+}
+
+/// Centered container with max width
+class ResponsiveCenter extends StatelessWidget {
+  final Widget child;
+  final double? maxWidthMobile;
+  final double? maxWidthTablet;
+  final double? maxWidthDesktop;
+
+  const ResponsiveCenter({
+    super.key,
+    required this.child,
+    this.maxWidthMobile,
+    this.maxWidthTablet,
+    this.maxWidthDesktop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsiveBuilder(
+      builder: (context, deviceType) {
+        double? maxWidth;
+        switch (deviceType) {
+          case DeviceType.mobile:
+            maxWidth = maxWidthMobile;
+            break;
+          case DeviceType.tablet:
+            maxWidth = maxWidthTablet;
+            break;
+          case DeviceType.desktop:
+            maxWidth = maxWidthDesktop;
+            break;
+        }
+
+        if (maxWidth == null) {
+          return child;
+        }
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Layout builder with device type
+class AdaptiveLayoutBuilder extends StatelessWidget {
+  final Widget Function(
+    BuildContext context,
+    BoxConstraints constraints,
+    DeviceType deviceType,
+  )
+  builder;
+
+  const AdaptiveLayoutBuilder({super.key, required this.builder});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final deviceType = ResponsiveBuilder.getDeviceType(context);
+        return builder(context, constraints, deviceType);
       },
     );
   }
