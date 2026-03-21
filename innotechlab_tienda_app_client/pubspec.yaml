@@ -36,6 +36,9 @@ dependencies:
 
   slide_action: ^0.0.2
 
+  # HTTP Client for API calls
+  http: ^1.2.0
+
   # Connectivity
   connectivity_plus: ^6.0.0 # Asegúrate de usar la última versión estable
 

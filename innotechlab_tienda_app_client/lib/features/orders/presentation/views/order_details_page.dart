@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:flutter_app/features/orders/domain/models/order_entity.dart' show AppOrder;
+import 'package:flutter_app/features/orders/domain/models/order_entity.dart'
+    show AppOrder;
 import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -87,22 +88,24 @@ class _OrderHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formattedDate = DateFormat('dd/MM/yyyy HH:mm')
-        .format(order.createdAt.toLocal());
+    final formattedDate = DateFormat(
+      'dd/MM/yyyy HH:mm',
+    ).format(order.createdAt.toLocal());
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Pedido #${order.id.length > 8 ? order.id.substring(0, 8) : order.id}',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(formattedDate),
-        Text('Total: \$${order.totalAmount.toStringAsFixed(2)}',
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(
+          'Total: \$${order.totalAmount.toStringAsFixed(2)}',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         Text('Entrega: ${order.shippingAddress}'),
       ],
     );
@@ -121,11 +124,12 @@ class _DriverCard extends StatelessWidget {
           backgroundImage: order.driverPhotoUrl != null
               ? NetworkImage(order.driverPhotoUrl!)
               : null,
-          child:
-              order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
+          child: order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
         ),
-        title: Text(order.driverName ?? 'Domiciliario',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          order.driverName ?? 'Domiciliario',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -152,6 +156,7 @@ class _PaymentBreakdown extends StatelessWidget {
     final shipping = order.shippingAmount ?? 0.0;
     final tax = order.taxIvaAmount ?? 0.0;
     final tip = order.tipAmount ?? 0.0;
+    final paymentInfo = order.paymentInfo;
 
     return Card(
       child: Padding(
@@ -159,8 +164,73 @@ class _PaymentBreakdown extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Resumen de Pago',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Resumen de Pago',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                if (paymentInfo != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getPaymentStatusColor(
+                        paymentInfo.paymentStatus,
+                      ).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          paymentInfo.isCard
+                              ? Icons.credit_card
+                              : Icons.payments,
+                          size: 14,
+                          color: _getPaymentStatusColor(
+                            paymentInfo.paymentStatus,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          paymentInfo.paymentMethodText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: _getPaymentStatusColor(
+                              paymentInfo.paymentStatus,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            if (paymentInfo != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    paymentInfo.isPaid ? Icons.check_circle : Icons.pending,
+                    size: 14,
+                    color: _getPaymentStatusColor(paymentInfo.paymentStatus),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _getPaymentStatusText(paymentInfo.paymentStatus),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _getPaymentStatusColor(paymentInfo.paymentStatus),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             _row('Subtotal', subtotal),
             _row('Envío', shipping),
@@ -170,14 +240,26 @@ class _PaymentBreakdown extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('\$${order.totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text(
+                  'Total',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(
+                  '\$${order.totalAmount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ],
             ),
+            if (paymentInfo?.transactionId != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'ID Transacción: ${paymentInfo!.transactionId}',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+            ],
           ],
         ),
       ),
@@ -185,12 +267,47 @@ class _PaymentBreakdown extends StatelessWidget {
   }
 
   Widget _row(String label, double amount) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [Text(label), Text('\$${amount.toStringAsFixed(2)}')],
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(label), Text('\$${amount.toStringAsFixed(2)}')],
+    ),
+  );
+
+  Color _getPaymentStatusColor(dynamic paymentStatus) {
+    switch (paymentStatus?.toString()) {
+      case 'OrderPaymentStatus.paid':
+        return Colors.green;
+      case 'OrderPaymentStatus.pending':
+      case 'OrderPaymentStatus.processing':
+        return Colors.orange;
+      case 'OrderPaymentStatus.failed':
+        return Colors.red;
+      case 'OrderPaymentStatus.refunded':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getPaymentStatusText(dynamic paymentStatus) {
+    switch (paymentStatus?.toString()) {
+      case 'OrderPaymentStatus.paid':
+        return 'Pagado';
+      case 'OrderPaymentStatus.pending':
+        return 'Pendiente';
+      case 'OrderPaymentStatus.processing':
+        return 'Procesando';
+      case 'OrderPaymentStatus.failed':
+        return 'Fallido';
+      case 'OrderPaymentStatus.refunded':
+        return 'Reembolsado';
+      case 'OrderPaymentStatus.partiallyRefunded':
+        return 'Parcialmente reembolsado';
+      default:
+        return 'Estado desconocido';
+    }
+  }
 }
 
 class _OrderMap extends StatelessWidget {
@@ -199,8 +316,10 @@ class _OrderMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userLocation =
-        LatLng(order.shippingLatitude, order.shippingLongitude);
+    final userLocation = LatLng(
+      order.shippingLatitude,
+      order.shippingLongitude,
+    );
     final storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
 
     return ClipRRect(
@@ -223,7 +342,8 @@ class _OrderMap extends StatelessWidget {
               position: userLocation,
               infoWindow: const InfoWindow(title: 'Tu ubicación'),
               icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueBlue),
+                BitmapDescriptor.hueBlue,
+              ),
             ),
             Marker(
               markerId: const MarkerId('store'),
@@ -256,8 +376,10 @@ class _ItemsList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Productos',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        const Text(
+          'Productos',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 8),
         ...order.items.map(
           (item) => Card(
@@ -266,17 +388,26 @@ class _ItemsList extends StatelessWidget {
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: item.product.imageUrl.isNotEmpty
-                    ? Image.network(item.product.imageUrl,
-                        width: 52, height: 52, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _fallback())
+                    ? Image.network(
+                        item.product.imageUrl,
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _fallback(),
+                      )
                     : _fallback(),
               ),
-              title: Text(item.product.name,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                item.product.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(
-                  '${item.quantity} x \$${item.priceAtPurchase.toStringAsFixed(2)}'),
+                '${item.quantity} x \$${item.priceAtPurchase.toStringAsFixed(2)}',
+              ),
               trailing: Text(
-                  '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}'),
+                '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}',
+              ),
             ),
           ),
         ),
@@ -285,11 +416,11 @@ class _ItemsList extends StatelessWidget {
   }
 
   Widget _fallback() => Container(
-        width: 52,
-        height: 52,
-        color: Colors.grey.shade200,
-        child: const Icon(Icons.image_not_supported_outlined),
-      );
+    width: 52,
+    height: 52,
+    color: Colors.grey.shade200,
+    child: const Icon(Icons.image_not_supported_outlined),
+  );
 }
 
 class _StatusTimeline extends StatelessWidget {
@@ -371,13 +502,19 @@ class _StepRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: active ? Colors.black : Colors.grey[700])),
-                Text(subtitle,
-                    style: TextStyle(
-                        color: active ? Colors.black87 : Colors.grey)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: active ? Colors.black : Colors.grey[700],
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: active ? Colors.black87 : Colors.grey,
+                  ),
+                ),
               ],
             ),
           ),

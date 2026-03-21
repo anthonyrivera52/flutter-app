@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/orders/domain/models/order_entity.dart';
+import 'package:flutter_app/features/orders/presentation/viewmodels/driver_tracking_provider.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -34,7 +35,10 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Detalle del Pedido', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Detalle del Pedido',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
@@ -63,10 +67,16 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             children: [
               Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
               const SizedBox(height: 16),
-              Text(state.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                state.errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => ref.read(orderDetailsProvider(widget.orderId).notifier).fetchOrderDetails(widget.orderId),
+                onPressed: () => ref
+                    .read(orderDetailsProvider(widget.orderId).notifier)
+                    .fetchOrderDetails(widget.orderId),
                 child: const Text('Reintentar'),
               ),
             ],
@@ -76,14 +86,19 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
     }
 
     final order = state.order;
-    if (order == null) return const Center(child: Text('No se encontró el pedido.'));
+    if (order == null) {
+      return const Center(child: Text('No se encontró el pedido.'));
+    }
 
-    final formattedDate = DateFormat('dd MMM yyyy, HH:mm', 'es_ES').format(order.createdAt.toLocal());
-    final userLocation = LatLng(order.shippingLatitude, order.shippingLongitude);
-    final storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
+    final formattedDate = DateFormat(
+      'dd MMM yyyy, HH:mm',
+      'es_ES',
+    ).format(order.createdAt.toLocal());
 
     return RefreshIndicator(
-      onRefresh: () => ref.read(orderDetailsProvider(widget.orderId).notifier).fetchOrderDetails(widget.orderId),
+      onRefresh: () => ref
+          .read(orderDetailsProvider(widget.orderId).notifier)
+          .fetchOrderDetails(widget.orderId),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -94,42 +109,12 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             const SizedBox(height: 24),
 
             // Map Section
-            const Text('Seguimiento', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: SizedBox(
-                height: 200,
-                child: Stack(
-                  children: [
-                    GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(
-                          (userLocation.latitude + storeLocation.latitude) / 2,
-                          (userLocation.longitude + storeLocation.longitude) / 2,
-                        ),
-                        zoom: 13,
-                      ),
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                      markers: {
-                        Marker(markerId: const MarkerId('u'), position: userLocation, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure)),
-                        Marker(markerId: const MarkerId('s'), position: storeLocation, icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)),
-                      },
-                    ),
-                    PositionRectangle(
-                      bottom: 12,
-                      right: 12,
-                      child: FloatingActionButton.small(
-                        onPressed: () {}, // Center map
-                        backgroundColor: Colors.white,
-                        child: const Icon(Icons.my_location, color: Colors.blue),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            const Text(
+              'Seguimiento',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 12),
+            _OrderMapSection(order: order),
             const SizedBox(height: 24),
 
             // Timeline Section
@@ -138,20 +123,29 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
 
             // Driver Info if any
             if (order.driverId != null) ...[
-              const Text('Repartidor', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Repartidor',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 12),
               _buildDriverInfo(context, order),
               const SizedBox(height: 24),
             ],
 
             // Order Items
-            const Text('Productos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Productos',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             ...order.items.map((item) => _OrderItemRow(item: item)),
             const SizedBox(height: 24),
 
             // Payment Summary
-            const Text('Resumen de Pago', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              'Resumen de Pago',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             _buildPaymentBreakdown(context, order),
             const SizedBox(height: 32),
@@ -173,17 +167,30 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundImage: order.driverPhotoUrl != null ? NetworkImage(order.driverPhotoUrl!) : null,
-            child: order.driverPhotoUrl == null ? const Icon(Icons.person) : null,
+            backgroundImage: order.driverPhotoUrl != null
+                ? NetworkImage(order.driverPhotoUrl!)
+                : null,
+            child: order.driverPhotoUrl == null
+                ? const Icon(Icons.person)
+                : null,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(order.driverName ?? 'Asignando repartidor...', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  order.driverName ?? 'Asignando repartidor...',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
                 if (order.vehicleType != null)
-                  Text('${order.vehicleType} • ${order.vehiclePlate ?? ""}', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                  Text(
+                    '${order.vehicleType} • ${order.vehiclePlate ?? ""}',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
               ],
             ),
           ),
@@ -225,12 +232,25 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             const SizedBox(height: 8),
             _PayDetailRow(label: 'Propina', value: tip),
           ],
-          const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1)),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total Pagado', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('\$${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.black)),
+              const Text(
+                'Total Pagado',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              Text(
+                '\$${order.totalAmount.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                  color: Colors.black,
+                ),
+              ),
             ],
           ),
         ],
@@ -264,16 +284,33 @@ class _OrderHeader extends StatelessWidget {
                   color: _statusColor(order.status).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(_statusIcon(order.status), color: _statusColor(order.status), size: 32),
+                child: Icon(
+                  _statusIcon(order.status),
+                  color: _statusColor(order.status),
+                  size: 32,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_humanStatus(order.status), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+                    Text(
+                      _humanStatus(order.status),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 20,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('Orden #${order.id.substring(0, 8)}', style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontFamily: 'monospace')),
+                    Text(
+                      'Orden #${order.id.substring(0, 8)}',
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -282,9 +319,20 @@ class _OrderHeader extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
+              const Icon(
+                Icons.location_on_outlined,
+                size: 16,
+                color: Colors.grey,
+              ),
               const SizedBox(width: 8),
-              Expanded(child: Text(order.shippingAddress, style: TextStyle(color: Colors.grey.shade700, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  order.shippingAddress,
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -292,7 +340,10 @@ class _OrderHeader extends StatelessWidget {
             children: [
               const Icon(Icons.access_time, size: 16, color: Colors.grey),
               const SizedBox(width: 8),
-              Text(formattedDate, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+              Text(
+                formattedDate,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              ),
             ],
           ),
         ],
@@ -302,40 +353,60 @@ class _OrderHeader extends StatelessWidget {
 
   static String _humanStatus(String status) {
     switch (status.toLowerCase()) {
-      case 'pending': return 'Pendiente de Pago';
-      case 'accepted': return 'Pedido Aceptado';
-      case 'processing': return 'Preparando Pedido';
-      case 'shipped': return 'En camino a tu casa';
+      case 'pending':
+        return 'Pendiente de Pago';
+      case 'accepted':
+        return 'Pedido Aceptado';
+      case 'processing':
+        return 'Preparando Pedido';
+      case 'shipped':
+        return 'En camino a tu casa';
       case 'delivered':
-      case 'completed': return 'Pedido Entregado';
-      case 'cancelled': return 'Pedido Cancelado';
-      default: return status;
+      case 'completed':
+        return 'Pedido Entregado';
+      case 'cancelled':
+        return 'Pedido Cancelado';
+      default:
+        return status;
     }
   }
 
   static Color _statusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'pending': return Colors.orange;
+      case 'pending':
+        return Colors.orange;
       case 'accepted':
-      case 'processing': return Colors.blue;
-      case 'shipped': return Colors.purple;
+      case 'processing':
+        return Colors.blue;
+      case 'shipped':
+        return Colors.purple;
       case 'delivered':
-      case 'completed': return Colors.green;
-      case 'cancelled': return Colors.red;
-      default: return Colors.grey;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 
   static IconData _statusIcon(String status) {
     switch (status.toLowerCase()) {
-      case 'pending': return Icons.hourglass_top;
-      case 'accepted': return Icons.check_circle;
-      case 'processing': return Icons.restaurant;
-      case 'shipped': return Icons.delivery_dining;
+      case 'pending':
+        return Icons.hourglass_top;
+      case 'accepted':
+        return Icons.check_circle;
+      case 'processing':
+        return Icons.restaurant;
+      case 'shipped':
+        return Icons.delivery_dining;
       case 'delivered':
-      case 'completed': return Icons.verified;
-      case 'cancelled': return Icons.cancel;
-      default: return Icons.shopping_bag;
+      case 'completed':
+        return Icons.verified;
+      case 'cancelled':
+        return Icons.cancel;
+      default:
+        return Icons.shopping_bag;
     }
   }
 }
@@ -359,7 +430,13 @@ class _OrderItemRow extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: item.product.imageUrl.isNotEmpty
-                ? Image.network(item.product.imageUrl, width: 60, height: 60, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback())
+                ? Image.network(
+                    item.product.imageUrl,
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _fallback(),
+                  )
                 : _fallback(),
           ),
           const SizedBox(width: 12),
@@ -367,20 +444,37 @@ class _OrderItemRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.product.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  item.product.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text('${item.quantity} un. x \$${item.priceAtPurchase.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Text(
+                  '${item.quantity} un. x \$${item.priceAtPurchase.toStringAsFixed(2)}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
               ],
             ),
           ),
-          Text('\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
         ],
       ),
     );
   }
 
   Widget _fallback() {
-    return Container(width: 60, height: 60, color: Colors.grey.shade100, child: const Icon(Icons.image_not_supported, color: Colors.grey));
+    return Container(
+      width: 60,
+      height: 60,
+      color: Colors.grey.shade100,
+      child: const Icon(Icons.image_not_supported, color: Colors.grey),
+    );
   }
 }
 
@@ -394,8 +488,14 @@ class _PayDetailRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-        Text('\$${value.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+        ),
+        Text(
+          '\$${value.toStringAsFixed(2)}',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }
@@ -408,9 +508,16 @@ class _StatusTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
-    
+
     if (normalized == 'cancelled') {
-       return const _TimelineItem(title: 'Cancelado', subtitle: 'Tu pedido ha sido cancelado.', icon: Icons.cancel, color: Colors.red, isLast: true, isActive: true);
+      return const _TimelineItem(
+        title: 'Cancelado',
+        subtitle: 'Tu pedido ha sido cancelado.',
+        icon: Icons.cancel,
+        color: Colors.red,
+        isLast: true,
+        isActive: true,
+      );
     }
 
     final steps = [
@@ -422,7 +529,12 @@ class _StatusTimeline extends StatelessWidget {
     ];
 
     final indexByStatus = {
-      'pending': 0, 'accepted': 1, 'processing': 2, 'shipped': 3, 'delivered': 4, 'completed': 4,
+      'pending': 0,
+      'accepted': 1,
+      'processing': 2,
+      'shipped': 3,
+      'delivered': 4,
+      'completed': 4,
     };
     final activeIndex = indexByStatus[normalized] ?? 0;
 
@@ -440,7 +552,9 @@ class _StatusTimeline extends StatelessWidget {
             title: s.$1,
             subtitle: s.$2,
             icon: s.$3,
-            color: i <= activeIndex ? AppColors.primaryColor : Colors.grey.shade300,
+            color: i <= activeIndex
+                ? AppColors.primaryColor
+                : Colors.grey.shade300,
             isLast: i == steps.length - 1,
             isActive: i <= activeIndex,
             isCurrent: i == activeIndex,
@@ -484,9 +598,21 @@ class _TimelineItem extends StatelessWidget {
                 color: isActive ? color : Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(color: color, width: 2),
-                boxShadow: isCurrent ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, spreadRadius: 2)] : null,
+                boxShadow: isCurrent
+                    ? [
+                        BoxShadow(
+                          color: color.withOpacity(0.3),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
               ),
-              child: Icon(icon, size: 16, color: isActive ? Colors.white : color),
+              child: Icon(
+                icon,
+                size: 16,
+                color: isActive ? Colors.white : color,
+              ),
             ),
             if (!isLast)
               Container(
@@ -502,9 +628,22 @@ class _TimelineItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 4),
-              Text(title, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal, color: isActive ? Colors.black : Colors.grey.shade400, fontSize: 15)),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                  color: isActive ? Colors.black : Colors.grey.shade400,
+                  fontSize: 15,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(subtitle, style: TextStyle(color: isActive ? Colors.grey.shade600 : Colors.grey.shade300, fontSize: 12)),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: isActive ? Colors.grey.shade600 : Colors.grey.shade300,
+                  fontSize: 12,
+                ),
+              ),
               const SizedBox(height: 16),
             ],
           ),
@@ -514,11 +653,135 @@ class _TimelineItem extends StatelessWidget {
   }
 }
 
+class _OrderMapSection extends ConsumerWidget {
+  final AppOrder order;
+  const _OrderMapSection({required this.order});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userLocation = LatLng(
+      order.shippingLatitude,
+      order.shippingLongitude,
+    );
+    final storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
+    final isShipped = order.status.toLowerCase() == 'shipped';
+    final hasDriver = order.driverId != null;
+
+    final driverLocAsync = (hasDriver && isShipped)
+        ? ref.watch(driverTrackingProvider(order.driverId!))
+        : null;
+
+    final driverPosition = driverLocAsync?.valueOrNull;
+
+    final markers = <Marker>{
+      Marker(
+        markerId: const MarkerId('u'),
+        position: userLocation,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      ),
+      Marker(
+        markerId: const MarkerId('s'),
+        position: storeLocation,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      ),
+      if (driverPosition != null)
+        Marker(
+          markerId: const MarkerId('driver'),
+          position: driverPosition,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+          infoWindow: InfoWindow(title: order.driverName ?? 'Repartidor'),
+        ),
+    };
+
+    final center =
+        driverPosition ??
+        LatLng(
+          (userLocation.latitude + storeLocation.latitude) / 2,
+          (userLocation.longitude + storeLocation.longitude) / 2,
+        );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        height: 200,
+        child: Stack(
+          children: [
+            GoogleMap(
+              initialCameraPosition: CameraPosition(target: center, zoom: 13),
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              markers: markers,
+            ),
+            if (driverPosition != null)
+              Positioned(
+                bottom: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.delivery_dining,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'En ruta',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 12,
+              right: 12,
+              child: FloatingActionButton.small(
+                onPressed: () {},
+                backgroundColor: Colors.white,
+                child: const Icon(Icons.my_location, color: Colors.blue),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // Helper for Stack alignment in Map
 class PositionRectangle extends StatelessWidget {
   final double? bottom, right, left, top;
   final Widget child;
-  const PositionRectangle({super.key, this.bottom, this.right, this.left, this.top, required this.child});
+  const PositionRectangle({
+    super.key,
+    this.bottom,
+    this.right,
+    this.left,
+    this.top,
+    required this.child,
+  });
   @override
-  Widget build(BuildContext context) => Positioned(bottom: bottom, right: right, left: left, top: top, child: child);
+  Widget build(BuildContext context) => Positioned(
+    bottom: bottom,
+    right: right,
+    left: left,
+    top: top,
+    child: child,
+  );
 }

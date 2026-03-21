@@ -101,8 +101,15 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // ✅ MOSTRAR CÓDIGO DE VERIFICACIÓN
-                  _buildOrderCodeCard(context, orderState.latestOrder?.orderCode),
+                  _buildOrderCodeCard(
+                    context,
+                    orderState.latestOrder?.orderCode,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildPaymentInfoCard(
+                    context,
+                    orderState.latestOrder?.paymentInfo,
+                  ),
                   const SizedBox(height: 20),
                   Text(
                     '¡Tu pedido ha sido recibido!',
@@ -289,7 +296,6 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
     );
   }
 
-  /// Widget para mostrar el código de verificación de la orden
   Widget _buildOrderCodeCard(BuildContext context, String? orderCode) {
     if (orderCode == null || orderCode.isEmpty) {
       return const SizedBox.shrink();
@@ -339,15 +345,89 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
           const SizedBox(height: 8),
           const Text(
             'Muéstralo al repartidor cuando llegue tu pedido',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildPaymentInfoCard(BuildContext context, dynamic paymentInfo) {
+    if (paymentInfo == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                paymentInfo.isCard ? Icons.credit_card : Icons.payments,
+                color: AppColors.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Pago con ${paymentInfo.paymentMethodText}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                paymentInfo.isPaid ? Icons.check_circle : Icons.pending,
+                color: paymentInfo.isPaid ? Colors.green : Colors.orange,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _getPaymentStatusText(paymentInfo.paymentStatus),
+                style: TextStyle(
+                  color: paymentInfo.isPaid ? Colors.green : Colors.orange,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          if (paymentInfo.transactionId != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Transacción: ${paymentInfo.transactionId}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _getPaymentStatusText(dynamic paymentStatus) {
+    switch (paymentStatus?.toString()) {
+      case 'OrderPaymentStatus.paid':
+        return 'Pagado';
+      case 'OrderPaymentStatus.pending':
+        return 'Pendiente';
+      case 'OrderPaymentStatus.processing':
+        return 'Procesando';
+      case 'OrderPaymentStatus.failed':
+        return 'Fallido';
+      case 'OrderPaymentStatus.refunded':
+        return 'Reembolsado';
+      default:
+        return 'Estado desconocido';
+    }
   }
 
   Widget _buildOrderStatus(String status) {

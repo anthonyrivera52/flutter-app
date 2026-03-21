@@ -1,7 +1,62 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 
-// AppOrder evita colisión con dartz.Order
+enum OrderPaymentMethod { cash, card }
+
+enum OrderPaymentStatus {
+  pending,
+  processing,
+  paid,
+  failed,
+  refunded,
+  partiallyRefunded,
+}
+
+class OrderPaymentInfo extends Equatable {
+  final OrderPaymentMethod? paymentMethod;
+  final OrderPaymentStatus? paymentStatus;
+  final String? transactionId;
+  final String? kushkiTransactionId;
+  final String? cardLastFour;
+  final String? cardBrand;
+  final DateTime? paidAt;
+
+  const OrderPaymentInfo({
+    this.paymentMethod,
+    this.paymentStatus,
+    this.transactionId,
+    this.kushkiTransactionId,
+    this.cardLastFour,
+    this.cardBrand,
+    this.paidAt,
+  });
+
+  bool get isPaid => paymentStatus == OrderPaymentStatus.paid;
+  bool get isCard => paymentMethod == OrderPaymentMethod.card;
+  bool get isCash => paymentMethod == OrderPaymentMethod.cash;
+  bool get isFailed => paymentStatus == OrderPaymentStatus.failed;
+
+  String get paymentMethodText {
+    if (paymentMethod == OrderPaymentMethod.card) {
+      final brand = cardBrand ?? 'Tarjeta';
+      final last4 = cardLastFour != null ? ' ****$cardLastFour' : '';
+      return '$brand$last4';
+    }
+    return 'Efectivo';
+  }
+
+  @override
+  List<Object?> get props => [
+    paymentMethod,
+    paymentStatus,
+    transactionId,
+    kushkiTransactionId,
+    cardLastFour,
+    cardBrand,
+    paidAt,
+  ];
+}
+
 class OrderItem extends Equatable {
   final String id;
   final String orderId;
@@ -48,6 +103,7 @@ class AppOrder extends Equatable {
   final String? verificationCode;
   final DateTime? driverAssignedAt;
   final DateTime? pickedUpAt;
+  final OrderPaymentInfo? paymentInfo;
 
   const AppOrder({
     required this.id,
@@ -76,16 +132,37 @@ class AppOrder extends Equatable {
     this.verificationCode,
     this.driverAssignedAt,
     this.pickedUpAt,
+    this.paymentInfo,
   });
 
   @override
   List<Object?> get props => [
-        id, userId, orderCode, totalAmount, status,
-        shippingAddress, shippingLatitude, shippingLongitude,
-        storeLatitude, storeLongitude, createdAt, updatedAt,
-        items, driverId, driverName, driverPhone, driverPhotoUrl,
-        vehicleType, vehiclePlate, subtotalAmount, shippingAmount,
-        taxIvaAmount, tipAmount, verificationCode,
-        driverAssignedAt, pickedUpAt,
-      ];
+    id,
+    userId,
+    orderCode,
+    totalAmount,
+    status,
+    shippingAddress,
+    shippingLatitude,
+    shippingLongitude,
+    storeLatitude,
+    storeLongitude,
+    createdAt,
+    updatedAt,
+    items,
+    driverId,
+    driverName,
+    driverPhone,
+    driverPhotoUrl,
+    vehicleType,
+    vehiclePlate,
+    subtotalAmount,
+    shippingAmount,
+    taxIvaAmount,
+    tipAmount,
+    verificationCode,
+    driverAssignedAt,
+    pickedUpAt,
+    paymentInfo,
+  ];
 }

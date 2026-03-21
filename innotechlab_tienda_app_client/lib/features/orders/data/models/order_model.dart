@@ -2,7 +2,6 @@ import 'package:flutter_app/features/orders/domain/models/order_entity.dart';
 import 'package:flutter_app/features/products/data/models/product_model.dart';
 
 class OrderItemModel extends OrderItem {
-
   const OrderItemModel({
     required super.id,
     required super.orderId,
@@ -19,11 +18,91 @@ class OrderItemModel extends OrderItem {
         json['products'] as Map<String, dynamic>? ?? {},
       ),
       quantity: json['quantity'] as int,
-      priceAtPurchase: (json['unit_price'] as num?)?.toDouble() ??
+      priceAtPurchase:
+          (json['unit_price'] as num?)?.toDouble() ??
           (json['price'] as num?)?.toDouble() ??
           0.0,
     );
   }
+}
+
+OrderPaymentInfo _parsePaymentInfo(Map<String, dynamic> json) {
+  String? paymentMethodStr;
+  String? paymentStatusStr;
+  String? transactionId;
+  String? kushkiTransactionId;
+  String? cardLastFour;
+  String? cardBrand;
+  DateTime? paidAt;
+
+  if (json['paymentInfo'] is Map<String, dynamic>) {
+    final pi = json['paymentInfo'] as Map<String, dynamic>;
+    paymentMethodStr = pi['paymentMethod'] as String?;
+    paymentStatusStr = pi['paymentStatus'] as String?;
+    transactionId = pi['transactionId'] as String?;
+    kushkiTransactionId = pi['kushkiTransactionId'] as String?;
+    cardLastFour = pi['cardLastFour'] as String?;
+    cardBrand = pi['cardBrand'] as String?;
+    if (pi['paidAt'] != null) {
+      paidAt = DateTime.parse(pi['paidAt'] as String);
+    }
+  } else if (json['payment_transactions'] is List &&
+      (json['payment_transactions'] as List).isNotEmpty) {
+    final tx = json['payment_transactions'][0] as Map<String, dynamic>;
+    paymentMethodStr = tx['payment_method'] as String?;
+    paymentStatusStr = tx['payment_status'] as String?;
+    transactionId = tx['id'] as String?;
+    kushkiTransactionId = tx['kushki_transaction_id'] as String?;
+    cardLastFour = tx['card_last_four'] as String?;
+    cardBrand = tx['card_brand'] as String?;
+    if (tx['created_at'] != null) {
+      paidAt = DateTime.parse(tx['created_at'] as String);
+    }
+  } else {
+    paymentMethodStr = json['payment_method'] as String?;
+    paymentStatusStr = json['payment_status'] as String?;
+  }
+
+  OrderPaymentMethod? method;
+  if (paymentMethodStr == 'card') {
+    method = OrderPaymentMethod.card;
+  } else if (paymentMethodStr == 'cash') {
+    method = OrderPaymentMethod.cash;
+  }
+
+  OrderPaymentStatus? status;
+  switch (paymentStatusStr) {
+    case 'pending':
+      status = OrderPaymentStatus.pending;
+      break;
+    case 'processing':
+      status = OrderPaymentStatus.processing;
+      break;
+    case 'paid':
+      status = OrderPaymentStatus.paid;
+      break;
+    case 'failed':
+      status = OrderPaymentStatus.failed;
+      break;
+    case 'refunded':
+      status = OrderPaymentStatus.refunded;
+      break;
+    case 'partially_refunded':
+      status = OrderPaymentStatus.partiallyRefunded;
+      break;
+  }
+
+  if (method == null && status == null) return const OrderPaymentInfo();
+
+  return OrderPaymentInfo(
+    paymentMethod: method,
+    paymentStatus: status,
+    transactionId: transactionId,
+    kushkiTransactionId: kushkiTransactionId,
+    cardLastFour: cardLastFour,
+    cardBrand: cardBrand,
+    paidAt: paidAt,
+  );
 }
 
 class OrderModel extends AppOrder {
@@ -54,10 +133,10 @@ class OrderModel extends AppOrder {
     super.verificationCode,
     super.driverAssignedAt,
     super.pickedUpAt,
+    super.paymentInfo,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
-    // Parse items
     List<OrderItemModel> items = [];
     final rawItems = json['sale_items'] ?? json['order_items'];
     if (rawItems is List) {
@@ -66,8 +145,12 @@ class OrderModel extends AppOrder {
           .toList();
     }
 
-    // Parse driver
-    String? driverId, driverName, driverPhone, driverPhotoUrl, vehicleType, vehiclePlate;
+    String? driverId,
+        driverName,
+        driverPhone,
+        driverPhotoUrl,
+        vehicleType,
+        vehiclePlate;
     if (json['driver'] is Map<String, dynamic>) {
       final d = json['driver'] as Map<String, dynamic>;
       driverId = d['id'] as String?;
@@ -78,28 +161,32 @@ class OrderModel extends AppOrder {
       vehiclePlate = d['vehicle_plate'] as String?;
     }
 
-    // Parse shipping address
     String shippingAddress = '';
     if (json['shipping_address'] is String) {
       shippingAddress = json['shipping_address'] as String;
     } else if (json['shipping_address'] is Map<String, dynamic>) {
       final addr = json['shipping_address'] as Map<String, dynamic>;
-      shippingAddress = addr['address_line1'] as String? ??
+      shippingAddress =
+          addr['address_line1'] as String? ??
           addr['formatted_address'] as String? ??
           '';
     }
 
+    final paymentInfo = _parsePaymentInfo(json);
+
     return OrderModel(
       id: json['id'] as String,
       userId: json['user_id'] as String,
-      orderCode: json['order_code'] as String? ??
+      orderCode:
+          json['order_code'] as String? ??
           json['verification_code'] as String? ??
           '',
       totalAmount: (json['total_amount'] as num).toDouble(),
       status: json['status'] as String,
       shippingAddress: shippingAddress,
       shippingLatitude: (json['shipping_latitude'] as num?)?.toDouble() ?? 0.0,
-      shippingLongitude: (json['shipping_longitude'] as num?)?.toDouble() ?? 0.0,
+      shippingLongitude:
+          (json['shipping_longitude'] as num?)?.toDouble() ?? 0.0,
       storeLatitude: (json['store_latitude'] as num?)?.toDouble() ?? 0.0,
       storeLongitude: (json['store_longitude'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -122,6 +209,7 @@ class OrderModel extends AppOrder {
       pickedUpAt: json['picked_up_at'] != null
           ? DateTime.parse(json['picked_up_at'] as String)
           : null,
+      paymentInfo: paymentInfo,
     );
   }
 
@@ -152,5 +240,6 @@ class OrderModel extends AppOrder {
     verificationCode: verificationCode,
     driverAssignedAt: driverAssignedAt,
     pickedUpAt: pickedUpAt,
+    paymentInfo: paymentInfo,
   );
 }

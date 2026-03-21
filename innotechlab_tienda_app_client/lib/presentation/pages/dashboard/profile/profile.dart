@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/profile/presentation/viewmodels/profile_viewmodel.dart';
@@ -22,26 +21,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     super.initState();
 
     // Escuchar los cambios en el estado de AuthNotifierProfile
-    _removeAuthProfileListener = ref
-        .read(profileProvider.notifier)
-        .addListener((state) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            if (!state.isAuthenticated && state.user == null) {
-              context.go('/signin');
-            }
-            if (state.errorMessage != null) {
-              showInfoToast(
-                context,
-                message: state.errorMessage!,
-                backgroundColor: Colors.red,
-                icon: Icons.error_outline,
-                isDismissible: true,
-              );
-              ref.read(profileProvider.notifier).clearError();
-            }
-          });
+    _removeAuthProfileListener = ref.read(profileProvider.notifier).addListener(
+      (state) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (!state.isAuthenticated && state.user == null) {
+            context.go('/signin');
+          }
+          if (state.errorMessage != null) {
+            showInfoToast(
+              context,
+              message: state.errorMessage!,
+              backgroundColor: Colors.red,
+              icon: Icons.error_outline,
+              isDismissible: true,
+            );
+            ref.read(profileProvider.notifier).clearError();
+          }
         });
+      },
+    );
   }
 
   @override
@@ -71,12 +70,20 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   color: Colors.grey.shade50,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.lock_person_outlined, size: 80, color: Colors.grey.shade300),
+                child: Icon(
+                  Icons.lock_person_outlined,
+                  size: 80,
+                  color: Colors.grey.shade300,
+                ),
               ),
               const SizedBox(height: 24),
               const Text(
                 'Sesión Inactiva',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
@@ -90,9 +97,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 48,
+                    vertical: 16,
+                  ),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 child: const Text(
                   'Iniciar sesión',
@@ -106,9 +118,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     }
 
     final User currentUser = authProfileState.user!;
-    final String displayName = currentUser.userMetadata?['display_name'] as String? ?? 'Usuario';
+    final String displayName =
+        currentUser.userMetadata?['display_name'] as String? ?? 'Usuario';
     final String email = currentUser.email ?? '';
-    final String avatarUrl = currentUser.userMetadata?['avatar_url'] as String? ?? 'https://ui-avatars.com/api/?name=$displayName&background=random';
+    final String avatarUrl =
+        currentUser.userMetadata?['avatar_url'] as String? ??
+        'https://ui-avatars.com/api/?name=$displayName&background=random';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBFBFD),
@@ -122,7 +137,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             backgroundColor: AppColors.primaryColor,
             elevation: 0,
             flexibleSpace: FlexibleSpaceBar(
-              stretchModes: const [StretchMode.zoomBackground, StretchMode.blurBackground],
+              stretchModes: const [
+                StretchMode.zoomBackground,
+                StretchMode.blurBackground,
+              ],
               background: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -183,12 +201,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.5),
+                                      width: 1.5,
+                                    ),
                                   ),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 4),
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 4,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
                                           color: Colors.black.withOpacity(0.15),
@@ -219,7 +243,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                         ),
                                       ],
                                     ),
-                                    child: Icon(Icons.edit_outlined, size: 20, color: AppColors.primaryColor),
+                                    child: Icon(
+                                      Icons.edit_outlined,
+                                      size: 20,
+                                      color: AppColors.primaryColor,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -239,7 +267,10 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(20),
@@ -389,7 +420,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
-                          Icon(Icons.logout_rounded, color: Colors.red, size: 22),
+                          Icon(
+                            Icons.logout_rounded,
+                            color: Colors.red,
+                            size: 22,
+                          ),
                           SizedBox(width: 12),
                           Text(
                             'Cerrar Sesión',
@@ -475,7 +510,11 @@ class _LoyaltyPremiumCard extends StatelessWidget {
                   color: Colors.amber.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 28),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Colors.amber,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -484,17 +523,29 @@ class _LoyaltyPremiumCard extends StatelessWidget {
                   children: [
                     const Text(
                       'Membresía Premium',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.5),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Nivel Oro • 2500 Puntos',
-                      style: TextStyle(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.grey.shade400),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Colors.grey.shade400,
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -513,7 +564,9 @@ class _LoyaltyPremiumCard extends StatelessWidget {
                 child: Container(
                   height: 8,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Colors.amber, Colors.orange.shade400]),
+                    gradient: LinearGradient(
+                      colors: [Colors.amber, Colors.orange.shade400],
+                    ),
                     borderRadius: BorderRadius.circular(4),
                     boxShadow: [
                       BoxShadow(
@@ -533,11 +586,19 @@ class _LoyaltyPremiumCard extends StatelessWidget {
             children: [
               Text(
                 '700 pts para el próximo nivel',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const Text(
                 '70%',
-                style: TextStyle(fontSize: 12, color: Colors.amber, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.amber,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -617,16 +678,30 @@ class _ProfileItem extends StatelessWidget {
       ),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: -0.3),
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 16,
+          letterSpacing: -0.3,
+        ),
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 2),
         child: Text(
           subtitle,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w400),
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ),
-      trailing: trailing ?? Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade300, size: 14),
+      trailing:
+          trailing ??
+          Icon(
+            Icons.arrow_forward_ios_rounded,
+            color: Colors.grey.shade300,
+            size: 14,
+          ),
       onTap: onTap,
     );
   }

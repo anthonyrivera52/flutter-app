@@ -48,7 +48,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   @override
   Future<AppOrder> getOrderById(String orderId) async {
     final response = await _supabase.functions.invoke(
-      'track-order',
+      'get-order',
       body: {'orderId': orderId},
     );
     final raw = response.data['order'] as Map<String, dynamic>?;
