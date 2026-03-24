@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_app/presentation/provider/onboarding_provider.dart';
+import 'package:flutter_app/presentation/provider/preloaded_location_provider.dart';
+import 'package:flutter_app/core/location/location_service.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreenPage extends ConsumerStatefulWidget {
@@ -19,7 +22,12 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
   }
 
   Future<void> _navigateToNextScreen() async {
-    await Future.delayed(const Duration(seconds: 3));
+    // Pre-load location during splash (non-blocking)
+    final locationFuture = _preloadLocation();
+
+    // Wait 15 seconds for map + info to load in background
+    await Future.delayed(const Duration(seconds: 15));
+    await locationFuture;
 
     final storage = ref.read(keyValueStorageProvider);
     final onboardingCompleted = await storage.isOnboardingCompleted();
@@ -38,6 +46,20 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
       context.go('/');
     } else {
       context.go('/signin');
+    }
+  }
+
+  Future<void> _preloadLocation() async {
+    try {
+      final locationService = LocationService();
+      final result = await locationService.getCurrentPosition(
+        accuracy: LocationAccuracy.high,
+        timeout: const Duration(seconds: 12),
+        maxRetries: 1,
+      );
+      ref.read(preloadedLocationProvider.notifier).state = result;
+    } catch (_) {
+      // Silently fail — home page will try again
     }
   }
 

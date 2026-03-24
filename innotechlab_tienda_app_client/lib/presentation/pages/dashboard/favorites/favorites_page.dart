@@ -132,7 +132,7 @@ class _FavoriteShopCard extends ConsumerWidget {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -155,10 +155,18 @@ class _FavoriteShopCard extends ConsumerWidget {
                         ? CachedNetworkImage(
                             imageUrl: shop.logoUrl,
                             fit: BoxFit.cover,
-                            placeholder: (_, __) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                            errorWidget: (_, __, ___) => Icon(Icons.storefront_rounded, color: Colors.grey.shade400),
+                            placeholder: (_, __) => const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            errorWidget: (_, __, ___) => Icon(
+                              Icons.storefront_rounded,
+                              color: Colors.grey.shade400,
+                            ),
                           )
-                        : Icon(Icons.storefront_rounded, color: Colors.grey.shade400),
+                        : Icon(
+                            Icons.storefront_rounded,
+                            color: Colors.grey.shade400,
+                          ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -178,16 +186,26 @@ class _FavoriteShopCard extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Icons.location_on, size: 14, color: Colors.grey.shade400),
+                          Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color: Colors.grey.shade400,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${distanceKm.toStringAsFixed(1)} km',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           if (shop.isOpen)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade50,
                                 borderRadius: BorderRadius.circular(6),
@@ -208,7 +226,9 @@ class _FavoriteShopCard extends ConsumerWidget {
                 ),
                 IconButton(
                   onPressed: () {
-                    ref.read(favoriteShopIdsProvider.notifier).toggleFavorite(shop.id);
+                    ref
+                        .read(favoriteShopIdsProvider.notifier)
+                        .toggleFavorite(shop.id);
                   },
                   icon: const Icon(Icons.favorite_rounded, color: Colors.red),
                   style: IconButton.styleFrom(

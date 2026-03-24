@@ -30,9 +30,7 @@ OrderPaymentInfo _parsePaymentInfo(Map<String, dynamic> json) {
   String? paymentMethodStr;
   String? paymentStatusStr;
   String? transactionId;
-  String? kushkiTransactionId;
-  String? cardLastFour;
-  String? cardBrand;
+  String? gatewayTransactionId;
   DateTime? paidAt;
 
   if (json['paymentInfo'] is Map<String, dynamic>) {
@@ -40,9 +38,9 @@ OrderPaymentInfo _parsePaymentInfo(Map<String, dynamic> json) {
     paymentMethodStr = pi['paymentMethod'] as String?;
     paymentStatusStr = pi['paymentStatus'] as String?;
     transactionId = pi['transactionId'] as String?;
-    kushkiTransactionId = pi['kushkiTransactionId'] as String?;
-    cardLastFour = pi['cardLastFour'] as String?;
-    cardBrand = pi['cardBrand'] as String?;
+    gatewayTransactionId =
+        pi['gatewayTransactionId'] as String? ??
+        pi['kushkiTransactionId'] as String?;
     if (pi['paidAt'] != null) {
       paidAt = DateTime.parse(pi['paidAt'] as String);
     }
@@ -52,9 +50,9 @@ OrderPaymentInfo _parsePaymentInfo(Map<String, dynamic> json) {
     paymentMethodStr = tx['payment_method'] as String?;
     paymentStatusStr = tx['payment_status'] as String?;
     transactionId = tx['id'] as String?;
-    kushkiTransactionId = tx['kushki_transaction_id'] as String?;
-    cardLastFour = tx['card_last_four'] as String?;
-    cardBrand = tx['card_brand'] as String?;
+    gatewayTransactionId =
+        tx['gateway_transaction_id'] as String? ??
+        tx['kushki_transaction_id'] as String?;
     if (tx['created_at'] != null) {
       paidAt = DateTime.parse(tx['created_at'] as String);
     }
@@ -64,8 +62,8 @@ OrderPaymentInfo _parsePaymentInfo(Map<String, dynamic> json) {
   }
 
   OrderPaymentMethod? method;
-  if (paymentMethodStr == 'card') {
-    method = OrderPaymentMethod.card;
+  if (paymentMethodStr == 'online' || paymentMethodStr == 'card') {
+    method = OrderPaymentMethod.online;
   } else if (paymentMethodStr == 'cash') {
     method = OrderPaymentMethod.cash;
   }
@@ -98,9 +96,7 @@ OrderPaymentInfo _parsePaymentInfo(Map<String, dynamic> json) {
     paymentMethod: method,
     paymentStatus: status,
     transactionId: transactionId,
-    kushkiTransactionId: kushkiTransactionId,
-    cardLastFour: cardLastFour,
-    cardBrand: cardBrand,
+    gatewayTransactionId: gatewayTransactionId,
     paidAt: paidAt,
   );
 }

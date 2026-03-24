@@ -1,9 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
-import 'package:latlong2/latlong.dart';
 
 class FullMapWidget extends StatefulWidget {
   final List<ShopDistance> nearbyShops;
@@ -63,10 +63,7 @@ class _FullMapWidgetState extends State<FullMapWidget>
     try {
       final bounds = LatLngBounds.fromPoints(shopLocations);
       _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: bounds,
-          padding: const EdgeInsets.all(80),
-        ),
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
       );
       setState(() => _hasAnimated = true);
     } catch (e) {
@@ -111,7 +108,10 @@ class _FullMapWidgetState extends State<FullMapWidget>
     final shopLocations = widget.nearbyShops
         .map((sd) => LatLng(sd.shop.latitude, sd.shop.longitude))
         .toList();
-    final allPoints = [...shopLocations, if (widget.userLatitude != 0) userLocation];
+    final allPoints = [
+      ...shopLocations,
+      if (widget.userLatitude != 0) userLocation,
+    ];
 
     LatLngBounds? bounds;
     if (allPoints.isNotEmpty) {
@@ -125,7 +125,9 @@ class _FullMapWidgetState extends State<FullMapWidget>
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
-        initialCenter: userLocation.latitude != 0 ? userLocation : const LatLng(0, 0),
+        initialCenter: userLocation.latitude != 0
+            ? userLocation
+            : const LatLng(0, 0),
         initialZoom: userLocation.latitude != 0 ? 15 : 2,
         initialCameraFit: bounds != null
             ? CameraFit.bounds(
@@ -202,7 +204,6 @@ class _FullMapWidgetState extends State<FullMapWidget>
     return latDiff + lngDiff;
   }
 }
-
 
 class _UserMarker extends StatefulWidget {
   @override

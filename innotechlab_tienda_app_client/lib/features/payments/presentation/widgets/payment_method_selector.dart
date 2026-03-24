@@ -36,9 +36,9 @@ class PaymentMethodSelector extends StatelessWidget {
         const SizedBox(height: 12),
         _buildOption(
           context,
-          method: PaymentMethodType.card,
-          title: 'Tarjeta',
-          subtitle: 'Visa, Mastercard, American Express',
+          method: PaymentMethodType.online,
+          title: 'Pagar en línea',
+          subtitle: 'Tarjeta, PSE, Nequi, Efecty y más',
           icon: Icons.credit_card,
           color: Colors.blue,
         ),
@@ -58,7 +58,7 @@ class PaymentMethodSelector extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Material(
-      color: isSelected ? color.withOpacity(0.1) : Colors.grey.shade50,
+      color: isSelected ? color.withValues(alpha: 0.1) : Colors.grey.shade50,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: isProcessing ? null : () => onMethodSelected(method),

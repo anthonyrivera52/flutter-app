@@ -50,7 +50,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     super.initState();
     if (widget.initialTabIndex != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(dashboardTabIndexProvider.notifier).state = widget.initialTabIndex!;
+        ref.read(dashboardTabIndexProvider.notifier).state =
+            widget.initialTabIndex!;
       });
     }
   }
@@ -94,10 +95,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         selectedIndex: selectedIndex,
         onItemTapped: _onItemTapped,
       ),
-      body: IndexedStack(
-        index: selectedIndex,
-        children: widgets,
-      ),
+      body: IndexedStack(index: selectedIndex, children: widgets),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
         onTap: _onItemTapped,
@@ -136,10 +134,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           _buildNavigationRail(selectedIndex),
           const VerticalDivider(thickness: 1, width: 1),
           Expanded(
-            child: IndexedStack(
-              index: selectedIndex,
-              children: widgets,
-            ),
+            child: IndexedStack(index: selectedIndex, children: widgets),
           ),
         ],
       ),
@@ -178,10 +173,7 @@ class _AppDrawer extends ConsumerWidget {
   final int selectedIndex;
   final ValueChanged<int> onItemTapped;
 
-  const _AppDrawer({
-    required this.selectedIndex,
-    required this.onItemTapped,
-  });
+  const _AppDrawer({required this.selectedIndex, required this.onItemTapped});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -204,9 +196,10 @@ class _AppDrawer extends ConsumerWidget {
               child: Text(
                 user?.email?.substring(0, 1).toUpperCase() ?? 'U',
                 style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryColor),
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryColor,
+                ),
               ),
             ),
             accountName: Text(
@@ -294,11 +287,10 @@ class _DrawerItem extends StatelessWidget {
         ),
       ),
       selected: isSelected,
-      selectedTileColor: AppColors.primaryColor.withOpacity(0.05),
+      selectedTileColor: AppColors.primaryColor.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       onTap: onTap,
     );
   }
 }
-

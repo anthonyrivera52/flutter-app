@@ -187,7 +187,7 @@ class _PaymentBreakdown extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          paymentInfo.isCard
+                          paymentInfo.isOnline
                               ? Icons.credit_card
                               : Icons.payments,
                           size: 14,
@@ -310,12 +310,12 @@ class _PaymentBreakdown extends StatelessWidget {
   }
 }
 
-class _OrderMap extends StatelessWidget {
+class _OrderMap extends ConsumerWidget {
   final AppOrder order;
   const _OrderMap({required this.order});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userLocation = LatLng(
       order.shippingLatitude,
       order.shippingLongitude,
@@ -327,40 +327,34 @@ class _OrderMap extends StatelessWidget {
       child: SizedBox(
         height: 220,
         child: GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: LatLng(
-              (userLocation.latitude + storeLocation.latitude) / 2,
-              (userLocation.longitude + storeLocation.longitude) / 2,
-            ),
-            zoom: 12,
-          ),
-          myLocationButtonEnabled: false,
-          zoomControlsEnabled: false,
           markers: {
             Marker(
-              markerId: const MarkerId('user'),
+              markerId: const MarkerId('userLocation'),
               position: userLocation,
-              infoWindow: const InfoWindow(title: 'Tu ubicación'),
               icon: BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueBlue,
               ),
             ),
             Marker(
-              markerId: const MarkerId('store'),
+              markerId: const MarkerId('storeLocation'),
               position: storeLocation,
-              infoWindow: const InfoWindow(title: 'Comercio'),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueRed,
+              ),
             ),
           },
-          circles: {
-            Circle(
-              circleId: const CircleId('radius'),
-              center: storeLocation,
-              radius: 1000,
-              fillColor: AppColors.primaryColor.withValues(alpha: 0.08),
-              strokeColor: AppColors.primaryColor,
-              strokeWidth: 1,
+          initialCameraPosition: CameraPosition(
+            target: LatLng(
+              (userLocation.latitude + storeLocation.latitude) / 2,
+              (userLocation.longitude + storeLocation.longitude) / 2,
             ),
-          },
+            zoom: 15,
+          ),
+          mapToolbarEnabled: false,
+          zoomControlsEnabled: false,
+          scrollGesturesEnabled: false,
+          tiltGesturesEnabled: false,
+          rotateGesturesEnabled: false,
         ),
       ),
     );
@@ -436,10 +430,11 @@ class _StatusTimeline extends StatelessWidget {
   ];
 
   static const _indexByStatus = {
+    'new': 0,
     'pending': 0,
-    'accepted': 1,
-    'processing': 2,
-    'shipped': 3,
+    'preparing': 1,
+    'ready_for_pickup': 2,
+    'out_for_delivery': 3,
     'delivered': 4,
     'completed': 4,
   };
@@ -448,7 +443,7 @@ class _StatusTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
 
-    if (normalized == 'cancelled') {
+    if (normalized == 'cancelled' || normalized == 'canceled') {
       return _StepRow(
         title: 'Cancelado',
         subtitle: 'El pedido fue cancelado.',

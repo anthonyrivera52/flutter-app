@@ -3,21 +3,12 @@ import { adminClient, getAuthenticatedUserId } from '../_shared/supabase.ts';
 
 type ItemPayload = { productId: string; quantity: number };
 
-/**
- * Generate a random verification code for order
- * Format: XXXX-XXXX (8 characters alphanumeric)
- * This code is used to verify the delivery to the customer
- */
-function generateOrderCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding confusing chars (0, O, 1, I)
+function generateVerificationCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
   code += '-';
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
+  for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
   return code;
 }
 
@@ -48,13 +39,24 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'No valid items provided.' }, 400);
     }
 
+    // Get store info from locations table
+    const { data: location, error: locationError } = await adminClient
+      .from('locations')
+      .select('id, latitude, longitude, organization_id, name')
+      .eq('id', shopId)
+      .single();
+
+    if (locationError || !location) {
+      return jsonResponse({ error: 'Store not found.' }, 404);
+    }
+
+    // Get products with price
     const productIds = normalizedItems.map((i) => i.productId);
     const { data: products, error: productsError } = await adminClient
       .from('products')
-      .select('id,price,discounted_price,shop_id,is_active')
+      .select('id, name, price, is_available')
       .in('id', productIds)
-      .eq('shop_id', shopId)
-      .eq('is_active', true);
+      .eq('is_available', true);
 
     if (productsError) return jsonResponse({ error: productsError.message }, 500);
 
@@ -64,80 +66,83 @@ Deno.serve(async (req) => {
     for (const item of normalizedItems) {
       const product = byId.get(item.productId);
       if (!product) return jsonResponse({ error: `Invalid product ${item.productId}.` }, 400);
-      const unitPrice = Number(product.discounted_price ?? product.price);
-      subtotal += unitPrice * item.quantity;
+      subtotal += Number(product.price) * item.quantity;
     }
 
     const deliveryFee = 1.2;
     const totalAmount = Number((subtotal + deliveryFee + Number(tipAmount)).toFixed(2));
 
-    const { data: shop, error: shopError } = await adminClient
-      .from('shops')
-      .select('latitude,longitude')
-      .eq('id', shopId)
-      .single();
-
-    if (shopError) return jsonResponse({ error: shopError.message }, 500);
-
-    // Generate unique order code
-    let orderCode: string;
+    // Generate unique verification code
+    let verificationCode: string;
     let isUnique = false;
     let attempts = 0;
 
-    // Ensure the code is unique
     do {
-      orderCode = generateOrderCode();
+      verificationCode = generateVerificationCode();
       const { data: existing } = await adminClient
-        .from('orders')
+        .from('sales')
         .select('id')
-        .eq('order_code', orderCode)
+        .eq('verification_code', verificationCode)
         .maybeSingle();
       isUnique = !existing;
       attempts++;
     } while (!isUnique && attempts < 10);
 
-    // If we couldn't generate a unique code after 10 attempts, use UUID-based code
     if (!isUnique) {
-      orderCode = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      verificationCode = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     }
 
+    // Build shipping_address JSONB
+    const shippingAddressJson = {
+      lat: Number(shippingLatitude ?? 0),
+      lng: Number(shippingLongitude ?? 0),
+      line1: typeof shippingAddress === 'string' ? shippingAddress : (shippingAddress?.line1 ?? shippingAddress?.address ?? ''),
+      phone: typeof shippingAddress === 'object' ? (shippingAddress?.phone ?? '') : '',
+      recipient_name: typeof shippingAddress === 'object' ? (shippingAddress?.recipient_name ?? '') : '',
+    };
+
+    // Insert into sales
     const { data: createdOrder, error: orderError } = await adminClient
-      .from('orders')
+      .from('sales')
       .insert({
-        user_id: userId,
-        shop_id: shopId,
-        order_code: orderCode, // ✅ Store the verification code
+        customer_id: userId,
+        store_id: shopId,
+        organization_id: location.organization_id,
         total_amount: totalAmount,
-        status: 'pending',
-        shipping_address: shippingAddress,
-        shipping_latitude: Number(shippingLatitude ?? 0),
-        shipping_longitude: Number(shippingLongitude ?? 0),
-        store_latitude: Number(shop.latitude ?? 0),
-        store_longitude: Number(shop.longitude ?? 0),
+        subtotal_amount: subtotal,
+        shipping_amount: deliveryFee,
+        tip_amount: Number(tipAmount ?? 0),
+        status: 'NEW',
+        order_type: 'DELIVERY_LOCAL',
+        verification_code: verificationCode,
+        shipping_address: shippingAddressJson,
         notes: notes ?? null,
       })
-      .select('id,status,total_amount,created_at,order_code')
+      .select('id, status, total_amount, created_at, verification_code')
       .single();
 
     if (orderError) return jsonResponse({ error: orderError.message }, 500);
 
-    const orderItems = normalizedItems.map((item) => {
+    // Insert sale_items
+    const saleItems = normalizedItems.map((item) => {
       const product = byId.get(item.productId)!;
-      const unitPrice = Number(product.discounted_price ?? product.price);
       return {
-        order_id: createdOrder.id,
+        sale_id: createdOrder.id,
         product_id: item.productId,
+        product_name: product.name,
         quantity: item.quantity,
-        price: unitPrice,
+        unit_price: Number(product.price),
+        total_price: Number(product.price) * item.quantity,
+        organization_id: location.organization_id,
       };
     });
 
-    const { error: itemsError } = await adminClient.from('order_items').insert(orderItems);
+    const { error: itemsError } = await adminClient.from('sale_items').insert(saleItems);
     if (itemsError) return jsonResponse({ error: itemsError.message }, 500);
 
     return jsonResponse({
       orderId: createdOrder.id,
-      orderCode: createdOrder.order_code, // ✅ Return the code to the client
+      orderCode: createdOrder.verification_code,
       status: createdOrder.status,
       totalAmount: createdOrder.total_amount,
       createdAt: createdOrder.created_at,

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_app/core/location/location_result.dart';
 import 'package:flutter_app/core/location/location_service.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/features/cart/domain/models/cart_item_entity.dart';
 import 'package:flutter_app/features/cart/presentation/viewmodels/cart_viewmodel.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/checkout_viewmodel.dart';
 import 'package:flutter_app/features/products/presentation/viewmodels/home_viewmodel.dart';
-import 'package:flutter_app/features/payments/presentation/widgets/card_input_form.dart';
 import 'package:flutter_app/features/payments/presentation/widgets/payment_method_selector.dart';
+import 'package:flutter_app/features/payments/presentation/widgets/bold_payment_sheet.dart';
 import 'package:flutter_app/presentation/provider/shop_status_provider.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_app/presentation/widget/common/info_toast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/payments/payment_models.dart';
 
 class CheckoutPageModal extends ConsumerStatefulWidget {
@@ -34,11 +36,42 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
   bool _dontRingBell = false;
 
   LocationResult? _currentLocation;
-  CardData? _pendingCardData;
 
   @override
   void initState() {
     super.initState();
+    _loadDefaultAddress();
+  }
+
+  Future<void> _loadDefaultAddress() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final response = await Supabase.instance.client
+          .from('customer_addresses')
+          .select()
+          .eq('customer_id', userId)
+          .eq('is_default', true)
+          .maybeSingle();
+
+      if (response != null && mounted) {
+        final line1 = response['line1'] as String?;
+        final lat = (response['lat'] as num?)?.toDouble();
+        final lng = (response['lng'] as num?)?.toDouble();
+
+        if (line1 != null && line1.isNotEmpty) {
+          _addressController.text = line1;
+        }
+        if (lat != null && lng != null) {
+          _currentLocation = LocationResult(
+            latitude: lat,
+            longitude: lng,
+            timestamp: DateTime.now(),
+          );
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -94,7 +127,6 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
 
     final cartItems = ref.read(cartProvider).items;
     final selectedShop = ref.read(homeProvider).selectedShop;
-    final checkoutState = ref.read(checkoutProvider);
 
     if (selectedShop == null) {
       showInfoToast(
@@ -164,39 +196,55 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       return;
     }
 
-    final orderId = ref.read(checkoutProvider).createdOrderId;
-    if (orderId == null) {
-      showInfoToast(
-        context,
-        message: 'Error al procesar la orden',
-        backgroundColor: AppColors.errorColor,
-        icon: Icons.error_outline,
-        isDismissible: true,
-      );
-      return;
+    final checkoutState = ref.read(checkoutProvider);
+
+    if (checkoutState.selectedPaymentMethod == PaymentMethodType.cash) {
+      _onCashPaymentSuccess();
+    } else {
+      await _processBoldPayment(cartItems);
     }
+  }
 
-    final total = checkoutState.total(cartItems);
-
-    final paymentSuccess = await ref
+  Future<void> _processBoldPayment(List<CartItem> cartItems) async {
+    final checkoutData = await ref
         .read(checkoutProvider.notifier)
-        .processPayment(
-          saleId: orderId,
-          cardData: _pendingCardData,
-          amount: total,
-        );
+        .prepareBoldCheckout(cartItems: cartItems);
 
     if (!mounted) return;
 
-    if (!paymentSuccess) {
-      final paymentError = ref.read(checkoutProvider).paymentError;
-      _showPaymentErrorDialog(paymentError ?? 'Error al procesar el pago');
+    if (checkoutData == null) {
+      final error =
+          ref.read(checkoutProvider).paymentError ??
+          'Error al preparar el pago';
+      _showPaymentErrorDialog(error);
       return;
     }
 
+    final result = await showBoldPaymentSheet(
+      context: context,
+      checkoutData: checkoutData,
+    );
+
+    if (!mounted) return;
+
+    if (result == null || !result.success) {
+      ref
+          .read(checkoutProvider.notifier)
+          .onBoldPaymentCompleted(
+            success: false,
+            error: result?.error ?? 'Pago cancelado',
+          );
+      _showPaymentErrorDialog(result?.error ?? 'El pago no fue completado');
+      return;
+    }
+
+    ref.read(checkoutProvider.notifier).onBoldPaymentCompleted(success: true);
+    _onCashPaymentSuccess();
+  }
+
+  void _onCashPaymentSuccess() {
     ref.read(cartProvider.notifier).clear();
     ref.read(checkoutProvider.notifier).reset();
-
     context.go('/order-confirmation');
   }
 
@@ -219,25 +267,16 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cerrar'),
           ),
-          if (ref.read(checkoutProvider).selectedPaymentMethod ==
-              PaymentMethodType.card)
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ref.read(checkoutProvider.notifier).switchToCash();
-              },
-              child: const Text('Pagar en efectivo'),
-            ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(checkoutProvider.notifier).switchToCash();
+            },
+            child: const Text('Pagar en efectivo'),
+          ),
         ],
       ),
     );
-  }
-
-  void _onCardSubmit(CardData cardData) {
-    setState(() {
-      _pendingCardData = cardData;
-    });
-    _confirmOrder();
   }
 
   @override
@@ -255,7 +294,6 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       ),
       child: Column(
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 8),
             child: Column(
@@ -295,30 +333,27 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
                   _buildOptionsSection(),
                   const SizedBox(height: 24),
 
+                  _buildSectionTitle('Propina para el repartidor'),
+                  _buildTipSelector(),
+                  const SizedBox(height: 24),
+
                   _buildSectionTitle('Resumen del pedido'),
                   _buildOrderSummary(cartState.items),
                   const SizedBox(height: 24),
 
                   _buildSectionTitle('Método de pago'),
-                  _buildPaymentSection(checkoutState, total),
+                  _buildPaymentSection(checkoutState),
                   const SizedBox(height: 24),
 
                   _buildPaymentSummary(subtotal, total),
                   const SizedBox(height: 32),
 
                   CustomButton(
-                    text: 'Confirmar y Pagar',
+                    text: 'Pagar',
                     isLoading:
                         checkoutState.isSubmitting ||
                         checkoutState.isPaymentProcessing,
-                    onPressed: () {
-                      if (checkoutState.selectedPaymentMethod ==
-                          PaymentMethodType.card) {
-                        _showCardFormDialog();
-                      } else {
-                        _confirmOrder();
-                      }
-                    },
+                    onPressed: _confirmOrder,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -448,7 +483,8 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
     );
   }
 
-  Widget _buildPaymentSection(CheckoutState checkoutState, double total) {
+  Widget _buildTipSelector() {
+    final checkoutState = ref.watch(checkoutProvider);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -463,89 +499,82 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PaymentMethodSelector(
-            selectedMethod: checkoutState.selectedPaymentMethod,
-            onMethodSelected: (method) {
-              ref.read(checkoutProvider.notifier).selectPaymentMethod(method);
-            },
-            isProcessing: checkoutState.isPaymentProcessing,
+          const Text(
+            '¿Cuánto quieres dar de propina?',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Colors.black87,
+            ),
           ),
-          if (checkoutState.selectedPaymentMethod ==
-              PaymentMethodType.card) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Colors.blue.shade700,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Ingresa los datos de tu tarjeta al confirmar',
-                      style: TextStyle(
-                        color: Colors.blue.shade700,
-                        fontSize: 12,
+          const SizedBox(height: 16),
+          Row(
+            children: kTipOptions.map((tip) {
+              final isSelected = checkoutState.selectedTip == tip;
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: InkWell(
+                    onTap: () {
+                      ref.read(checkoutProvider.notifier).selectTip(tip);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primaryColor
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primaryColor
+                              : Colors.grey.shade300,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '\$$tip',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: isSelected ? Colors.white : Colors.black87,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ],
+                ),
+              );
+            }).toList(),
+          ),
         ],
       ),
     );
   }
 
-  void _showCardFormDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Container(
-              height: 4,
-              width: 40,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Datos de Tarjeta',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: CardInputForm(
-                onSubmit: (cardData) {
-                  Navigator.pop(ctx);
-                  _onCardSubmit(cardData);
-                },
-                isProcessing: ref.read(checkoutProvider).isPaymentProcessing,
-              ),
-            ),
-          ],
-        ),
+  Widget _buildPaymentSection(CheckoutState checkoutState) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: PaymentMethodSelector(
+        selectedMethod: checkoutState.selectedPaymentMethod,
+        onMethodSelected: (method) {
+          ref.read(checkoutProvider.notifier).selectPaymentMethod(method);
+        },
+        isProcessing: checkoutState.isPaymentProcessing,
       ),
     );
   }
@@ -649,6 +678,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
   }
 
   Widget _buildPaymentSummary(double subtotal, double total) {
+    final checkoutState = ref.watch(checkoutProvider);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -668,6 +698,11 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
           _RowSummary(
             label: 'Tarifa de envío',
             value: '\$${kDeliveryFee.toStringAsFixed(2)}',
+          ),
+          const SizedBox(height: 8),
+          _RowSummary(
+            label: 'Propina',
+            value: '\$${checkoutState.selectedTip.toStringAsFixed(2)}',
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),

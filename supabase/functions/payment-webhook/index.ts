@@ -20,21 +20,27 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Invalid webhook payload.' }, 400);
     }
 
-    const orderStatus =
-      paymentStatus === 'APPROVED' || paymentStatus === 'paid'
-        ? 'accepted'
-        : paymentStatus === 'DECLINED' || paymentStatus === 'failed'
-          ? 'cancelled'
-          : 'pending';
+    let newStatus: string;
+    if (paymentStatus === 'APPROVED' || paymentStatus === 'paid') {
+      newStatus = 'PREPARING';
+    } else if (paymentStatus === 'DECLINED' || paymentStatus === 'failed') {
+      newStatus = 'CANCELED';
+    } else {
+      newStatus = 'NEW';
+    }
 
     const { error } = await adminClient
-      .from('orders')
-      .update({ status: orderStatus })
+      .from('sales')
+      .update({
+        status: newStatus,
+        payment_status: paymentStatus === 'APPROVED' || paymentStatus === 'paid' ? 'paid' : 'failed',
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', orderId);
 
     if (error) return jsonResponse({ error: error.message }, 500);
 
-    return jsonResponse({ ok: true, orderId, orderStatus });
+    return jsonResponse({ ok: true, orderId, orderStatus: newStatus });
   } catch (e) {
     return jsonResponse({ error: e instanceof Error ? e.message : 'Unexpected error.' }, 500);
   }

@@ -6,6 +6,7 @@ import 'package:flutter_app/core/location/location_service.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'package:flutter_app/features/products/domain/models/location_hour.dart';
+import 'package:flutter_app/presentation/provider/preloaded_location_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -104,6 +105,7 @@ final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>((ref) {
   return HomeNotifier(
     Supabase.instance.client,
     ref.watch(locationServiceProvider),
+    ref,
   );
 });
 
@@ -112,10 +114,11 @@ final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>((ref) {
 class HomeNotifier extends StateNotifier<HomeState> {
   final SupabaseClient _supabase;
   final LocationService _locationService;
+  final Ref _ref;
   late String _userId;
   StreamSubscription<AuthState>? _authSub;
 
-  HomeNotifier(this._supabase, this._locationService)
+  HomeNotifier(this._supabase, this._locationService, this._ref)
     : super(const HomeState()) {
     _userId = _supabase.auth.currentUser?.id ?? 'anonymous';
 
@@ -172,11 +175,14 @@ class HomeNotifier extends StateNotifier<HomeState> {
   Future<void> initialize() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final location = await _locationService.getCurrentPosition(
-        accuracy: LocationAccuracy.high,
-        timeout: const Duration(seconds: 15),
-        maxRetries: 2,
-      );
+      // Try preloaded location first (from splash screen)
+      LocationResult location =
+          _ref.read(preloadedLocationProvider) ??
+          await _locationService.getCurrentPosition(
+            accuracy: LocationAccuracy.high,
+            timeout: const Duration(seconds: 15),
+            maxRetries: 2,
+          );
 
       state = state.copyWith(
         isLoading: false,
@@ -220,7 +226,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
       selectedShopHours: const [],
     );
     try {
-      final catalog = await _fetchCatalog(shop.slug);
+      final catalog = await _fetchCatalog(shop.id);
       await loadShopHours(shop.id);
       state = state.copyWith(isLoading: false, products: catalog);
     } catch (e, st) {
@@ -273,10 +279,10 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   // ── Private ──────────────────────────────────────────────────────────────
 
-  Future<List<Product>> _fetchCatalog(String shopSlug) async {
+  Future<List<Product>> _fetchCatalog(String shopId) async {
     final response = await _supabase.functions.invoke(
       'get-catalog',
-      body: {'slug': shopSlug},
+      body: {'locationId': shopId},
     );
 
     final productsJson =
@@ -288,9 +294,9 @@ class HomeNotifier extends StateNotifier<HomeState> {
         name: (map['name'] ?? '') as String,
         description: (map['description'] ?? '') as String,
         price: (map['price'] as num?)?.toDouble() ?? 0,
-        imageUrl: (map['imageUrl'] ?? '') as String,
-        unit: (map['unit'] ?? 'unidad') as String,
-        categoryId: (map['categoryId'] ?? '') as String,
+        imageUrl: (map['image_url'] ?? '') as String,
+        unit: 'unidad',
+        categoryId: (map['category_id'] ?? '') as String,
       );
     }).toList();
   }

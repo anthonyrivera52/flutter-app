@@ -82,11 +82,16 @@ class CartModalContent extends ConsumerWidget {
                   return CartItemCard(
                     item: item,
                     onRemove: () => cartNotifier.removeItem(item.productId),
-                    onAddQuantity: () =>
-                        cartNotifier.updateQuantity(item.productId, item.quantity + 1),
+                    onAddQuantity: () => cartNotifier.updateQuantity(
+                      item.productId,
+                      item.quantity + 1,
+                    ),
                     onDecreaseQuantity: () {
                       if (item.quantity > 1) {
-                        cartNotifier.updateQuantity(item.productId, item.quantity - 1);
+                        cartNotifier.updateQuantity(
+                          item.productId,
+                          item.quantity - 1,
+                        );
                       } else {
                         cartNotifier.removeItem(item.productId);
                       }
@@ -112,13 +117,13 @@ class CartModalContent extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.05),
+              color: AppColors.primaryColor.withValues(alpha: 0.05),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.shopping_bag_outlined,
               size: 64,
-              color: AppColors.primaryColor.withOpacity(0.4),
+              color: AppColors.primaryColor.withValues(alpha: 0.4),
             ),
           ),
           const SizedBox(height: 24),
@@ -133,10 +138,7 @@ class CartModalContent extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             'Agrega productos deliciosos para comenzar.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade500,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
           ),
           const SizedBox(height: 32),
           TextButton(
@@ -154,7 +156,12 @@ class CartModalContent extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummary(BuildContext context, double subtotal, double total, CartNotifier cartNotifier) {
+  Widget _buildSummary(
+    BuildContext context,
+    double subtotal,
+    double total,
+    CartNotifier cartNotifier,
+  ) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
       decoration: BoxDecoration(
@@ -162,7 +169,7 @@ class CartModalContent extends ConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -188,10 +195,7 @@ class CartModalContent extends ConsumerWidget {
             children: [
               const Text(
                 'Total a pagar',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
               Text(
                 '\$${total.toStringAsFixed(2)}',
@@ -269,10 +273,7 @@ class _SummaryRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-  });
+  const _SummaryRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -289,10 +290,7 @@ class _SummaryRow extends StatelessWidget {
         ),
         Text(
           value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
       ],
     );

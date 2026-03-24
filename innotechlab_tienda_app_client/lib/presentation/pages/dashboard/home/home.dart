@@ -41,7 +41,9 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
     // Ensure state is updated on initial load
     if (homeState.nearbyShops.isEmpty && pollingState.shops.isNotEmpty) {
       Future.microtask(
-        () => ref.read(homeProvider.notifier).updateNearbyShops(pollingState.shops),
+        () => ref
+            .read(homeProvider.notifier)
+            .updateNearbyShops(pollingState.shops),
       );
     }
 
@@ -151,7 +153,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
         if (pollingState.isLoading && homeState.nearbyShops.isEmpty)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               child: const Center(child: CircularProgressIndicator()),
             ),
           ),
@@ -176,7 +178,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
               decoration: BoxDecoration(
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -187,7 +189,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                   child: Container(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     child: DebouncedSearchInput(
                       onChanged: (v) => homeNotifier.setSearchQuery(v),
                       hintText: 'Buscar comercios...',
@@ -246,7 +248,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
               if (pollingState.isLoading && homeState.nearbyShops.isEmpty)
                 Positioned.fill(
                   child: Container(
-                    color: Colors.black.withOpacity(0.15),
+                    color: Colors.black.withValues(alpha: 0.15),
                     child: const Center(child: CircularProgressIndicator()),
                   ),
                 ),
@@ -324,10 +326,13 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
 
   List<String> _getCategories(List<Product> products) {
     if (products.isEmpty) {
-      return ['all'];
+      return [CategoryConstants.allProductsCategoryId];
     }
-    final uniqueCategories = products.map((p) => p.categoryId).toSet();
-    return ['all', ...uniqueCategories];
+    final uniqueCategories = products
+        .map((p) => p.categoryId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    return [CategoryConstants.allProductsCategoryId, ...uniqueCategories];
   }
 
   List<Product> _filterProducts({
@@ -356,11 +361,11 @@ class _FloatingCircleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -532,10 +537,7 @@ class _FixedShopPanel extends StatelessWidget {
                   ),
                   itemCount: products.length,
                   itemBuilder: (context, index) {
-                    return _ProductCard(
-                      product: products[index],
-                      shop: shop,
-                    );
+                    return _ProductCard(product: products[index], shop: shop);
                   },
                 ),
         ),
@@ -564,9 +566,9 @@ class _ProductCard extends StatelessWidget {
         final bool isShopOpen = shop.isOpen ?? false;
         final bool hasActiveChannels =
             (shop.deliveryStatus == ShopDeliveryStatus.active ||
-                    shop.deliveryStatus == ShopDeliveryStatus.waiting) ||
-                (shop.pickupStatus == ShopDeliveryStatus.active ||
-                    shop.pickupStatus == ShopDeliveryStatus.waiting);
+                shop.deliveryStatus == ShopDeliveryStatus.waiting) ||
+            (shop.pickupStatus == ShopDeliveryStatus.active ||
+                shop.pickupStatus == ShopDeliveryStatus.waiting);
         final bool canViewDetail = isShopOpen && hasActiveChannels;
 
         if (!canViewDetail) {
@@ -595,8 +597,9 @@ class _ProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: AspectRatio(
                 aspectRatio: 1.2,
                 child: product.imageUrl.isNotEmpty

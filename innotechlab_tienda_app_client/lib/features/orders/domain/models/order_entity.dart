@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 
-enum OrderPaymentMethod { cash, card }
+enum OrderPaymentMethod { cash, online }
 
 enum OrderPaymentStatus {
   pending,
@@ -16,31 +16,25 @@ class OrderPaymentInfo extends Equatable {
   final OrderPaymentMethod? paymentMethod;
   final OrderPaymentStatus? paymentStatus;
   final String? transactionId;
-  final String? kushkiTransactionId;
-  final String? cardLastFour;
-  final String? cardBrand;
+  final String? gatewayTransactionId;
   final DateTime? paidAt;
 
   const OrderPaymentInfo({
     this.paymentMethod,
     this.paymentStatus,
     this.transactionId,
-    this.kushkiTransactionId,
-    this.cardLastFour,
-    this.cardBrand,
+    this.gatewayTransactionId,
     this.paidAt,
   });
 
   bool get isPaid => paymentStatus == OrderPaymentStatus.paid;
-  bool get isCard => paymentMethod == OrderPaymentMethod.card;
+  bool get isOnline => paymentMethod == OrderPaymentMethod.online;
   bool get isCash => paymentMethod == OrderPaymentMethod.cash;
   bool get isFailed => paymentStatus == OrderPaymentStatus.failed;
 
   String get paymentMethodText {
-    if (paymentMethod == OrderPaymentMethod.card) {
-      final brand = cardBrand ?? 'Tarjeta';
-      final last4 = cardLastFour != null ? ' ****$cardLastFour' : '';
-      return '$brand$last4';
+    if (paymentMethod == OrderPaymentMethod.online) {
+      return 'Pago en línea';
     }
     return 'Efectivo';
   }
@@ -50,9 +44,7 @@ class OrderPaymentInfo extends Equatable {
     paymentMethod,
     paymentStatus,
     transactionId,
-    kushkiTransactionId,
-    cardLastFour,
-    cardBrand,
+    gatewayTransactionId,
     paidAt,
   ];
 }

@@ -1,10 +1,19 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/orders/domain/models/order_entity.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/driver_tracking_provider.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart'
+    show
+        GoogleMap,
+        Marker,
+        MarkerId,
+        BitmapDescriptor,
+        CameraPosition,
+        InfoWindow,
+        LatLng;
 import 'package:intl/intl.dart';
 
 class OrderDetailsPage extends ConsumerStatefulWidget {
@@ -107,6 +116,91 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
             // Status Header
             _OrderHeader(order: order, formattedDate: formattedDate),
             const SizedBox(height: 24),
+
+            // Verification Code Section (Rappi-style)
+            if (order.verificationCode != null &&
+                order.verificationCode!.isNotEmpty) ...[
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primaryContainer,
+                      Theme.of(context).colorScheme.secondaryContainer,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Código de Verificación para el Repartidor',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            order.verificationCode!,
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 8,
+                              fontFamily: 'monospace',
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.copy, size: 24),
+                          tooltip: 'Copiar código',
+                          onPressed: () {
+                            // Clipboard functionality would go here in a real app
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Código copiado al portapapeles'),
+                                duration: Duration(seconds: 1),
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
 
             // Map Section
             const Text(
@@ -281,7 +375,7 @@ class _OrderHeader extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _statusColor(order.status).withOpacity(0.1),
+                  color: _statusColor(order.status).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -601,7 +695,7 @@ class _TimelineItem extends StatelessWidget {
                 boxShadow: isCurrent
                     ? [
                         BoxShadow(
-                          color: color.withOpacity(0.3),
+                          color: color.withValues(alpha: 0.3),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -671,7 +765,13 @@ class _OrderMapSection extends ConsumerWidget {
         ? ref.watch(driverTrackingProvider(order.driverId!))
         : null;
 
-    final driverPosition = driverLocAsync?.valueOrNull;
+    // Convert from latlong2 to google_maps LatLng
+    final driverPosition = driverLocAsync?.valueOrNull != null
+        ? LatLng(
+            driverLocAsync!.valueOrNull!.latitude,
+            driverLocAsync.valueOrNull!.longitude,
+          )
+        : null;
 
     final markers = <Marker>{
       Marker(

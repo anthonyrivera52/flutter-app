@@ -2,7 +2,7 @@ import 'package:flutter_app/features/cart/domain/models/cart_item_entity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/payments/payment_models.dart';
-import '../../../../core/services/payments/kushki_payment_service.dart';
+import '../../../../core/services/payments/bold_payment_service.dart';
 
 const double kDeliveryFee = 1.20;
 const List<double> kTipOptions = [0, 1, 2, 4];
@@ -16,6 +16,7 @@ class CheckoutState {
   final PaymentMethodType selectedPaymentMethod;
   final PaymentProcessingStatus paymentStatus;
   final String? paymentError;
+  final BoldCheckoutData? boldCheckoutData;
 
   const CheckoutState({
     this.isSubmitting = false,
@@ -26,6 +27,7 @@ class CheckoutState {
     this.selectedPaymentMethod = PaymentMethodType.cash,
     this.paymentStatus = PaymentProcessingStatus.idle,
     this.paymentError,
+    this.boldCheckoutData,
   });
 
   CheckoutState copyWith({
@@ -39,6 +41,8 @@ class CheckoutState {
     PaymentProcessingStatus? paymentStatus,
     String? paymentError,
     bool clearPaymentError = false,
+    BoldCheckoutData? boldCheckoutData,
+    bool clearBoldCheckoutData = false,
   }) {
     return CheckoutState(
       isSubmitting: isSubmitting ?? this.isSubmitting,
@@ -52,6 +56,9 @@ class CheckoutState {
       paymentError: clearPaymentError
           ? null
           : paymentError ?? this.paymentError,
+      boldCheckoutData: clearBoldCheckoutData
+          ? null
+          : boldCheckoutData ?? this.boldCheckoutData,
     );
   }
 
@@ -67,11 +74,13 @@ class CheckoutState {
   bool get isPaymentFailed => paymentStatus == PaymentProcessingStatus.failed;
 }
 
+enum PaymentProcessingStatus { idle, processing, success, failed }
+
 class CheckoutNotifier extends StateNotifier<CheckoutState> {
   final SupabaseClient _supabase;
-  final KushkiPaymentService _paymentService;
+  final BoldPaymentService _boldPaymentService;
 
-  CheckoutNotifier(this._supabase, this._paymentService)
+  CheckoutNotifier(this._supabase, this._boldPaymentService)
     : super(const CheckoutState());
 
   void selectTip(double tip) =>
@@ -81,6 +90,7 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     state = state.copyWith(
       selectedPaymentMethod: method,
       clearPaymentError: true,
+      clearBoldCheckoutData: true,
     );
   }
 
@@ -144,48 +154,47 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     }
   }
 
-  Future<bool> processPayment({
-    required String saleId,
-    required CardData? cardData,
-    required double amount,
-    String currency = 'USD',
+  Future<BoldCheckoutData?> prepareBoldCheckout({
+    required List<CartItem> cartItems,
   }) async {
+    final orderId = state.createdOrderId;
+    if (orderId == null) return null;
+
     state = state.copyWith(
       paymentStatus: PaymentProcessingStatus.processing,
       clearPaymentError: true,
     );
 
     try {
-      PaymentResult result;
+      final amount = state.total(cartItems);
+      final amountInCents = (amount * 100).round();
 
-      if (state.selectedPaymentMethod == PaymentMethodType.card &&
-          cardData != null) {
-        result = await _paymentService.payWithCard(
-          saleId: saleId,
-          card: cardData,
-          amount: amount,
-          currency: currency,
-        );
-      } else {
-        result = await _paymentService.payWithCash(saleId: saleId);
-      }
+      final checkoutData = await _boldPaymentService.createCheckoutData(
+        orderId: orderId,
+        amount: amountInCents,
+        currency: 'COP',
+        description: 'Pedido #$orderId',
+      );
 
-      if (result.success) {
-        state = state.copyWith(paymentStatus: PaymentProcessingStatus.success);
-        return true;
-      } else {
-        state = state.copyWith(
-          paymentStatus: PaymentProcessingStatus.failed,
-          paymentError: result.error ?? 'Error al procesar el pago',
-        );
-        return false;
-      }
+      state = state.copyWith(boldCheckoutData: checkoutData);
+      return checkoutData;
     } catch (e) {
       state = state.copyWith(
         paymentStatus: PaymentProcessingStatus.failed,
-        paymentError: 'Error de conexión. Intenta de nuevo.',
+        paymentError: 'Error al preparar pago: $e',
       );
-      return false;
+      return null;
+    }
+  }
+
+  void onBoldPaymentCompleted({required bool success, String? error}) {
+    if (success) {
+      state = state.copyWith(paymentStatus: PaymentProcessingStatus.success);
+    } else {
+      state = state.copyWith(
+        paymentStatus: PaymentProcessingStatus.failed,
+        paymentError: error ?? 'El pago no fue completado',
+      );
     }
   }
 
@@ -194,6 +203,7 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
       selectedPaymentMethod: PaymentMethodType.cash,
       paymentStatus: PaymentProcessingStatus.idle,
       clearPaymentError: true,
+      clearBoldCheckoutData: true,
     );
   }
 
@@ -204,7 +214,7 @@ final checkoutProvider = StateNotifierProvider<CheckoutNotifier, CheckoutState>(
   (ref) {
     return CheckoutNotifier(
       Supabase.instance.client,
-      ref.watch(kushkiPaymentServiceProvider),
+      ref.watch(boldPaymentServiceProvider),
     );
   },
 );

@@ -5,38 +5,117 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { shopId, categoryId, search, limit = 200 } = await req.json();
+    const { locationId, shopId, categoryId, search, limit = 200 } = await req.json();
 
-    if (!shopId || typeof shopId !== 'string') {
-      return jsonResponse({ error: 'shopId is required.' }, 400);
+    const locId = locationId ?? shopId;
+    if (!locId || typeof locId !== 'string') {
+      return jsonResponse({ error: 'locationId (or shopId) is required.' }, 400);
     }
 
+    // 1. Get organization_id from the selected location
+    const { data: location, error: locError } = await adminClient
+      .from('locations')
+      .select('id, name, organization_id, latitude, longitude')
+      .eq('id', locId)
+      .single();
+
+    if (locError || !location) {
+      return jsonResponse({ error: 'Location not found.' }, 404);
+    }
+
+    const orgId = location.organization_id;
+
+    // 2. Get all products for this organization
     let query = adminClient
       .from('products')
-      .select('id,name,description,price,image_url,unit,category_id,discounted_price,shop_id,is_active')
-      .eq('shop_id', shopId)
-      .eq('is_active', true)
+      .select('id, name, description, price, image_url')
+      .eq('organization_id', orgId)
+      .eq('is_available', true)
       .limit(limit);
 
-    if (categoryId && typeof categoryId === 'string') query = query.eq('category_id', categoryId);
-    if (search && typeof search === 'string') query = query.ilike('name', `%${search}%`);
+    if (search && typeof search === 'string') {
+      query = query.ilike('name', `%${search}%`);
+    }
 
-    const { data, error } = await query;
-    if (error) return jsonResponse({ error: error.message }, 500);
+    const { data: products, error: pError } = await query;
+    if (pError) return jsonResponse({ error: pError.message }, 500);
 
-    const products = (data ?? []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      price: p.price,
-      image_url: p.image_url,
-      unit: p.unit,
-      category_id: p.category_id,
-      discounted_price: p.discounted_price,
-      shop_id: p.shop_id,
-    }));
+    const allProductIds = (products ?? []).map((p) => p.id);
+    if (allProductIds.length === 0) {
+      return jsonResponse({
+        products: [],
+        locationId: locId,
+        organizationId: orgId,
+        categories: [],
+      });
+    }
 
-    return jsonResponse({ products });
+    // 3. Get categories for these products via junction table
+    const { data: catLinks } = await adminClient
+      .from('product_category_products')
+      .select('product_id, category_id')
+      .in('product_id', allProductIds);
+
+    // 4. Get category details
+    const catIds = [...new Set((catLinks ?? []).map((cl) => cl.category_id))];
+    const { data: categories } = catIds.length > 0
+      ? await adminClient
+          .from('product_categories')
+          .select('id, name, slug')
+          .in('id', catIds)
+      : { data: [] };
+
+    const categoryMap = new Map((categories ?? []).map((c) => [c.id, c]));
+    const productCatMap = new Map<string, { slug: string; name: string }>();
+    for (const link of catLinks ?? []) {
+      const cat = categoryMap.get(link.category_id);
+      if (cat && !productCatMap.has(link.product_id)) {
+        productCatMap.set(link.product_id, { slug: cat.slug, name: cat.name });
+      }
+    }
+
+    // 5. Filter by category slug if requested
+    let filtered = products ?? [];
+    if (categoryId && typeof categoryId === 'string') {
+      const matchingProductIds = new Set(
+        (catLinks ?? [])
+          .filter((cl) => {
+            const cat = categoryMap.get(cl.category_id);
+            return cat?.slug === categoryId;
+          })
+          .map((cl) => cl.product_id)
+      );
+      filtered = filtered.filter((p) => matchingProductIds.has(p.id));
+    }
+
+    // 6. Build unique categories list for the UI
+    const uniqueCategories = new Map<string, { slug: string; name: string }>();
+    for (const link of catLinks ?? []) {
+      const cat = categoryMap.get(link.category_id);
+      if (cat) {
+        uniqueCategories.set(cat.slug, { slug: cat.slug, name: cat.name });
+      }
+    }
+
+    // 7. Build response
+    const result = filtered.map((p) => {
+      const cat = productCatMap.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        image_url: p.image_url,
+        category_id: cat?.slug ?? '',
+      };
+    });
+
+    return jsonResponse({
+      products: result,
+      locationId: locId,
+      organizationId: orgId,
+      categories: [...uniqueCategories.values()],
+    });
   } catch (e) {
     return jsonResponse({ error: e instanceof Error ? e.message : 'Unexpected error.' }, 500);
   }

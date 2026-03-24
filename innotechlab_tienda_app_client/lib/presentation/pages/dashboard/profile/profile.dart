@@ -53,6 +53,152 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     ref.read(profileProvider.notifier).signOut();
   }
 
+  void _showEditProfile(BuildContext context) {
+    final user = ref.read(profileProvider).user;
+    final nameController = TextEditingController(
+      text: user?.userMetadata?['display_name'] as String? ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        scrollable: true,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Editar Perfil',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Nombre',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: const Icon(Icons.person_outline),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (user?.email != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.email_outlined,
+                      size: 20,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      user!.email!,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              if (newName.isNotEmpty) {
+                await ref
+                    .read(profileProvider.notifier)
+                    .updateProfile(username: newName);
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddresses(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => const _AddressesSheet(),
+    );
+  }
+
+  void _showAbout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.store_rounded,
+                size: 48,
+                color: AppColors.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'InnoTechLabs Tienda',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Versión 1.0.0',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Tu aplicación de pedidos a domicilio. Conectamos comercios locales '
+              'con clientes para una experiencia de compra rápida y segura.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '© 2026 InnoTechLabs. Todos los derechos reservados.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProfileState = ref.watch(profileProvider);
@@ -153,7 +299,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         colors: [
                           AppColors.primaryColor,
                           AppColors.primaryColor.withBlue(150),
-                          AppColors.primaryColor.withOpacity(0.9),
+                          AppColors.primaryColor.withValues(alpha: 0.9),
                         ],
                       ),
                     ),
@@ -166,7 +312,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       width: 200,
                       height: 200,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -178,7 +324,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.03),
+                        color: Colors.white.withValues(alpha: 0.03),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -202,7 +348,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.5),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.5,
+                                      ),
                                       width: 1.5,
                                     ),
                                   ),
@@ -215,7 +363,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.15),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.15,
+                                          ),
                                           blurRadius: 30,
                                           offset: const Offset(0, 10),
                                         ),
@@ -238,7 +388,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.1,
+                                          ),
                                           blurRadius: 10,
                                         ),
                                       ],
@@ -272,13 +424,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           email,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -307,8 +459,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       _ProfileItem(
                         icon: Icons.person_outline_rounded,
                         title: 'Editar Perfil',
-                        subtitle: 'Nombre, correo y foto de perfil',
-                        onTap: () {},
+                        subtitle: 'Nombre y foto de perfil',
+                        onTap: () => _showEditProfile(context),
                         iconBgColor: const Color(0xFFE8F0FE),
                         iconColor: const Color(0xFF1A73E8),
                       ),
@@ -316,17 +468,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         icon: Icons.location_on_outlined,
                         title: 'Mis Direcciones',
                         subtitle: 'Lugares de entrega guardados',
-                        onTap: () {},
+                        onTap: () => _showAddresses(context),
                         iconBgColor: const Color(0xFFFEF3E0),
                         iconColor: const Color(0xFFF57C00),
-                      ),
-                      _ProfileItem(
-                        icon: Icons.account_balance_wallet_outlined,
-                        title: 'Métodos de Pago',
-                        subtitle: 'Gestiona tus tarjetas y pagos',
-                        onTap: () {},
-                        iconBgColor: const Color(0xFFE6F4EA),
-                        iconColor: const Color(0xFF1E8E3E),
                       ),
                     ],
                   ),
@@ -397,7 +541,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         icon: Icons.info_outline_rounded,
                         title: 'Acerca de',
                         subtitle: 'Términos, privacidad y versión',
-                        onTap: () {},
+                        onTap: () => _showAbout(context),
                         iconBgColor: const Color(0xFFF1F3F4),
                         iconColor: const Color(0xFF3C4043),
                       ),
@@ -413,9 +557,11 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 20),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.08),
+                        color: Colors.red.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.red.withOpacity(0.12)),
+                        border: Border.all(
+                          color: Colors.red.withValues(alpha: 0.12),
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -494,7 +640,7 @@ class _LoyaltyPremiumCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -507,7 +653,7 @@ class _LoyaltyPremiumCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.1),
+                  color: Colors.amber.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -570,7 +716,7 @@ class _LoyaltyPremiumCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.amber.withOpacity(0.3),
+                        color: Colors.amber.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -620,7 +766,7 @@ class _ProfileItemGroup extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -671,7 +817,7 @@ class _ProfileItem extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: iconBgColor ?? AppColors.primaryColor.withOpacity(0.05),
+          color: iconBgColor ?? AppColors.primaryColor.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Icon(icon, color: iconColor ?? AppColors.primaryColor, size: 24),
@@ -703,6 +849,279 @@ class _ProfileItem extends StatelessWidget {
             size: 14,
           ),
       onTap: onTap,
+    );
+  }
+}
+
+class _AddressesSheet extends ConsumerStatefulWidget {
+  const _AddressesSheet();
+
+  @override
+  ConsumerState<_AddressesSheet> createState() => _AddressesSheetState();
+}
+
+class _AddressesSheetState extends ConsumerState<_AddressesSheet> {
+  List<Map<String, dynamic>> _addresses = [];
+  bool _isLoading = true;
+  bool _isAdding = false;
+  final _addressController = TextEditingController();
+  final _labelController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _labelController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAddresses() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final response = await Supabase.instance.client
+          .from('customer_addresses')
+          .select()
+          .eq('customer_id', userId)
+          .order('is_default', ascending: false);
+
+      setState(() {
+        _addresses = List<Map<String, dynamic>>.from(response);
+        _isLoading = false;
+      });
+    } catch (_) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _setDefault(String addressId) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      // Remove default from all
+      await Supabase.instance.client
+          .from('customer_addresses')
+          .update({'is_default': false})
+          .eq('customer_id', userId);
+
+      // Set new default
+      await Supabase.instance.client
+          .from('customer_addresses')
+          .update({'is_default': true})
+          .eq('id', addressId);
+
+      await _loadAddresses();
+    } catch (_) {}
+  }
+
+  Future<void> _addAddress() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final addressText = _addressController.text.trim();
+    final label = _labelController.text.trim().isEmpty
+        ? 'Casa'
+        : _labelController.text.trim();
+
+    if (addressText.isEmpty) return;
+
+    try {
+      await Supabase.instance.client.from('customer_addresses').insert({
+        'customer_id': userId,
+        'line1': addressText,
+        'label': label,
+        'is_default': _addresses.isEmpty,
+      });
+
+      _addressController.clear();
+      _labelController.clear();
+      setState(() => _isAdding = false);
+      await _loadAddresses();
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Mis Direcciones',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (_addresses.isEmpty && !_isAdding)
+                Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.location_off_outlined,
+                        size: 64,
+                        color: Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No tienes direcciones guardadas',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _addresses.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final addr = _addresses[index];
+                      final isDefault = addr['is_default'] == true;
+                      return ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isDefault
+                                ? AppColors.primaryColor.withOpacity(0.1)
+                                : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            isDefault ? Icons.home : Icons.location_on_outlined,
+                            color: isDefault
+                                ? AppColors.primaryColor
+                                : Colors.grey,
+                          ),
+                        ),
+                        title: Text(
+                          addr['label'] ?? 'Dirección',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          addr['line1'] ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: isDefault
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Default',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : IconButton(
+                                icon: const Icon(
+                                  Icons.radio_button_unchecked,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: () => _setDefault(addr['id']),
+                              ),
+                        onTap: () => _setDefault(addr['id']),
+                      );
+                    },
+                  ),
+                ),
+              if (_isAdding) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _labelController,
+                  decoration: InputDecoration(
+                    labelText: 'Etiqueta (Casa, Trabajo, etc.)',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _addressController,
+                  decoration: InputDecoration(
+                    labelText: 'Dirección',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => setState(() => _isAdding = false),
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _addAddress,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Guardar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => setState(() => _isAdding = true),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Agregar Dirección'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

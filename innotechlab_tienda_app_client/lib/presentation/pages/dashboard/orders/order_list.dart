@@ -44,14 +44,42 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(ordersListProvider);
-    
+
     // Client-side filtering
     final filteredOrders = state.orders.where((order) {
-      final matchesSearch = order.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (order.items.isNotEmpty && order.items.any((item) => item.product.name.toLowerCase().contains(_searchQuery.toLowerCase())));
-      
-      final matchesStatus = _selectedStatus == 'all' || order.status.toLowerCase() == _selectedStatus.toLowerCase();
-      
+      final matchesSearch =
+          order.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (order.items.isNotEmpty &&
+              order.items.any(
+                (item) => item.product.name.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                ),
+              ));
+
+      final statusLower = order.status.toLowerCase();
+      bool matchesStatus;
+      switch (_selectedStatus) {
+        case 'all':
+          matchesStatus = true;
+          break;
+        case 'pending':
+          matchesStatus = [
+            'new',
+            'pending',
+            'preparing',
+            'ready_for_pickup',
+          ].contains(statusLower);
+          break;
+        case 'out_for_delivery':
+          matchesStatus = statusLower == 'out_for_delivery';
+          break;
+        case 'delivered':
+          matchesStatus = ['delivered', 'completed'].contains(statusLower);
+          break;
+        default:
+          matchesStatus = statusLower == _selectedStatus.toLowerCase();
+      }
+
       return matchesSearch && matchesStatus;
     }).toList();
 
@@ -88,7 +116,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
+                          color: Colors.black.withValues(alpha: 0.03),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
                         ),
@@ -96,13 +124,22 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
                     ),
                     child: TextField(
                       controller: _searchController,
-                      onChanged: (value) => setState(() => _searchQuery = value),
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
                       decoration: InputDecoration(
                         hintText: 'Buscar por ID o producto...',
-                        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                        prefixIcon: Icon(Icons.search_rounded, color: AppColors.primaryColor),
+                        hintStyle: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: AppColors.primaryColor,
+                        ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 15,
+                        ),
                       ),
                     ),
                   ),
@@ -121,17 +158,23 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
                         _StatusChip(
                           label: 'Pendientes',
                           isSelected: _selectedStatus == 'pending',
-                          onTap: () => setState(() => _selectedStatus = 'pending'),
+                          onTap: () =>
+                              setState(() => _selectedStatus = 'pending'),
                         ),
                         _StatusChip(
                           label: 'En Camino',
-                          isSelected: _selectedStatus == 'shipped' || _selectedStatus == 'accepted',
-                          onTap: () => setState(() => _selectedStatus = 'accepted'),
+                          isSelected: _selectedStatus == 'out_for_delivery',
+                          onTap: () => setState(
+                            () => _selectedStatus = 'out_for_delivery',
+                          ),
                         ),
                         _StatusChip(
                           label: 'Entregados',
-                          isSelected: _selectedStatus == 'delivered' || _selectedStatus == 'completed',
-                          onTap: () => setState(() => _selectedStatus = 'delivered'),
+                          isSelected:
+                              _selectedStatus == 'delivered' ||
+                              _selectedStatus == 'completed',
+                          onTap: () =>
+                              setState(() => _selectedStatus = 'delivered'),
                         ),
                       ],
                     ),
@@ -180,17 +223,17 @@ class _StatusChip extends StatelessWidget {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.primaryColor.withOpacity(0.3),
+                      color: AppColors.primaryColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
-                    )
+                    ),
                   ]
                 : [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
+                      color: Colors.black.withValues(alpha: 0.02),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
-                    )
+                    ),
                   ],
           ),
           child: Text(
@@ -229,11 +272,16 @@ class _OrdersListBody extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade200),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: Colors.red.shade200,
+            ),
             const SizedBox(height: 16),
             Text('Error: ${state.errorMessage}'),
             TextButton(
-              onPressed: () => ref.read(ordersListProvider.notifier).fetchOrders(),
+              onPressed: () =>
+                  ref.read(ordersListProvider.notifier).fetchOrders(),
               child: const Text('Reintentar'),
             ),
           ],
@@ -252,7 +300,11 @@ class _OrdersListBody extends ConsumerWidget {
                 color: Colors.grey.shade100,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.shopping_bag_outlined, size: 64, color: Colors.grey.shade300),
+              child: Icon(
+                Icons.shopping_bag_outlined,
+                size: 64,
+                color: Colors.grey.shade300,
+              ),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -288,8 +340,10 @@ class _OrdersListBody extends ConsumerWidget {
           }
 
           final order = filteredOrders[index];
-          final formattedDate = DateFormat('dd MMM yyyy, HH:mm', 'es_ES')
-              .format(order.createdAt.toLocal());
+          final formattedDate = DateFormat(
+            'dd MMM yyyy, HH:mm',
+            'es_ES',
+          ).format(order.createdAt.toLocal());
 
           return _OrderCard(order: order, formattedDate: formattedDate);
         },
@@ -308,7 +362,7 @@ class _OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(order.status);
     final statusText = _humanStatus(order.status);
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: GestureDetector(
@@ -319,7 +373,7 @@ class _OrderCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -335,7 +389,7 @@ class _OrderCard extends StatelessWidget {
                       width: 54,
                       height: 54,
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
@@ -384,14 +438,20 @@ class _OrderCard extends StatelessWidget {
               ),
               const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -416,7 +476,11 @@ class _OrderCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                   ],
                 ),
               ),
@@ -429,40 +493,66 @@ class _OrderCard extends StatelessWidget {
 
   static IconData _statusIcon(String status) {
     switch (status.toLowerCase()) {
-      case 'pending': return Icons.access_time_rounded;
-      case 'accepted':
-      case 'processing': return Icons.restaurant_rounded;
-      case 'shipped': return Icons.delivery_dining_rounded;
+      case 'new':
+      case 'pending':
+        return Icons.access_time_rounded;
+      case 'preparing':
+      case 'ready_for_pickup':
+        return Icons.restaurant_rounded;
+      case 'out_for_delivery':
+        return Icons.delivery_dining_rounded;
       case 'delivered':
-      case 'completed': return Icons.check_circle_rounded;
-      case 'cancelled': return Icons.cancel_rounded;
-      default: return Icons.shopping_bag_rounded;
+      case 'completed':
+        return Icons.check_circle_rounded;
+      case 'cancelled':
+      case 'canceled':
+        return Icons.cancel_rounded;
+      default:
+        return Icons.shopping_bag_rounded;
     }
   }
 
   static String _humanStatus(String status) {
     switch (status.toLowerCase()) {
-      case 'pending': return 'Pendiente';
-      case 'accepted': return 'Aceptado';
-      case 'processing': return 'Preparando';
-      case 'shipped': return 'En camino';
+      case 'new':
+        return 'Nuevo';
+      case 'pending':
+        return 'Pendiente';
+      case 'preparing':
+        return 'Preparando';
+      case 'ready_for_pickup':
+        return 'Listo para recoger';
+      case 'out_for_delivery':
+        return 'En camino';
       case 'delivered':
-      case 'completed': return 'Entregado';
-      case 'cancelled': return 'Cancelado';
-      default: return status;
+      case 'completed':
+        return 'Entregado';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelado';
+      default:
+        return status;
     }
   }
 
   static Color _statusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'pending': return Colors.orange;
-      case 'accepted':
-      case 'processing': return Colors.blue;
-      case 'shipped': return Colors.indigo;
+      case 'new':
+      case 'pending':
+        return Colors.orange;
+      case 'preparing':
+      case 'ready_for_pickup':
+        return Colors.blue;
+      case 'out_for_delivery':
+        return Colors.indigo;
       case 'delivered':
-      case 'completed': return Colors.green;
-      case 'cancelled': return Colors.red;
-      default: return Colors.grey;
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+      case 'canceled':
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 }

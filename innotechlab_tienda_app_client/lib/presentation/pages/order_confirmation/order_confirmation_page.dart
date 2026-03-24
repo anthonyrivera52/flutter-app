@@ -1,12 +1,13 @@
 // presentation/pages/order_confirmation/order_confirmation_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/provider/order_confirmation_provider.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // Corrected import
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class OrderConfirmationPage extends ConsumerStatefulWidget {
   final double? userLatitude;
@@ -24,8 +25,6 @@ class OrderConfirmationPage extends ConsumerStatefulWidget {
 }
 
 class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
-  GoogleMapController? mapController;
-  Set<Marker> markers = {};
   LatLng? _userLocation;
   LatLng? _storeLocation;
 
@@ -36,36 +35,11 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
   }
 
   Future<void> _loadLatestOrderAndSetupMap() async {
-    // For MVP, we'll fetch the latest order. In a real app, you'd pass the order ID.
-    // final provider = ref.read(orderConfirmationProvider);
-    // await provider.fetchLatestUserOrder();
-
     final order = ref.read(orderConfirmationProvider).latestOrder;
     if (order != null) {
       setState(() {
         _userLocation = LatLng(order.shippingLatitude, order.shippingLongitude);
         _storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
-
-        markers.add(
-          Marker(
-            markerId: const MarkerId('userLocation'),
-            position: _userLocation!,
-            infoWindow: const InfoWindow(title: 'Tu Ubicación'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueBlue,
-            ),
-          ),
-        );
-        markers.add(
-          Marker(
-            markerId: const MarkerId('storeLocation'),
-            position: _storeLocation!,
-            infoWindow: const InfoWindow(title: 'Ubicación de la Tienda'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueRed,
-            ),
-          ),
-        );
       });
     }
   }
@@ -103,7 +77,7 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
                   const SizedBox(height: 20),
                   _buildOrderCodeCard(
                     context,
-                    orderState.latestOrder?.orderCode,
+                    orderState.latestOrder?.verificationCode,
                   ),
                   const SizedBox(height: 16),
                   _buildPaymentInfoCard(
@@ -143,53 +117,26 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
                                         _storeLocation!.longitude) /
                                     2,
                               ),
-                              zoom: 10,
+                              zoom: 15,
                             ),
-                            onMapCreated: (controller) {
-                              mapController = controller;
-                              // Optionally animate camera to show both points
-                              mapController?.animateCamera(
-                                CameraUpdate.newLatLngBounds(
-                                  LatLngBounds(
-                                    southwest: LatLng(
-                                      _userLocation!.latitude <
-                                              _storeLocation!.latitude
-                                          ? _userLocation!.latitude
-                                          : _storeLocation!.latitude,
-                                      _userLocation!.longitude <
-                                              _storeLocation!.longitude
-                                          ? _userLocation!.longitude
-                                          : _storeLocation!.longitude,
-                                    ),
-                                    northeast: LatLng(
-                                      _userLocation!.latitude >
-                                              _storeLocation!.latitude
-                                          ? _userLocation!.latitude
-                                          : _storeLocation!.latitude,
-                                      _userLocation!.longitude >
-                                              _storeLocation!.longitude
-                                          ? _userLocation!.longitude
-                                          : _storeLocation!.longitude,
-                                    ),
-                                  ),
-                                  50.0,
+                            markers: {
+                              Marker(
+                                markerId: MarkerId('userLocation'),
+                                position: _userLocation!,
+                                icon: BitmapDescriptor.defaultMarkerWithHue(
+                                  BitmapDescriptor.hueBlue,
                                 ),
-                              );
-                            },
-                            markers: markers,
-                            circles: {
-                              Circle(
-                                circleId: const CircleId('store_radius'),
-                                center: _storeLocation!,
-                                radius:
-                                    1000, // Example radius for store proximity
-                                fillColor: AppColors.primaryColor.withValues(
-                                  alpha: 0.1,
+                              ),
+                              Marker(
+                                markerId: MarkerId('storeLocation'),
+                                position: _storeLocation!,
+                                icon: BitmapDescriptor.defaultMarkerWithHue(
+                                  BitmapDescriptor.hueRed,
                                 ),
-                                strokeColor: AppColors.primaryColor,
-                                strokeWidth: 2,
                               ),
                             },
+                            mapToolbarEnabled: false,
+                            zoomControlsEnabled: false,
                           )
                         : const Center(child: CircularProgressIndicator()),
                   ),
@@ -296,57 +243,139 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
     );
   }
 
-  Widget _buildOrderCodeCard(BuildContext context, String? orderCode) {
-    if (orderCode == null || orderCode.isEmpty) {
+  Widget _buildOrderCodeCard(BuildContext context, String? verificationCode) {
+    // Preferir verificationCode sobre orderCode
+    final displayCode = verificationCode?.isNotEmpty == true
+        ? verificationCode
+        : null;
+
+    if (displayCode == null) {
       return const SizedBox.shrink();
     }
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             AppColors.primaryColor,
-            AppColors.primaryColor.withValues(alpha: 0.8),
+            AppColors.primaryColor.withValues(alpha: 0.85),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryColor.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: AppColors.primaryColor.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         children: [
-          const Text(
-            'Código de Verificación',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.qr_code_rounded,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Código de Verificación',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            orderCode,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 4,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  displayCode,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 6,
+                    fontFamily: 'monospace',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: displayCode));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text('Código copiado'),
+                        ],
+                      ),
+                      backgroundColor: AppColors.primaryColor,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  Icons.copy_rounded,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: 22,
+                ),
+                tooltip: 'Copiar código',
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Muéstralo al repartidor cuando llegue tu pedido',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-            textAlign: TextAlign.center,
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: Colors.white70,
+                  size: 16,
+                ),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Muéstralo al repartidor cuando llegue',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -370,7 +399,7 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
           Row(
             children: [
               Icon(
-                paymentInfo.isCard ? Icons.credit_card : Icons.payments,
+                paymentInfo.isOnline ? Icons.credit_card : Icons.payments,
                 color: AppColors.primaryColor,
               ),
               const SizedBox(width: 8),
@@ -432,13 +461,15 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
 
   Widget _buildOrderStatus(String status) {
     Map<String, int> statusSteps = {
+      'new': 0,
       'pending': 0,
-      'accepted': 1,
-      'processing': 2,
-      'shipped': 3,
+      'preparing': 1,
+      'ready_for_pickup': 2,
+      'out_for_delivery': 3,
       'delivered': 4,
+      'completed': 4,
     };
-    int currentStep = statusSteps[status] ?? 0;
+    int currentStep = statusSteps[status.toLowerCase()] ?? 0;
 
     return Column(
       children: [
