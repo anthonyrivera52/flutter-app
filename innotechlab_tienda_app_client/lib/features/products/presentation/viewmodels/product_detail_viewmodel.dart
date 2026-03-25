@@ -26,7 +26,6 @@ class ProductDetailsNotifier extends StateNotifier<AsyncValue<Product?>> {
           .from('products')
           .select()
           .eq('id', _productId)
-          .eq('is_active', true)
           .eq('is_available', true)
           .maybeSingle();
 

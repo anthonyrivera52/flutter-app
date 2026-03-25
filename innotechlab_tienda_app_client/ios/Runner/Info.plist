@@ -55,5 +55,7 @@
 	<string>Esta aplicación necesita acceso a la cámara para poder tomar fotos de tu perfil.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Esta aplicación necesita acceso a tu galería para poder subir fotos de tu perfil.</string>
+	<key>GOOGLE_MAPS_API_KEY</key>
+	<string>$(GOOGLE_PLACES_API_KEY)</string>
 </dict>
 </plist>

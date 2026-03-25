@@ -5,11 +5,18 @@ import 'package:flutter_app/core/location/location_result.dart';
 import 'package:flutter_app/core/location/location_service.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
+import 'package:flutter_app/features/products/domain/models/category_entity.dart';
 import 'package:flutter_app/features/products/domain/models/location_hour.dart';
 import 'package:flutter_app/presentation/provider/preloaded_location_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+class CatalogResult {
+  final List<Product> products;
+  final List<Category> categories;
+  CatalogResult({required this.products, required this.categories});
+}
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -18,6 +25,7 @@ class HomeState extends Equatable {
   final String? errorMessage;
   final String? locationMessage;
   final List<Product> products;
+  final List<Category> categories;
   final List<ShopDistance> nearbyShops;
   final List<ShopDistance> filteredNearbyShops;
   final String searchQuery;
@@ -32,6 +40,7 @@ class HomeState extends Equatable {
     this.errorMessage,
     this.locationMessage,
     this.products = const [],
+    this.categories = const [],
     this.nearbyShops = const [],
     this.filteredNearbyShops = const [],
     this.searchQuery = '',
@@ -47,6 +56,7 @@ class HomeState extends Equatable {
     String? errorMessage,
     String? locationMessage,
     List<Product>? products,
+    List<Category>? categories,
     List<ShopDistance>? nearbyShops,
     List<ShopDistance>? filteredNearbyShops,
     String? searchQuery,
@@ -63,6 +73,7 @@ class HomeState extends Equatable {
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       locationMessage: locationMessage ?? this.locationMessage,
       products: products ?? this.products,
+      categories: categories ?? this.categories,
       nearbyShops: nearbyShops ?? this.nearbyShops,
       filteredNearbyShops: filteredNearbyShops ?? this.filteredNearbyShops,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -84,6 +95,7 @@ class HomeState extends Equatable {
     errorMessage,
     locationMessage,
     products,
+    categories,
     nearbyShops,
     filteredNearbyShops,
     searchQuery,
@@ -226,9 +238,13 @@ class HomeNotifier extends StateNotifier<HomeState> {
       selectedShopHours: const [],
     );
     try {
-      final catalog = await _fetchCatalog(shop.id);
+      final catalog = await _fetchCatalog(shop);
       await loadShopHours(shop.id);
-      state = state.copyWith(isLoading: false, products: catalog);
+      state = state.copyWith(
+        isLoading: false,
+        products: catalog.products,
+        categories: catalog.categories,
+      );
     } catch (e, st) {
       await errorLogger.logCaughtError(
         userId: _userId,
@@ -245,7 +261,11 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   void clearSelectedShop() {
-    state = state.copyWith(clearSelectedShop: true, products: const []);
+    state = state.copyWith(
+      clearSelectedShop: true,
+      products: const [],
+      categories: const [],
+    );
   }
 
   void setSearchQuery(String query) {
@@ -279,26 +299,40 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
   // ── Private ──────────────────────────────────────────────────────────────
 
-  Future<List<Product>> _fetchCatalog(String shopId) async {
+  Future<CatalogResult> _fetchCatalog(Shop shop) async {
     final response = await _supabase.functions.invoke(
       'get-catalog',
-      body: {'locationId': shopId},
+      body: {'slug': shop.slug},
     );
 
     final productsJson =
         (response.data['products'] as List<dynamic>? ?? const []);
-    return productsJson.map((raw) {
+    final categoriesJson =
+        (response.data['categories'] as List<dynamic>? ?? const []);
+
+    final categories = categoriesJson.map((raw) {
+      final map = raw as Map<String, dynamic>;
+      return Category(
+        id: map['id'] as String,
+        name: map['name'] as String,
+        imageUrl: map['imageUrl'] as String?,
+      );
+    }).toList();
+
+    final products = productsJson.map((raw) {
       final map = raw as Map<String, dynamic>;
       return Product(
         id: map['id'] as String,
         name: (map['name'] ?? '') as String,
         description: (map['description'] ?? '') as String,
         price: (map['price'] as num?)?.toDouble() ?? 0,
-        imageUrl: (map['image_url'] ?? '') as String,
+        imageUrl: (map['imageUrl'] ?? '') as String,
         unit: 'unidad',
-        categoryId: (map['category_id'] ?? '') as String,
+        categoryId: (map['categoryId'] ?? '') as String,
       );
     }).toList();
+
+    return CatalogResult(products: products, categories: categories);
   }
 
   String _locationErrorMessage(LocationException e) {

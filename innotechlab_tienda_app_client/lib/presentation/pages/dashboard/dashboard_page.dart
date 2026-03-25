@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_app/presentation/pages/dashboard/home/home.dart';
 import 'package:flutter_app/presentation/pages/dashboard/orders/order_list.dart';
 import 'package:flutter_app/presentation/pages/dashboard/profile/profile.dart';
+import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
 // import 'package:flutter_app/presentation/pages/dashboard/search/search_page.dart';
 import 'package:flutter_app/presentation/widget/common/responsive_widgets.dart';
 import 'package:flutter_app/presentation/provider/dashboard_provider.dart';
+import 'package:flutter_app/features/cart/presentation/viewmodels/cart_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:badges/badges.dart' as badges;
 
 class DashboardPage extends ConsumerStatefulWidget {
   final int? initialTabIndex;
@@ -124,6 +127,49 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           // ),
         ],
       ),
+      floatingActionButton: _buildCartFAB(),
+    );
+  }
+
+  Widget _buildCartFAB() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final totalQuantity = ref.watch(
+          cartProvider.select((s) => s.totalQuantity),
+        );
+
+        return badges.Badge(
+          showBadge: totalQuantity > 0,
+          badgeContent: Text(
+            totalQuantity.toString(),
+            style: const TextStyle(color: Colors.white, fontSize: 10),
+          ),
+          position: badges.BadgePosition.topEnd(top: 0, end: 0),
+          badgeStyle: const badges.BadgeStyle(
+            badgeColor: Colors.red,
+            padding: EdgeInsets.all(5),
+          ),
+          child: FloatingActionButton(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (BuildContext context) {
+                  return DraggableScrollableSheet(
+                    initialChildSize: 0.75,
+                    minChildSize: 0.5,
+                    maxChildSize: 0.95,
+                    expand: false,
+                    builder: (_, __) => const CartModalContent(),
+                  );
+                },
+              );
+            },
+            backgroundColor: AppColors.primaryColor,
+            child: const Icon(Icons.shopping_cart, color: Colors.white),
+          ),
+        );
+      },
     );
   }
 
@@ -138,6 +184,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           ),
         ],
       ),
+      floatingActionButton: _buildCartFAB(),
     );
   }
 

@@ -56,13 +56,11 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
       final productsResponse = await supabase
           .from('products')
           .select()
-          .eq('is_active', true)
           .eq('is_available', true);
 
       final categoriesResponse = await supabase
           .from('categories')
           .select()
-          .eq('is_active', true)
           .order('name');
 
       final products = (productsResponse as List)

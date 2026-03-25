@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_app/config/constants/category_constants.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
+import 'package:flutter_app/features/products/domain/models/category_entity.dart';
 import 'package:flutter_app/features/products/presentation/viewmodels/home_viewmodel.dart';
 import 'package:flutter_app/presentation/provider/shops_polling_provider.dart';
 import 'package:flutter_app/presentation/widget/common/full_map_widget.dart';
@@ -53,7 +54,8 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
 
     final selectedShop = homeState.selectedShop;
     final products = homeState.products;
-    final categories = _getCategories(products);
+    final categoryIds = _getCategoryIds(homeState.categories);
+    final categories = homeState.categories;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -65,6 +67,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
           selectedCategoryId: selectedCategoryId,
           selectedShop: selectedShop,
           products: products,
+          categoryIds: categoryIds,
           categories: categories,
         ),
         tablet: (_) => _buildExpandedLayout(
@@ -74,6 +77,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
           selectedCategoryId: selectedCategoryId,
           selectedShop: selectedShop,
           products: products,
+          categoryIds: categoryIds,
           categories: categories,
           mapFlex: 6,
           panelFlex: 4,
@@ -85,6 +89,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
           selectedCategoryId: selectedCategoryId,
           selectedShop: selectedShop,
           products: products,
+          categoryIds: categoryIds,
           categories: categories,
           mapFlex: 5,
           panelFlex: 5,
@@ -100,7 +105,8 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
     required String selectedCategoryId,
     required dynamic selectedShop,
     required List<Product> products,
-    required List<String> categories,
+    required List<String> categoryIds,
+    required List<Category> categories,
   }) {
     return Stack(
       children: [
@@ -131,10 +137,11 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                 products: products,
                 selectedCategoryId: selectedCategoryId,
               ),
+              categoryIds: categoryIds,
               categories: categories,
-              selectedCategory: selectedCategoryId,
-              onCategorySelected: (category) {
-                ref.read(selectedCategoryProvider.notifier).state = category;
+              selectedCategoryId: selectedCategoryId,
+              onCategorySelected: (categoryId) {
+                ref.read(selectedCategoryProvider.notifier).state = categoryId;
               },
               onClose: () {
                 ref.read(selectedCategoryProvider.notifier).state =
@@ -148,6 +155,7 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
               },
               shopHours: homeState.selectedShopHours,
               isLoadingHours: homeState.isLoadingHours,
+              isLoadingProducts: homeState.isLoading,
             ),
           ),
         if (pollingState.isLoading && homeState.nearbyShops.isEmpty)
@@ -218,7 +226,8 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
     required String selectedCategoryId,
     required dynamic selectedShop,
     required List<Product> products,
-    required List<String> categories,
+    required List<String> categoryIds,
+    required List<Category> categories,
     required int mapFlex,
     required int panelFlex,
   }) {
@@ -269,10 +278,12 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
                   products: products,
                   selectedCategoryId: selectedCategoryId,
                 ),
+                categoryIds: categoryIds,
                 categories: categories,
-                selectedCategory: selectedCategoryId,
-                onCategorySelected: (category) {
-                  ref.read(selectedCategoryProvider.notifier).state = category;
+                selectedCategoryId: selectedCategoryId,
+                onCategorySelected: (categoryId) {
+                  ref.read(selectedCategoryProvider.notifier).state =
+                      categoryId;
                 },
                 onClose: () {
                   ref.read(selectedCategoryProvider.notifier).state =
@@ -322,6 +333,14 @@ class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
           ),
       ],
     );
+  }
+
+  List<String> _getCategoryIds(List<Category> categories) {
+    if (categories.isEmpty) {
+      return [CategoryConstants.allProductsCategoryId];
+    }
+    final categoryIds = categories.map((c) => c.id).toList();
+    return [CategoryConstants.allProductsCategoryId, ...categoryIds];
   }
 
   List<String> _getCategories(List<Product> products) {
@@ -397,8 +416,9 @@ class _FloatingCircleButton extends StatelessWidget {
 class _FixedShopPanel extends StatelessWidget {
   final dynamic shop;
   final List<Product> products;
-  final List<String> categories;
-  final String selectedCategory;
+  final List<String> categoryIds;
+  final List<Category> categories;
+  final String selectedCategoryId;
   final ValueChanged<String> onCategorySelected;
   final VoidCallback onClose;
   final List<dynamic> shopHours;
@@ -407,8 +427,9 @@ class _FixedShopPanel extends StatelessWidget {
   const _FixedShopPanel({
     required this.shop,
     required this.products,
+    required this.categoryIds,
     required this.categories,
-    required this.selectedCategory,
+    required this.selectedCategoryId,
     required this.onCategorySelected,
     required this.onClose,
     required this.shopHours,
@@ -478,28 +499,34 @@ class _FixedShopPanel extends StatelessWidget {
             ],
           ),
         ),
-        if (categories.length > 1)
+        if (categoryIds.length > 1)
           Container(
             height: 50,
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: categories.length,
+              itemCount: categoryIds.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                final category = categories[index];
-                final isSelected = category == selectedCategory;
+                final categoryId = categoryIds[index];
+                final category = index > 0 && index - 1 < categories.length
+                    ? categories[index - 1]
+                    : null;
+                final isSelected = categoryId == selectedCategoryId;
+                final displayName = categoryId == 'all'
+                    ? 'Todos'
+                    : (category?.name ?? categoryId);
                 return FilterChip(
                   label: Text(
-                    category == 'all' ? 'Todos' : category,
+                    displayName,
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.black87,
                       fontSize: 13,
                     ),
                   ),
                   selected: isSelected,
-                  onSelected: (_) => onCategorySelected(category),
+                  onSelected: (_) => onCategorySelected(categoryId),
                   selectedColor: AppColors.primaryColor,
                   backgroundColor: Colors.grey.shade100,
                   checkmarkColor: Colors.white,
