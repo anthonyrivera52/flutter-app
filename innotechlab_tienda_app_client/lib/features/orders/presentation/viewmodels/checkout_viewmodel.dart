@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/payments/payment_models.dart';
 import '../../../../core/services/payments/bold_payment_service.dart';
+import '../../../../core/services/app_config_provider.dart';
 
 const double kDeliveryFee = 1.20;
 const List<double> kTipOptions = [0, 1, 2, 4];
@@ -17,6 +18,9 @@ class CheckoutState {
   final PaymentProcessingStatus paymentStatus;
   final String? paymentError;
   final BoldCheckoutData? boldCheckoutData;
+  final double ivaPercentage;
+  final double commerceFeeAmount;
+  final String commerceFeeLabel;
 
   const CheckoutState({
     this.isSubmitting = false,
@@ -28,6 +32,9 @@ class CheckoutState {
     this.paymentStatus = PaymentProcessingStatus.idle,
     this.paymentError,
     this.boldCheckoutData,
+    this.ivaPercentage = 19.0,
+    this.commerceFeeAmount = 2000.0,
+    this.commerceFeeLabel = 'Costo de uso de la app',
   });
 
   CheckoutState copyWith({
@@ -43,6 +50,9 @@ class CheckoutState {
     bool clearPaymentError = false,
     BoldCheckoutData? boldCheckoutData,
     bool clearBoldCheckoutData = false,
+    double? ivaPercentage,
+    double? commerceFeeAmount,
+    String? commerceFeeLabel,
   }) {
     return CheckoutState(
       isSubmitting: isSubmitting ?? this.isSubmitting,
@@ -59,14 +69,27 @@ class CheckoutState {
       boldCheckoutData: clearBoldCheckoutData
           ? null
           : boldCheckoutData ?? this.boldCheckoutData,
+      ivaPercentage: ivaPercentage ?? this.ivaPercentage,
+      commerceFeeAmount: commerceFeeAmount ?? this.commerceFeeAmount,
+      commerceFeeLabel: commerceFeeLabel ?? this.commerceFeeLabel,
     );
   }
 
   double subtotal(List<CartItem> items) =>
       items.fold(0.0, (sum, i) => sum + i.subtotal);
 
+  double ivaAmount(List<CartItem> items) =>
+      subtotal(items) * (ivaPercentage / 100);
+
   double total(List<CartItem> items) =>
       subtotal(items) + kDeliveryFee + selectedTip;
+
+  double grandTotal(List<CartItem> items) =>
+      subtotal(items) +
+      ivaAmount(items) +
+      commerceFeeAmount +
+      kDeliveryFee +
+      selectedTip;
 
   bool get isPaymentProcessing =>
       paymentStatus == PaymentProcessingStatus.processing;
@@ -79,9 +102,25 @@ enum PaymentProcessingStatus { idle, processing, success, failed }
 class CheckoutNotifier extends StateNotifier<CheckoutState> {
   final SupabaseClient _supabase;
   final BoldPaymentService _boldPaymentService;
+  final Ref _ref;
 
-  CheckoutNotifier(this._supabase, this._boldPaymentService)
-    : super(const CheckoutState());
+  CheckoutNotifier(this._supabase, this._boldPaymentService, this._ref)
+    : super(const CheckoutState()) {
+    _initFromConfig();
+  }
+
+  void _initFromConfig() {
+    try {
+      final config = _ref.read(appConfigProvider);
+      if (config.config != null) {
+        state = state.copyWith(
+          ivaPercentage: config.config!.ivaPercentage,
+          commerceFeeAmount: config.config!.commerceFeeAmount,
+          commerceFeeLabel: config.config!.commerceFeeLabel,
+        );
+      }
+    } catch (_) {}
+  }
 
   void selectTip(double tip) =>
       state = state.copyWith(selectedTip: tip, clearError: true);
@@ -156,6 +195,7 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
 
   Future<BoldCheckoutData?> prepareBoldCheckout({
     required List<CartItem> cartItems,
+    BoldBuyerData? buyer,
   }) async {
     final orderId = state.createdOrderId;
     if (orderId == null) return null;
@@ -166,7 +206,7 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
     );
 
     try {
-      final amount = state.total(cartItems);
+      final amount = state.grandTotal(cartItems);
       final amountInCents = (amount * 100).round();
 
       final checkoutData = await _boldPaymentService.createCheckoutData(
@@ -174,6 +214,7 @@ class CheckoutNotifier extends StateNotifier<CheckoutState> {
         amount: amountInCents,
         currency: 'COP',
         description: 'Pedido #$orderId',
+        buyer: buyer,
       );
 
       state = state.copyWith(boldCheckoutData: checkoutData);
@@ -215,6 +256,7 @@ final checkoutProvider = StateNotifierProvider<CheckoutNotifier, CheckoutState>(
     return CheckoutNotifier(
       Supabase.instance.client,
       ref.watch(boldPaymentServiceProvider),
+      ref,
     );
   },
 );

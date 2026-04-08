@@ -41,7 +41,23 @@ Future<void> _requestLocationPermission() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env.development");
+
+  try {
+    // Intentar cargar el archivo de entorno de desarrollo
+    await dotenv.load(fileName: ".env.development");
+  } catch (e) {
+    try {
+      // Si falla, intentar con el archivo de producción
+      await dotenv.load(fileName: ".env.production");
+    } catch (e2) {
+      // Si ambos fallan, continuar sin variables de entorno
+      // Las constantes de la app deberían tener valores por defecto seguros
+      print('Warning: No se pudo cargar ningún archivo de entorno: $e2');
+      // En un entorno de producción, podrías considerar lanzar una excepción aquí
+      // si las variables de entorno son absolutamente críticas
+      // throw Exception('Failed to load environment configuration');
+    }
+  }
 
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,

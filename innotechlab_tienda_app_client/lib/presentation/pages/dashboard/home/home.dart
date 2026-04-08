@@ -10,6 +10,9 @@ import 'package:flutter_app/presentation/widget/common/shop_panel_widget.dart';
 import 'package:flutter_app/presentation/widget/common/responsive_widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_app/presentation/widget/common/debounced_search_input.dart';
+import 'package:flutter_app/presentation/widget/common/price_display.dart';
+import 'package:flutter_app/presentation/provider/region_provider.dart';
+import 'package:flutter_app/presentation/widget/common/region_change_modal.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'dart:ui';
@@ -26,6 +29,39 @@ class HomeTabPageContent extends ConsumerStatefulWidget {
 }
 
 class _HomeTabPageContentState extends ConsumerState<HomeTabPageContent> {
+  bool _hasCheckedRegionModal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkRegionChange();
+    });
+  }
+
+  Future<void> _checkRegionChange() async {
+    if (_hasCheckedRegionModal) return;
+    _hasCheckedRegionModal = true;
+
+    final regionState = ref.read(regionProvider);
+
+    if (regionState.shouldShowCountryChangeModal && mounted) {
+      final shouldUpdate = await RegionChangeModal.show(
+        context,
+        detectedConfig: regionState.gpsDetectedConfig!,
+        currentConfig: regionState.config,
+      );
+
+      if (!mounted) return;
+
+      if (shouldUpdate == true) {
+        await ref.read(regionProvider.notifier).acceptGPSCountry();
+      } else {
+        await ref.read(regionProvider.notifier).keepCurrentCountry();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final pollingState = ref.watch(shopsPollingProvider);
@@ -659,13 +695,11 @@ class _ProductCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '\$${product.price.toStringAsFixed(0)}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryColor,
-                    ),
+                  PriceText(
+                    price: product.price,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryColor,
                   ),
                 ],
               ),

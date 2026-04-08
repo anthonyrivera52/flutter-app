@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/core/services/region_config_service.dart';
 import 'package:flutter_app/features/cart/presentation/viewmodels/cart_viewmodel.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
 import 'package:flutter_app/presentation/widget/quantity_selector.dart';
@@ -10,11 +11,7 @@ class ProductCard extends ConsumerWidget {
   final Product product;
   final VoidCallback onTap;
 
-  const ProductCard({
-    super.key,
-    required this.product,
-    required this.onTap,
-  });
+  const ProductCard({super.key, required this.product, required this.onTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,7 +20,9 @@ class ProductCard extends ConsumerWidget {
         product.discountedPrice! < product.price;
 
     final cartItems = ref.watch(cartProvider.select((s) => s.items));
-    final cartItem = cartItems.where((i) => i.productId == product.id).firstOrNull;
+    final cartItem = cartItems
+        .where((i) => i.productId == product.id)
+        .firstOrNull;
     final quantity = cartItem?.quantity ?? 0;
 
     return Card(
@@ -118,7 +117,9 @@ class ProductCard extends ConsumerWidget {
                         children: [
                           if (hasDiscount)
                             Text(
-                              '\$${product.price.toStringAsFixed(2)}',
+                              RegionConfigService.defaultConfig.formatPrice(
+                                product.price,
+                              ),
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     decoration: TextDecoration.lineThrough,
@@ -126,7 +127,11 @@ class ProductCard extends ConsumerWidget {
                                   ),
                             ),
                           Text(
-                            '\$${(hasDiscount ? product.discountedPrice! : product.price).toStringAsFixed(2)}',
+                            RegionConfigService.defaultConfig.formatPrice(
+                              hasDiscount
+                                  ? product.discountedPrice!
+                                  : product.price,
+                            ),
                             style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
                                   color: AppColors.secondaryColor,

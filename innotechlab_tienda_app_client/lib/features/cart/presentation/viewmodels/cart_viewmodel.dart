@@ -1,6 +1,39 @@
 import 'package:flutter_app/features/cart/domain/models/cart_item_entity.dart';
 import 'package:flutter_app/features/products/domain/models/product_entity.dart';
+import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+enum CartValidationResult { valid, shopClosed, deliveryAndPickupClosed }
+
+class CartValidation {
+  final CartValidationResult result;
+  final String message;
+  final bool showWarning;
+
+  const CartValidation({
+    required this.result,
+    required this.message,
+    this.showWarning = false,
+  });
+
+  bool get canAddToCart => result == CartValidationResult.valid;
+
+  static const CartValidation valid = CartValidation(
+    result: CartValidationResult.valid,
+    message: '',
+  );
+
+  static CartValidation shopClosed = const CartValidation(
+    result: CartValidationResult.shopClosed,
+    message: 'El comercio está cerrado. No puedes agregar productos.',
+  );
+
+  static const CartValidation deliveryAndPickupClosed = CartValidation(
+    result: CartValidationResult.deliveryAndPickupClosed,
+    message: 'El delivery y pickup están cerrados actualmente.',
+    showWarning: true,
+  );
+}
 
 class CartState {
   final List<CartItem> items;
@@ -10,17 +43,34 @@ class CartState {
   CartState copyWith({List<CartItem>? items}) =>
       CartState(items: items ?? this.items);
 
-  double get subtotal =>
-      items.fold(0.0, (sum, item) => sum + item.subtotal);
+  double get subtotal => items.fold(0.0, (sum, item) => sum + item.subtotal);
 
-  int get totalQuantity =>
-      items.fold(0, (sum, item) => sum + item.quantity);
+  int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
 
   bool get isEmpty => items.isEmpty;
 }
 
 class CartNotifier extends StateNotifier<CartState> {
   CartNotifier() : super(const CartState());
+
+  static CartValidation validateShopForCart(Shop shop) {
+    if (!shop.isOpen) {
+      return CartValidation.shopClosed;
+    }
+
+    final hasActiveDelivery =
+        shop.deliveryStatus == ShopDeliveryStatus.active ||
+        shop.deliveryStatus == ShopDeliveryStatus.waiting;
+    final hasActivePickup =
+        shop.pickupStatus == ShopDeliveryStatus.active ||
+        shop.pickupStatus == ShopDeliveryStatus.waiting;
+
+    if (!hasActiveDelivery && !hasActivePickup) {
+      return CartValidation.deliveryAndPickupClosed;
+    }
+
+    return CartValidation.valid;
+  }
 
   void addItem(Product product) {
     final items = List<CartItem>.from(state.items);
@@ -29,14 +79,16 @@ class CartNotifier extends StateNotifier<CartState> {
     if (idx != -1) {
       items[idx] = items[idx].copyWith(quantity: items[idx].quantity + 1);
     } else {
-      items.add(CartItem(
-        productId: product.id,
-        name: product.name,
-        imageUrl: product.imageUrl,
-        price: product.discountedPrice ?? product.price,
-        unit: product.unit,
-        quantity: 1,
-      ));
+      items.add(
+        CartItem(
+          productId: product.id,
+          name: product.name,
+          imageUrl: product.imageUrl,
+          price: product.discountedPrice ?? product.price,
+          unit: product.unit,
+          quantity: 1,
+        ),
+      );
     }
     state = state.copyWith(items: items);
   }
@@ -54,8 +106,10 @@ class CartNotifier extends StateNotifier<CartState> {
     }
     state = state.copyWith(
       items: state.items
-          .map((i) =>
-              i.productId == productId ? i.copyWith(quantity: quantity) : i)
+          .map(
+            (i) =>
+                i.productId == productId ? i.copyWith(quantity: quantity) : i,
+          )
           .toList(),
     );
   }
@@ -63,8 +117,9 @@ class CartNotifier extends StateNotifier<CartState> {
   void clear() => state = const CartState();
 }
 
-final cartProvider =
-    StateNotifierProvider<CartNotifier, CartState>((ref) => CartNotifier());
+final cartProvider = StateNotifierProvider<CartNotifier, CartState>(
+  (ref) => CartNotifier(),
+);
 
 /// Derived provider: número de items en el carrito (para badge)
 final cartItemCountProvider = Provider<int>((ref) {

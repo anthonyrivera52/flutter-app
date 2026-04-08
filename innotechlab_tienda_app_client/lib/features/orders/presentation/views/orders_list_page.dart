@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/core/services/region_config_service.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/orders_list_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -94,8 +95,9 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
           }
 
           final order = state.orders[index];
-          final formattedDate = DateFormat('dd/MM/yyyy HH:mm')
-              .format(order.createdAt.toLocal());
+          final formattedDate = DateFormat(
+            'dd/MM/yyyy HH:mm',
+          ).format(order.createdAt.toLocal());
 
           return ListTile(
             tileColor: Colors.white,
@@ -154,7 +156,7 @@ class _OrdersListPageState extends ConsumerState<OrdersListPage> {
               ),
             ),
             trailing: Text(
-              '\$${order.totalAmount.toStringAsFixed(2)}',
+              RegionConfigService.defaultConfig.formatPrice(order.totalAmount),
               style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             onTap: () => context.push('/order-details/${order.id}'),

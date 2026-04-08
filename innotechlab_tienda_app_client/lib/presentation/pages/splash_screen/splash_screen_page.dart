@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_app/presentation/provider/onboarding_provider.dart';
 import 'package:flutter_app/presentation/provider/preloaded_location_provider.dart';
+import 'package:flutter_app/presentation/provider/region_provider.dart';
 import 'package:flutter_app/core/location/location_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,10 +19,17 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage> {
   @override
   void initState() {
     super.initState();
-    _navigateToNextScreen();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigateToNextScreen();
+    });
   }
 
   Future<void> _navigateToNextScreen() async {
+    await ref.read(regionProvider.notifier).initialize();
+
+    // Check GPS in background without blocking (fire and forget)
+    ref.read(regionProvider.notifier).checkAndUpdateFromGPS();
+
     // Pre-load location during splash (non-blocking)
     final locationFuture = _preloadLocation();
 

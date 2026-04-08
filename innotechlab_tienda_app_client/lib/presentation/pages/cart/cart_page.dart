@@ -5,6 +5,7 @@ import 'package:flutter_app/features/orders/presentation/viewmodels/checkout_vie
 import 'package:flutter_app/presentation/pages/checkout/checkout_page.dart';
 import 'package:flutter_app/presentation/widget/cart_item_card.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
+import 'package:flutter_app/presentation/widget/common/price_display.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class CartModalContent extends ConsumerWidget {
@@ -179,12 +180,12 @@ class CartModalContent extends ConsumerWidget {
         children: [
           _SummaryRow(
             label: 'Subtotal',
-            value: '\$${subtotal.toStringAsFixed(2)}',
+            child: PriceText(price: subtotal),
           ),
           const SizedBox(height: 8),
           _SummaryRow(
             label: 'Tarifa de envío',
-            value: '\$${kDeliveryFee.toStringAsFixed(2)}',
+            child: PriceText(price: kDeliveryFee),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
@@ -197,13 +198,11 @@ class CartModalContent extends ConsumerWidget {
                 'Total a pagar',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
-              Text(
-                '\$${total.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primaryColor,
-                ),
+              PriceText(
+                price: total,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primaryColor,
               ),
             ],
           ),
@@ -271,9 +270,9 @@ class CartModalContent extends ConsumerWidget {
 
 class _SummaryRow extends StatelessWidget {
   final String label;
-  final String value;
+  final Widget child;
 
-  const _SummaryRow({required this.label, required this.value});
+  const _SummaryRow({required this.label, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -288,10 +287,7 @@ class _SummaryRow extends StatelessWidget {
             fontSize: 15,
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-        ),
+        child,
       ],
     );
   }

@@ -8,15 +8,18 @@ import 'package:flutter_app/features/orders/presentation/viewmodels/checkout_vie
 import 'package:flutter_app/features/products/presentation/viewmodels/home_viewmodel.dart';
 import 'package:flutter_app/features/payments/presentation/widgets/payment_method_selector.dart';
 import 'package:flutter_app/features/payments/presentation/widgets/bold_payment_sheet.dart';
-import 'package:flutter_app/presentation/provider/shop_status_provider.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/custom_text_field.dart';
 import 'package:flutter_app/presentation/widget/common/info_toast.dart';
+import 'package:flutter_app/presentation/widget/common/price_display.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../../core/services/payments/payment_models.dart';
+import '../../../../core/services/payments/bold_payment_service.dart';
 
 class CheckoutPageModal extends ConsumerStatefulWidget {
   const CheckoutPageModal({super.key});
@@ -37,10 +40,55 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
 
   LocationResult? _currentLocation;
 
+  String? _userName;
+  String? _userEmail;
+  String? _userPhone;
+
   @override
   void initState() {
     super.initState();
     _loadDefaultAddress();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      setState(() {
+        _userName =
+            user.userMetadata?['full_name'] as String? ??
+            user.userMetadata?['name'] as String? ??
+            user.email?.split('@').first ??
+            'Cliente';
+        _userEmail = user.email;
+        _userPhone = user.userMetadata?['phone'] as String?;
+      });
+
+      final profileResponse = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name, phone')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (profileResponse != null && mounted) {
+        setState(() {
+          _userName = profileResponse['full_name'] as String? ?? _userName;
+          _userPhone = profileResponse['phone'] as String? ?? _userPhone;
+        });
+      }
+    } catch (_) {}
+  }
+
+  BoldBuyerData? _buildBuyerData() {
+    if (_userName == null || _userEmail == null) return null;
+
+    return BoldBuyerData(
+      name: _userName!,
+      email: _userEmail!,
+      phone: _userPhone,
+    );
   }
 
   Future<void> _loadDefaultAddress() async {
@@ -139,31 +187,6 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
       return;
     }
 
-    final shopStatus = ref.read(shopStatusProvider(selectedShop.id));
-    if (!shopStatus.canOrder) {
-      String message =
-          shopStatus.message ??
-          'El comercio no acepta pedidos en este momento.';
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text('Comercio no disponible'),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Entendido'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
     final sanitizedAddress = _addressController.text.trim();
     final sanitizedNotes = _notesController.text.trim().isEmpty
         ? null
@@ -206,9 +229,11 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
   }
 
   Future<void> _processBoldPayment(List<CartItem> cartItems) async {
+    final buyerData = _buildBuyerData();
+
     final checkoutData = await ref
         .read(checkoutProvider.notifier)
-        .prepareBoldCheckout(cartItems: cartItems);
+        .prepareBoldCheckout(cartItems: cartItems, buyer: buyerData);
 
     if (!mounted) return;
 
@@ -285,7 +310,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
     final checkoutState = ref.watch(checkoutProvider);
 
     final subtotal = checkoutState.subtotal(cartState.items);
-    final total = checkoutState.total(cartState.items);
+    final grandTotal = checkoutState.grandTotal(cartState.items);
 
     return Container(
       decoration: const BoxDecoration(
@@ -345,7 +370,7 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
                   _buildPaymentSection(checkoutState),
                   const SizedBox(height: 24),
 
-                  _buildPaymentSummary(subtotal, total),
+                  _buildPaymentSummary(subtotal, grandTotal),
                   const SizedBox(height: 32),
 
                   CustomButton(
@@ -379,7 +404,33 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
     );
   }
 
+  void _onPlaceSelected(String placeId, String description) async {
+    FocusScope.of(context).unfocus();
+    _addressController.text = description;
+
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'get-place-details',
+        body: {'placeId': placeId},
+      );
+      if (response.data != null && mounted) {
+        final lat = response.data['lat'] as double?;
+        final lng = response.data['lng'] as double?;
+        if (lat != null && lng != null) {
+          _currentLocation = LocationResult(
+            latitude: lat,
+            longitude: lng,
+            timestamp: DateTime.now(),
+          );
+        }
+      }
+    } catch (e) {
+      // Silently fail - address still saved
+    }
+  }
+
   Widget _buildDeliverySection() {
+    final apiKey = dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '';
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -398,15 +449,49 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
           Row(
             children: [
               Expanded(
-                child: CustomTextField(
-                  controller: _addressController,
-                  hintText: 'Ej: Calle Principal 123',
-                  prefixIcon: Icons.location_on_rounded,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Por favor ingresa tu dirección';
+                child: GooglePlaceAutoCompleteTextField(
+                  textEditingController: _addressController,
+                  googleAPIKey: apiKey,
+                  inputDecoration: InputDecoration(
+                    hintText: 'Buscar dirección...',
+                    prefixIcon: const Icon(Icons.location_on_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.primaryColor,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                  debounceTime: 400,
+                  isLatLngRequired: false,
+                  getPlaceDetailWithLatLng: (p) {},
+                  itemClick: (prediction) {
+                    _addressController.text = prediction.description ?? '';
+                    _addressController.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _addressController.text.length),
+                    );
+                    FocusScope.of(context).unfocus();
+                    if (prediction.placeId != null) {
+                      _onPlaceSelected(
+                        prediction.placeId!,
+                        prediction.description ?? '',
+                      );
                     }
-                    return null;
                   },
                 ),
               ),
@@ -661,12 +746,10 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      '\$${(item.price * item.quantity).toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                      ),
+                    PriceText(
+                      price: item.price * item.quantity,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
                     ),
                   ],
                 ),
@@ -677,8 +760,12 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
     );
   }
 
-  Widget _buildPaymentSummary(double subtotal, double total) {
+  Widget _buildPaymentSummary(double subtotal, double grandTotal) {
     final checkoutState = ref.watch(checkoutProvider);
+    final ivaAmount = checkoutState.ivaAmount(ref.read(cartProvider).items);
+    final commerceFee = checkoutState.commerceFeeAmount;
+    final commerceFeeLabel = checkoutState.commerceFeeLabel;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -692,17 +779,27 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
         children: [
           _RowSummary(
             label: 'Subtotal',
-            value: '\$${subtotal.toStringAsFixed(2)}',
+            child: PriceText(price: subtotal),
+          ),
+          const SizedBox(height: 8),
+          _RowSummary(
+            label: 'IVA (${checkoutState.ivaPercentage.toStringAsFixed(0)}%)',
+            child: PriceText(price: ivaAmount),
+          ),
+          const SizedBox(height: 8),
+          _RowSummary(
+            label: commerceFeeLabel,
+            child: PriceText(price: commerceFee),
           ),
           const SizedBox(height: 8),
           _RowSummary(
             label: 'Tarifa de envío',
-            value: '\$${kDeliveryFee.toStringAsFixed(2)}',
+            child: PriceText(price: kDeliveryFee),
           ),
           const SizedBox(height: 8),
           _RowSummary(
             label: 'Propina',
-            value: '\$${checkoutState.selectedTip.toStringAsFixed(2)}',
+            child: PriceText(price: checkoutState.selectedTip),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
@@ -712,16 +809,14 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Total Final',
+                'Total a Pagar',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
-              Text(
-                '\$${total.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primaryColor,
-                ),
+              PriceText(
+                price: grandTotal,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primaryColor,
               ),
             ],
           ),
@@ -733,8 +828,8 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
 
 class _RowSummary extends StatelessWidget {
   final String label;
-  final String value;
-  const _RowSummary({required this.label, required this.value});
+  final Widget child;
+  const _RowSummary({required this.label, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -749,10 +844,7 @@ class _RowSummary extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        ),
+        child,
       ],
     );
   }

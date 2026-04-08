@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/core/services/region_config_service.dart';
 import 'package:flutter_app/presentation/provider/order_confirmation_provider.dart';
 import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
@@ -206,13 +207,15 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
                                       ),
                                     ),
                                     Text(
-                                      '${item.quantity} x \$${item.priceAtPurchase.toStringAsFixed(2)}',
+                                      '${item.quantity} x ${RegionConfigService.defaultConfig.formatPrice(item.priceAtPurchase)}',
                                     ),
                                   ],
                                 ),
                               ),
                               Text(
-                                '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}',
+                                RegionConfigService.defaultConfig.formatPrice(
+                                  item.quantity * item.priceAtPurchase,
+                                ),
                               ),
                             ],
                           ),
@@ -321,7 +324,11 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
                     SnackBar(
                       content: const Row(
                         children: [
-                          Icon(Icons.check_circle, color: Colors.white, size: 20),
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
                           Text('Código copiado'),
                         ],

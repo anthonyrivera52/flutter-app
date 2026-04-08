@@ -54,6 +54,32 @@ class _BoldPaymentSheetContentState extends State<_BoldPaymentSheetContent> {
 
   void _initWebView() {
     final d = widget.checkoutData;
+    final buyer = d.buyer;
+
+    String buyerAttributes = '';
+    if (buyer != null) {
+      final escapedName = _escapeHtml(buyer.name);
+      final escapedEmail = _escapeHtml(buyer.email);
+      buyerAttributes =
+          '''
+    data-buyer-name="$escapedName"
+    data-buyer-email="$escapedEmail"
+''';
+      if (buyer.phone != null) {
+        buyerAttributes +=
+            '    data-buyer-phone="${_escapeHtml(buyer.phone!)}"\n';
+      }
+      if (buyer.documentType != null) {
+        buyerAttributes +=
+            '    data-buyer-document-type="${_escapeHtml(buyer.documentType!)}"\n';
+      }
+      if (buyer.documentNumber != null) {
+        buyerAttributes +=
+            '    data-buyer-document-number="${_escapeHtml(buyer.documentNumber!)}"\n';
+      }
+    }
+
+    final escapedDescription = _escapeHtml(d.description);
 
     final html =
         '''
@@ -72,9 +98,34 @@ class _BoldPaymentSheetContentState extends State<_BoldPaymentSheetContent> {
       background: #f8f9fa;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     }
+    .checkout-summary {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      background: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      z-index: 100;
+    }
+    .checkout-summary .amount {
+      font-size: 20px;
+      font-weight: bold;
+      color: #1a1a1a;
+    }
+    .checkout-summary .description {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
+  <div class="checkout-summary">
+    <div class="amount">${d.currency} \$${_formatAmount(d.amount)}</div>
+    <div class="description">$escapedDescription</div>
+  </div>
   <script
     data-bold-button
     data-render-mode="embedded"
@@ -84,8 +135,8 @@ class _BoldPaymentSheetContentState extends State<_BoldPaymentSheetContent> {
     data-amount="${d.amount}"
     data-integrity-signature="${d.integritySignature}"
     data-redirection-url="${d.redirectionUrl}"
-    data-description="${d.description}"
-  ></script>
+    data-description="$escapedDescription"
+$buyerAttributes  ></script>
 </body>
 </html>
 ''';
@@ -138,6 +189,23 @@ class _BoldPaymentSheetContentState extends State<_BoldPaymentSheetContent> {
         ),
       );
     }
+  }
+
+  String _escapeHtml(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+  }
+
+  String _formatAmount(int amountInCents) {
+    final amount = amountInCents / 100;
+    if (amount == amount.roundToDouble()) {
+      return amount.toStringAsFixed(0);
+    }
+    return amount.toStringAsFixed(2);
   }
 
   @override

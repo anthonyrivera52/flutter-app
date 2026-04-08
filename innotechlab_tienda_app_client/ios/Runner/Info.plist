@@ -53,9 +53,30 @@
 	<string>Esta aplicación necesita acceso a tu ubicación para poder mostrarte opciones de entrega cercanas y para la dirección de envío.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Esta aplicación necesita acceso a la cámara para poder tomar fotos de tu perfil.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Esta aplicación necesita acceso a tu galería para poder subir fotos de tu perfil.</string>
-	<key>GOOGLE_MAPS_API_KEY</key>
-	<string>$(GOOGLE_PLACES_API_KEY)</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Esta aplicación necesita acceso a tu galería para poder subir fotos de tu perfil.</string>
+<key>GOOGLE_MAPS_API_KEY</key>
+<string>$(GOOGLE_PLACES_API_KEY)</string>
+<key>UIApplicationSceneManifest</key>
+<dict>
+	<key>UIApplicationSupportsMultipleScenes</key>
+	<false/>
+	<key>UISceneConfigurations</key>
+	<dict>
+		<key>UIWindowSceneSessionRoleApplication</key>
+		<array>
+			<dict>
+				<key>UISceneClassName</key>
+				<string>UIWindowScene</string>
+				<key>UISceneDelegateClassName</key>
+				<string>FlutterSceneDelegate</string>
+				<key>UISceneConfigurationName</key>
+				<string>flutter</string>
+				<key>UISceneStoryboardFile</key>
+				<string>Main</string>
+			</dict>
+		</array>
+	</dict>
+</dict>
 </dict>
 </plist>

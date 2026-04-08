@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/core/services/region_config_service.dart';
 import 'package:flutter_app/features/orders/domain/models/order_entity.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/driver_tracking_provider.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
@@ -337,7 +338,9 @@ class _OrderDetailsPageState extends ConsumerState<OrderDetailsPage> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               Text(
-                '\$${order.totalAmount.toStringAsFixed(2)}',
+                RegionConfigService.defaultConfig.formatPrice(
+                  order.totalAmount,
+                ),
                 style: const TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 20,
@@ -546,14 +549,16 @@ class _OrderItemRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${item.quantity} un. x \$${item.priceAtPurchase.toStringAsFixed(2)}',
+                  '${item.quantity} un. x ${RegionConfigService.defaultConfig.formatPrice(item.priceAtPurchase)}',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                 ),
               ],
             ),
           ),
           Text(
-            '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}',
+            RegionConfigService.defaultConfig.formatPrice(
+              item.quantity * item.priceAtPurchase,
+            ),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ],
@@ -586,7 +591,7 @@ class _PayDetailRow extends StatelessWidget {
           style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
         ),
         Text(
-          '\$${value.toStringAsFixed(2)}',
+          RegionConfigService.defaultConfig.formatPrice(value),
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/core/services/region_config_service.dart';
 import 'package:flutter_app/features/orders/domain/models/order_entity.dart'
     show AppOrder;
 import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
@@ -103,7 +104,7 @@ class _OrderHeader extends StatelessWidget {
         const SizedBox(height: 4),
         Text(formattedDate),
         Text(
-          'Total: \$${order.totalAmount.toStringAsFixed(2)}',
+          'Total: ${RegionConfigService.defaultConfig.formatPrice(order.totalAmount)}',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         Text('Entrega: ${order.shippingAddress}'),
@@ -245,7 +246,9 @@ class _PaymentBreakdown extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
-                  '\$${order.totalAmount.toStringAsFixed(2)}',
+                  RegionConfigService.defaultConfig.formatPrice(
+                    order.totalAmount,
+                  ),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -270,7 +273,10 @@ class _PaymentBreakdown extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 4),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(label), Text('\$${amount.toStringAsFixed(2)}')],
+      children: [
+        Text(label),
+        Text(RegionConfigService.defaultConfig.formatPrice(amount)),
+      ],
     ),
   );
 
@@ -397,10 +403,12 @@ class _ItemsList extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               subtitle: Text(
-                '${item.quantity} x \$${item.priceAtPurchase.toStringAsFixed(2)}',
+                '${item.quantity} x ${RegionConfigService.defaultConfig.formatPrice(item.priceAtPurchase)}',
               ),
               trailing: Text(
-                '\$${(item.quantity * item.priceAtPurchase).toStringAsFixed(2)}',
+                RegionConfigService.defaultConfig.formatPrice(
+                  item.quantity * item.priceAtPurchase,
+                ),
               ),
             ),
           ),

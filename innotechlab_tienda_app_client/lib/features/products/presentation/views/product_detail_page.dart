@@ -2,6 +2,7 @@ import 'package:badges/badges.dart' as badges;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/core/services/region_config_service.dart';
 import 'package:flutter_app/features/cart/presentation/viewmodels/cart_viewmodel.dart';
 import 'package:flutter_app/features/products/presentation/viewmodels/product_detail_viewmodel.dart';
 import 'package:flutter_app/presentation/pages/cart/cart_page.dart';
@@ -117,7 +118,9 @@ class ProductDetailsPage extends ConsumerWidget {
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: Text(
-                              '\$${product.price.toStringAsFixed(2)}',
+                              RegionConfigService.defaultConfig.formatPrice(
+                                product.price,
+                              ),
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
                                     decoration: TextDecoration.lineThrough,
@@ -126,7 +129,9 @@ class ProductDetailsPage extends ConsumerWidget {
                             ),
                           ),
                         Text(
-                          '\$${displayPrice.toStringAsFixed(2)}',
+                          RegionConfigService.defaultConfig.formatPrice(
+                            displayPrice,
+                          ),
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
                                 color: AppColors.secondaryDarkColor,

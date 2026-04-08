@@ -8,6 +8,7 @@ import 'package:flutter_app/features/products/domain/models/location_hour.dart';
 import 'package:flutter_app/features/cart/presentation/viewmodels/cart_viewmodel.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/presentation/widget/common/schedule_dialog.dart';
+import 'package:flutter_app/presentation/widget/common/price_display.dart';
 import 'package:go_router/go_router.dart';
 
 class ShopPanelWidget extends ConsumerStatefulWidget {
@@ -223,9 +224,54 @@ class _ShopPanelWidgetState extends ConsumerState<ShopPanelWidget> {
             ],
           ),
           _buildChannelsRow(),
+          _buildChannelsWarning(),
         ],
       ),
     );
+  }
+
+  Widget _buildChannelsWarning() {
+    if (widget.shop.isOpen) {
+      final hasActiveDelivery =
+          widget.shop.deliveryStatus == ShopDeliveryStatus.active ||
+          widget.shop.deliveryStatus == ShopDeliveryStatus.waiting;
+      final hasActivePickup =
+          widget.shop.pickupStatus == ShopDeliveryStatus.active ||
+          widget.shop.pickupStatus == ShopDeliveryStatus.waiting;
+
+      if (!hasActiveDelivery && !hasActivePickup) {
+        return Container(
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.amber.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 20,
+                color: Colors.amber.shade700,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'El delivery y pickup están cerrados actualmente.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.amber.shade900,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _buildChannelsRow() {
@@ -506,13 +552,7 @@ class _ShopPanelWidgetState extends ConsumerState<ShopPanelWidget> {
           product: product,
           ref: ref,
           onTap: () {
-            final isShopOpen = widget.shop.isOpen;
-            final hasActiveChannels =
-                (widget.shop.deliveryStatus == ShopDeliveryStatus.active ||
-                    widget.shop.deliveryStatus == ShopDeliveryStatus.waiting) ||
-                (widget.shop.pickupStatus == ShopDeliveryStatus.active ||
-                    widget.shop.pickupStatus == ShopDeliveryStatus.waiting);
-            final canViewDetail = isShopOpen && hasActiveChannels;
+            final validation = CartNotifier.validateShopForCart(widget.shop);
 
             if (widget.isViewOnly) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -523,14 +563,10 @@ class _ShopPanelWidgetState extends ConsumerState<ShopPanelWidget> {
                   duration: Duration(seconds: 2),
                 ),
               );
-            } else if (!canViewDetail) {
+            } else if (!validation.canAddToCart) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    !isShopOpen
-                        ? 'El comercio está cerrado. No se puede ver el detalle.'
-                        : 'El comercio no tiene canales de atención activos.',
-                  ),
+                  content: Text(validation.message),
                   backgroundColor: Colors.orange.shade800,
                   duration: const Duration(seconds: 3),
                 ),
@@ -679,31 +715,24 @@ class _ProductCard extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (hasDiscount)
-                                Text(
-                                  '\$${product.discountedPrice!.toStringAsFixed(0)}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryColor,
-                                  ),
+                                PriceText(
+                                  price: product.discountedPrice!,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryColor,
                                 )
                               else
-                                Text(
-                                  '\$${product.price.toStringAsFixed(0)}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryColor,
-                                  ),
+                                PriceText(
+                                  price: product.price,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryColor,
                                 ),
                               if (hasDiscount)
-                                Text(
-                                  '\$${product.price.toStringAsFixed(0)}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey.shade500,
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
+                                PriceText(
+                                  price: product.price,
+                                  fontSize: 10,
+                                  color: Colors.grey.shade500,
                                 ),
                               Text(
                                 product.unit,

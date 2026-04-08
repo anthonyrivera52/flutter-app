@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
 import 'package:flutter_app/features/cart/domain/models/cart_item_entity.dart';
+import 'package:flutter_app/presentation/widget/common/price_display.dart';
 
 class CartItemCard extends StatelessWidget {
   final CartItem item;
@@ -41,9 +42,7 @@ class CartItemCard extends StatelessWidget {
               // Product Image
               Container(
                 width: 100,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                ),
+                decoration: BoxDecoration(color: Colors.grey.shade50),
                 child: Hero(
                   tag: 'product_image_${item.productId}',
                   child: CachedNetworkImage(
@@ -55,15 +54,20 @@ class CartItemCard extends StatelessWidget {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryColor.withOpacity(0.3)),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primaryColor.withOpacity(0.3),
+                          ),
                         ),
                       ),
                     ),
-                    errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                    errorWidget: (context, url, error) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
               ),
-              
+
               // Product Details
               Expanded(
                 child: Padding(
@@ -88,31 +92,39 @@ class CartItemCard extends StatelessWidget {
                           ),
                           GestureDetector(
                             onTap: onRemove,
-                            child: Icon(Icons.close_rounded, size: 18, color: Colors.grey.shade400),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: Colors.grey.shade400,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Unidad: \$${item.price.toStringAsFixed(2)}',
+                        'Unidad: ',
                         style: TextStyle(
                           color: Colors.grey.shade500,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      PriceText(
+                        price: item.price,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade500,
+                      ),
                       const Spacer(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            '\$${(item.price * item.quantity).toStringAsFixed(2)}',
-                            style: TextStyle(
-                              color: AppColors.primaryColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 17,
-                            ),
+                          PriceText(
+                            price: item.price * item.quantity,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17,
+                            color: AppColors.primaryColor,
                           ),
                           _QuantitySelector(
                             quantity: item.quantity,
@@ -164,10 +176,7 @@ class _QuantitySelector extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(
               quantity.toString(),
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
             ),
           ),
           _ActionButton(
@@ -204,13 +213,15 @@ class _ActionButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: isSecondary ? Colors.white : AppColors.primaryColor,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: isSecondary ? null : [
-              BoxShadow(
-                color: AppColors.primaryColor.withOpacity(0.3),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: isSecondary
+                ? null
+                : [
+                    BoxShadow(
+                      color: AppColors.primaryColor.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Icon(
             icon,
