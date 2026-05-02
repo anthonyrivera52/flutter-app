@@ -60,3 +60,6 @@ app.*.map.json
 
 pubspec.lock
 
+.env.development
+.env.production
+.env.local
