@@ -5,15 +5,9 @@ import 'package:flutter_app/features/orders/domain/models/order_entity.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/driver_tracking_provider.dart';
 import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'
-    show
-        GoogleMap,
-        Marker,
-        MarkerId,
-        BitmapDescriptor,
-        CameraPosition,
-        InfoWindow,
-        LatLng;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_app/shared/ui/map/osm_map_service.dart';
 import 'package:intl/intl.dart';
 
 class OrderDetailsPage extends ConsumerStatefulWidget {
@@ -769,7 +763,7 @@ class _OrderMapSection extends ConsumerWidget {
         ? ref.watch(driverTrackingProvider(order.driverId!))
         : null;
 
-    // Convert from latlong2 to google_maps LatLng
+    // Convert from latlong2 to OSM LatLng
     final driverPosition = driverLocAsync?.valueOrNull != null
         ? LatLng(
             driverLocAsync!.valueOrNull!.latitude,
@@ -777,27 +771,52 @@ class _OrderMapSection extends ConsumerWidget {
           )
         : null;
 
-    final markers = <Marker>{
+    final markers = <Marker>[
       Marker(
-        markerId: const MarkerId('u'),
-        position: userLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        point: userLocation,
+        width: 40,
+        height: 40,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.blue,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: const Icon(Icons.home, color: Colors.white, size: 20),
+        ),
       ),
       Marker(
-        markerId: const MarkerId('s'),
-        position: storeLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        point: storeLocation,
+        width: 40,
+        height: 40,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.red,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: const Icon(Icons.store, color: Colors.white, size: 20),
+        ),
       ),
       if (driverPosition != null)
         Marker(
-          markerId: const MarkerId('driver'),
-          position: driverPosition,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen,
+          point: driverPosition,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(
+              Icons.delivery_dining,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
-          infoWindow: InfoWindow(title: order.driverName ?? 'Repartidor'),
         ),
-    };
+    ];
 
     final center =
         driverPosition ??
@@ -812,11 +831,17 @@ class _OrderMapSection extends ConsumerWidget {
         height: 200,
         child: Stack(
           children: [
-            GoogleMap(
-              initialCameraPosition: CameraPosition(target: center, zoom: 13),
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              markers: markers,
+            FlutterMap(
+              options: MapOptions(
+                initialCenter: center,
+                initialZoom: 13,
+                minZoom: 3,
+                maxZoom: 18,
+              ),
+              children: [
+                OSMMapService().createTileLayer(),
+                MarkerLayer(markers: markers),
+              ],
             ),
             if (driverPosition != null)
               Positioned(

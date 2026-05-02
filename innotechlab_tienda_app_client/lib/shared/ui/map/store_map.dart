@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlong;
-import 'package:flutter_app/shared/ui/map/google_map_service.dart';
+import 'package:flutter_app/shared/ui/map/osm_map_service.dart';
 import 'package:flutter_app/shared/ui/map/shop_marker.dart';
 
 class StoreMapWidget extends StatefulWidget {
@@ -35,16 +35,31 @@ class StoreMapWidget extends StatefulWidget {
 }
 
 class _StoreMapWidgetState extends State<StoreMapWidget> {
-  late final GoogleMapService _mapService;
-  late final GoogleMapController _mapController;
+  late final OSMMapService _mapService;
+  late final MapController _mapController;
+  List<Marker> _markers = [];
   bool _hasAnimated = false;
-  Set<Marker> _markers = {};
 
   @override
   void initState() {
     super.initState();
-    _mapService = GoogleMapService();
+    _mapService = OSMMapService();
+    _mapController = _mapService.mapController;
     _loadMarkers();
+  }
+
+  @override
+  void didUpdateWidget(StoreMapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.shops != widget.shops ||
+        oldWidget.selectedShopId != widget.selectedShopId ||
+        oldWidget.userLocation != widget.userLocation) {
+      _loadMarkers();
+    }
+
+    if (!_hasAnimated && widget.fitBoundsToShops && _openShops.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+    }
   }
 
   @override
@@ -53,40 +68,89 @@ class _StoreMapWidgetState extends State<StoreMapWidget> {
     super.dispose();
   }
 
-  Future<void> _loadMarkers() async {
-    final Set<Marker> markers = {};
+  List<ShopMarkerData> get _openShops {
+    return widget.shops.where((s) => s.isOpen).toList();
+  }
 
-    // Add user location marker if enabled and available
+  void _loadMarkers() {
+    final List<Marker> markers = [];
+
     if (widget.showUserLocation && widget.userLocation != null) {
-      final userMarkerIcon = await _mapService.createMarkerIconFromAsset(
-        'assets/icons/user_location.png',
-      );
-
-      markers.add(
-        Marker(
-          markerId: const MarkerId('user_location'),
-          position: LatLng(
-            widget.userLocation!.latitude,
-            widget.userLocation!.longitude,
-          ),
-          icon: userMarkerIcon,
-        ),
-      );
+      markers.add(OSMMarker.createUserMarker(widget.userLocation!));
     }
 
-    // Add shop markers
-    for (final shop in widget.shops) {
+    for (final shop in _openShops) {
       final isSelected = shop.id == widget.selectedShopId;
-      final shopMarkerIcon = await _mapService.createMarkerIconFromAsset(
-        'assets/icons/shop_marker.png',
-      );
 
       markers.add(
         Marker(
-          markerId: MarkerId('shop_${shop.id}'),
-          position: LatLng(shop.position.latitude, shop.position.longitude),
-          icon: shopMarkerIcon,
-          onTap: () => widget.onShopSelected?.call(shop),
+          point: latlong.LatLng(
+            shop.position.latitude,
+            shop.position.longitude,
+          ),
+          width: isSelected ? 52 : 44,
+          height: 60,
+          child: GestureDetector(
+            onTap: () => widget.onShopSelected?.call(shop),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: isSelected ? 52 : 44,
+                  height: isSelected ? 52 : 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? Colors.blue : Colors.grey,
+                      width: isSelected ? 3 : 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: shop.logoUrl != null && shop.logoUrl!.isNotEmpty
+                      ? ClipOval(
+                          child: Image.network(
+                            shop.logoUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.store,
+                              color: Colors.grey,
+                              size: 22,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.store, color: Colors.grey, size: 22),
+                ),
+                if (shop.distanceKm != null) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Colors.blue : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${shop.distanceKm!.toStringAsFixed(1)} km',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -97,185 +161,69 @@ class _StoreMapWidgetState extends State<StoreMapWidget> {
   }
 
   void _fitBounds() {
-    if (widget.shops.isEmpty) return;
+    if (_markers.isEmpty) return;
 
-    // Initialize bounds with extreme values
-    double minLat = double.infinity;
-    double minLng = double.infinity;
-    double maxLat = -double.infinity;
-    double maxLng = -double.infinity;
+    final allPoints = _markers.map((m) => m.point).toList();
+    if (allPoints.isEmpty) return;
 
-    // Process shop locations
-    for (final shop in widget.shops) {
-      final lat = shop.position.latitude;
-      final lng = shop.position.longitude;
-      if (lat < minLat) minLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lat > maxLat) maxLat = lat;
-      if (lng > maxLng) maxLng = lng;
-    }
-
-    // Process user location if available
-    if (widget.userLocation != null) {
-      final lat = widget.userLocation!.latitude;
-      final lng = widget.userLocation!.longitude;
-      if (lat < minLat) minLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lat > maxLat) maxLat = lat;
-      if (lng > maxLng) maxLng = lng;
-    }
-
-    // Check if we have any valid points
-    if (minLat == double.infinity) {
-      return; // No valid points to fit
-    }
-
-    final bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
-
-    _mapController.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        bounds,
-        80.0, // padding as double
-      ),
-      duration: const Duration(milliseconds: 500),
+    final bounds = OfflineMapHelper.calculateBounds(allPoints);
+    _mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
     );
     _hasAnimated = true;
-  }
-
-  @override
-  void didUpdateWidget(StoreMapWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_hasAnimated && widget.fitBoundsToShops && widget.shops.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
-    }
-
-    // Reload markers if shops or selected shop changed
-    if (oldWidget.shops != widget.shops ||
-        oldWidget.selectedShopId != widget.selectedShopId) {
-      _loadMarkers();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: widget.initialCenter != null
-                ? LatLng(
-                    widget.initialCenter!.latitude,
-                    widget.initialCenter!.longitude,
-                  )
-                : widget.userLocation != null
-                ? LatLng(
-                    widget.userLocation!.latitude,
-                    widget.userLocation!.longitude,
-                  )
-                : const LatLng(0, 0),
-            zoom: widget.initialZoom,
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter:
+                widget.initialCenter ??
+                widget.userLocation ??
+                const latlong.LatLng(4.7110, -74.0721),
+            initialZoom: widget.initialZoom,
+            minZoom: 3,
+            maxZoom: 18,
+            onTap: (tapPosition, point) => widget.onMapTap?.call(point),
           ),
-          onMapCreated: (controller) {
-            _mapController = controller;
-            if (widget.fitBoundsToShops && widget.shops.isNotEmpty) {
-              _fitBounds();
-            }
-          },
-          onTap: (position) => widget.onMapTap?.call(
-            latlong.LatLng(position.latitude, position.longitude),
-          ),
-          markers: _markers,
-          myLocationEnabled: widget.showUserLocation,
-          myLocationButtonEnabled: false, // We'll use custom controls
-          zoomControlsEnabled: false,
-          mapType: MapType.normal,
-          // Performance optimizations
-          indoorViewEnabled: false,
-          trafficEnabled: false,
+          children: [
+            _mapService.createTileLayer(),
+            MarkerLayer(markers: _markers),
+          ],
         ),
         if (widget.showControls)
           Positioned(
             right: 12,
             bottom: 12,
-            child: _MapControls(
-              mapController: _mapController,
-              userLocation: widget.userLocation,
-              boundsToFit: widget.shops.isNotEmpty
-                  ? LatLngBounds(
-                      southwest: LatLng(
-                        widget.shops
-                            .map((s) => s.position.latitude)
-                            .reduce((a, b) => a < b ? a : b),
-                        widget.shops
-                            .map((s) => s.position.longitude)
-                            .reduce((a, b) => a < b ? a : b),
-                      ),
-                      northeast: LatLng(
-                        widget.shops
-                            .map((s) => s.position.latitude)
-                            .reduce((a, b) => a > b ? a : b),
-                        widget.shops
-                            .map((s) => s.position.longitude)
-                            .reduce((a, b) => a > b ? a : b),
-                      ),
-                    )
-                  : null,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.userLocation != null)
+                  FloatingActionButton.small(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.green,
+                    onPressed: () {
+                      _mapController.move(
+                        widget.userLocation!,
+                        _mapController.camera.zoom,
+                      );
+                    },
+                    child: const Icon(Icons.my_location),
+                  ),
+                if (widget.fitBoundsToShops && _openShops.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.blue,
+                    onPressed: _fitBounds,
+                    child: const Icon(Icons.map),
+                  ),
+                ],
+              ],
             ),
-          ),
-      ],
-    );
-  }
-}
-
-class _MapControls extends StatelessWidget {
-  final GoogleMapController mapController;
-  final latlong.LatLng? userLocation;
-  final LatLngBounds? boundsToFit;
-
-  const _MapControls({
-    required this.mapController,
-    this.userLocation,
-    this.boundsToFit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // My location button
-        if (userLocation != null)
-          FloatingActionButton.small(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.green,
-            onPressed: () {
-              mapController.animateCamera(
-                CameraUpdate.newLatLng(
-                  LatLng(userLocation!.latitude, userLocation!.longitude),
-                ),
-                duration: const Duration(milliseconds: 300),
-              );
-            },
-            child: const Icon(Icons.my_location),
-          ),
-        // Fit bounds button
-        if (boundsToFit != null)
-          FloatingActionButton.small(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.blue,
-            onPressed: () {
-              mapController.animateCamera(
-                CameraUpdate.newLatLngBounds(
-                  boundsToFit!,
-                  50.0, // padding as double
-                ),
-                duration: const Duration(milliseconds: 500),
-              );
-            },
-            child: const Icon(Icons.map),
           ),
       ],
     );

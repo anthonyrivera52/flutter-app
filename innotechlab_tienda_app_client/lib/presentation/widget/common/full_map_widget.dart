@@ -1,8 +1,9 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter_app/features/products/domain/models/shop_entity.dart';
 import 'package:flutter_app/core/utils/app_colors.dart';
+import 'package:flutter_app/shared/ui/map/osm_map_service.dart';
 
 class FullMapWidget extends StatefulWidget {
   final List<ShopDistance> nearbyShops;
@@ -25,62 +26,16 @@ class FullMapWidget extends StatefulWidget {
 }
 
 class _FullMapWidgetState extends State<FullMapWidget> {
-  GoogleMapController? _mapController;
+  late final OSMMapService _mapService;
+  late final MapController _mapController;
+  List<Marker> _markers = [];
   bool _hasAnimated = false;
-  final Set<Marker> _markers = {};
-  final Map<String, BitmapDescriptor> _markerCache = {};
 
   @override
-  void dispose() {
-    _mapController?.dispose();
-    super.dispose();
-  }
-
-  void _fitBounds() {
-    if (!mounted) return;
-    if (widget.nearbyShops.isEmpty) return;
-
-    final shopLocations = widget.nearbyShops
-        .map((sd) => LatLng(sd.shop.latitude, sd.shop.longitude))
-        .toList();
-
-    if (widget.userLatitude != 0 && widget.userLongitude != 0) {
-      shopLocations.add(LatLng(widget.userLatitude, widget.userLongitude));
-    }
-
-    if (shopLocations.isEmpty || _mapController == null) return;
-
-    if (shopLocations.length == 1) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(shopLocations.first, 15),
-      );
-      setState(() => _hasAnimated = true);
-      return;
-    }
-
-    double minLat = shopLocations.first.latitude;
-    double maxLat = shopLocations.first.latitude;
-    double minLng = shopLocations.first.longitude;
-    double maxLng = shopLocations.first.longitude;
-
-    for (final loc in shopLocations) {
-      if (loc.latitude < minLat) minLat = loc.latitude;
-      if (loc.latitude > maxLat) maxLat = loc.latitude;
-      if (loc.longitude < minLng) minLng = loc.longitude;
-      if (loc.longitude > maxLng) maxLng = loc.longitude;
-    }
-
-    final bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
-
-    _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
-    setState(() => _hasAnimated = true);
-  }
-
-  void _animateToLocation(LatLng point, double zoom) {
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(point, zoom));
+  void initState() {
+    super.initState();
+    _mapService = OSMMapService();
+    _mapController = _mapService.mapController;
   }
 
   @override
@@ -95,7 +50,7 @@ class _FullMapWidgetState extends State<FullMapWidget> {
     if (widget.selectedShop != null &&
         widget.selectedShop?.id != oldWidget.selectedShop?.id) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _animateToLocation(
+        _mapController.move(
           LatLng(widget.selectedShop!.latitude, widget.selectedShop!.longitude),
           16,
         );
@@ -118,230 +73,113 @@ class _FullMapWidgetState extends State<FullMapWidget> {
     }
   }
 
-  Future<BitmapDescriptor> _createShopMarker({
-    required String logoUrl,
-    required double distanceKm,
-    required bool isSelected,
-  }) async {
-    final cacheKey =
-        'shop_${logoUrl.hashCode}_${distanceKm.toStringAsFixed(1)}_$isSelected';
-
-    if (_markerCache.containsKey(cacheKey)) {
-      return _markerCache[cacheKey]!;
-    }
-
-    const double markerWidth = 60;
-    const double markerHeight = 85;
-    const double circleSize = 44;
-    const double badgeHeight = 20;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-
-    // Draw shadow
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.2)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    canvas.drawCircle(
-      const Offset(markerWidth / 2, circleSize / 2 + 3),
-      circleSize / 2 + 2,
-      shadowPaint,
-    );
-
-    // Draw distance badge
-    final badgeRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH((markerWidth - 50) / 2, circleSize + 8, 50, badgeHeight),
-      const Radius.circular(10),
-    );
-    final badgePaint = Paint()
-      ..color = isSelected ? AppColors.primaryColor : Colors.white;
-    canvas.drawRRect(badgeRect, badgePaint);
-
-    // Draw badge text
-    final textSpan = TextSpan(
-      text: '${distanceKm.toStringAsFixed(1)} km',
-      style: TextStyle(
-        color: isSelected ? Colors.white : Colors.black87,
-        fontSize: 10,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        (markerWidth - textPainter.width) / 2,
-        circleSize + 10 + (badgeHeight - textPainter.height) / 2,
-      ),
-    );
-
-    // Draw circle background
-    final circlePaint = Paint()..color = Colors.white;
-    canvas.drawCircle(
-      Offset(markerWidth / 2, circleSize / 2),
-      circleSize / 2,
-      circlePaint,
-    );
-
-    // Draw circle border
-    final borderPaint = Paint()
-      ..color = isSelected ? AppColors.primaryColor : Colors.grey.shade400
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isSelected ? 3 : 2;
-    canvas.drawCircle(
-      Offset(markerWidth / 2, circleSize / 2),
-      circleSize / 2 - 1,
-      borderPaint,
-    );
-
-    // Draw store icon
-    final iconPaint = Paint()..color = Colors.grey.shade600;
-    final iconCenter = Offset(markerWidth / 2, circleSize / 2);
-    final iconSize = 20.0;
-    final path = Path();
-    path.moveTo(iconCenter.dx - iconSize / 2, iconCenter.dy + iconSize / 3);
-    path.lineTo(iconCenter.dx - iconSize / 2, iconCenter.dy - iconSize / 3);
-    path.lineTo(iconCenter.dx - iconSize / 4, iconCenter.dy - iconSize / 3);
-    path.lineTo(iconCenter.dx - iconSize / 4, iconCenter.dy - iconSize / 2);
-    path.lineTo(iconCenter.dx + iconSize / 4, iconCenter.dy - iconSize / 2);
-    path.lineTo(iconCenter.dx + iconSize / 4, iconCenter.dy - iconSize / 3);
-    path.lineTo(iconCenter.dx + iconSize / 2, iconCenter.dy - iconSize / 3);
-    path.lineTo(iconCenter.dx + iconSize / 2, iconCenter.dy + iconSize / 3);
-    path.close();
-    canvas.drawPath(path, iconPaint);
-
-    final image = await recorder.endRecording().toImage(
-      markerWidth.toInt(),
-      markerHeight.toInt(),
-    );
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    final bytes = byteData!.buffer.asUint8List();
-
-    final descriptor = BitmapDescriptor.bytes(bytes);
-    _markerCache[cacheKey] = descriptor;
-    return descriptor;
+  List<ShopDistance> get _openShops {
+    return widget.nearbyShops.where((sd) => sd.shop.isOpen).toList();
   }
 
-  Future<BitmapDescriptor> _createUserMarker() async {
-    const cacheKey = 'user_marker';
+  void _updateMarkers() {
+    final markers = <Marker>[];
 
-    if (_markerCache.containsKey(cacheKey)) {
-      return _markerCache[cacheKey]!;
-    }
-
-    const double markerSize = 44;
-    const double pulseSize = 44;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-
-    // Draw pulse circle (outer)
-    final pulsePaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.3)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(
-      Offset(markerSize / 2, markerSize / 2),
-      pulseSize / 2,
-      pulsePaint,
-    );
-
-    // Draw main circle
-    final circlePaint = Paint()
-      ..color = Colors.blue.shade600
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(markerSize / 2, markerSize / 2), 20, circlePaint);
-
-    // Draw border
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    canvas.drawCircle(Offset(markerSize / 2, markerSize / 2), 20, borderPaint);
-
-    // Draw person icon
-    final iconPaint = Paint()..color = Colors.white;
-    final iconCenter = Offset(markerSize / 2, markerSize / 2);
-
-    // Head
-    canvas.drawCircle(Offset(iconCenter.dx, iconCenter.dy - 4), 5, iconPaint);
-
-    // Body
-    final bodyPath = Path();
-    bodyPath.moveTo(iconCenter.dx - 7, iconCenter.dy + 10);
-    bodyPath.quadraticBezierTo(
-      iconCenter.dx,
-      iconCenter.dy - 2,
-      iconCenter.dx + 7,
-      iconCenter.dy + 10,
-    );
-    bodyPath.close();
-    canvas.drawPath(bodyPath, iconPaint);
-
-    final image = await recorder.endRecording().toImage(
-      markerSize.toInt(),
-      markerSize.toInt(),
-    );
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    final bytes = byteData!.buffer.asUint8List();
-
-    final descriptor = BitmapDescriptor.bytes(bytes);
-    _markerCache[cacheKey] = descriptor;
-    return descriptor;
-  }
-
-  void _updateMarkers() async {
-    final markers = <Marker>{};
-
-    // User marker
     if (widget.userLatitude != 0 && widget.userLongitude != 0) {
-      final userIcon = await _createUserMarker();
       markers.add(
-        Marker(
-          markerId: const MarkerId('user'),
-          position: LatLng(widget.userLatitude, widget.userLongitude),
-          icon: userIcon,
-          infoWindow: const InfoWindow(title: 'Tu ubicación'),
+        OSMMarker.createUserMarker(
+          LatLng(widget.userLatitude, widget.userLongitude),
         ),
       );
     }
 
-    // Shop markers
-    for (final shopDistance in widget.nearbyShops) {
+    for (final shopDistance in _openShops) {
       final shop = shopDistance.shop;
       final isSelected = widget.selectedShop?.id == shop.id;
 
-      final markerIcon = await _createShopMarker(
-        logoUrl: shop.logoUrl,
-        distanceKm: shopDistance.distanceKm,
-        isSelected: isSelected,
-      );
-
       markers.add(
         Marker(
-          markerId: MarkerId(shop.id),
-          position: LatLng(shop.latitude, shop.longitude),
-          icon: markerIcon,
-          infoWindow: InfoWindow(
-            title: shop.name,
-            snippet: '${shopDistance.distanceKm.toStringAsFixed(1)} km',
+          point: LatLng(shop.latitude, shop.longitude),
+          width: isSelected ? 60 : 50,
+          height: 60,
+          child: GestureDetector(
+            onTap: () => widget.onShopSelected(shop),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: isSelected ? 52 : 44,
+                  height: isSelected ? 52 : 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? AppColors.primaryColor : Colors.grey,
+                      width: isSelected ? 3 : 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.store, color: Colors.grey, size: 22),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primaryColor : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '${shopDistance.distanceKm.toStringAsFixed(1)} km',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          onTap: () {
-            widget.onShopSelected(shop);
-          },
         ),
       );
     }
 
-    if (mounted) {
-      setState(() {
-        _markers.clear();
-        _markers.addAll(markers);
-      });
+    setState(() {
+      _markers = markers;
+    });
+  }
+
+  void _fitBounds() {
+    if (!mounted) return;
+    if (_openShops.isEmpty) return;
+
+    final allPoints = <LatLng>[];
+
+    if (widget.userLatitude != 0 && widget.userLongitude != 0) {
+      allPoints.add(LatLng(widget.userLatitude, widget.userLongitude));
     }
+
+    for (final sd in _openShops) {
+      allPoints.add(LatLng(sd.shop.latitude, sd.shop.longitude));
+    }
+
+    if (allPoints.isEmpty) return;
+
+    final bounds = OfflineMapHelper.calculateBounds(allPoints);
+    _mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
+    );
+    _hasAnimated = true;
   }
 
   LatLng get _initialPosition {
@@ -353,31 +191,35 @@ class _FullMapWidgetState extends State<FullMapWidget> {
         widget.nearbyShops.first.shop.longitude,
       );
     }
-    return const LatLng(0, 0);
+    return const LatLng(4.7110, -74.0721);
   }
 
   @override
   Widget build(BuildContext context) {
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(
-        target: _initialPosition,
-        zoom: widget.userLatitude != 0 || widget.nearbyShops.isNotEmpty
-            ? 15
-            : 2,
-      ),
-      onMapCreated: (controller) {
-        _mapController = controller;
+    if (_markers.isEmpty && _openShops.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateMarkers();
         if (!_hasAnimated) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+          _fitBounds();
         }
-      },
-      markers: _markers,
-      myLocationEnabled: false,
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: false,
-      mapToolbarEnabled: false,
-      onTap: (LatLng point) {},
+      });
+    }
+
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: _initialPosition,
+        initialZoom: widget.userLatitude != 0 || widget.nearbyShops.isNotEmpty
+            ? 15
+            : 2,
+        minZoom: 3,
+        maxZoom: 18,
+        onTap: (tapPosition, point) {},
+      ),
+      children: [
+        _mapService.createTileLayer(),
+        MarkerLayer(markers: _markers),
+      ],
     );
   }
 }

@@ -66,9 +66,7 @@ class AppConfigNotifier extends StateNotifier<AppConfigState> {
 
       RegionConfig regionConfig;
       if (regionResponse != null) {
-        regionConfig = RegionConfig.fromJson(
-          regionResponse as Map<String, dynamic>,
-        );
+        regionConfig = RegionConfig.fromJson(regionResponse);
       } else {
         regionConfig = _getHardcodedRegionConfig(countryCode);
       }
@@ -207,9 +205,7 @@ class AppConfigNotifier extends StateNotifier<AppConfigState> {
 
       RegionConfig regionConfig;
       if (regionResponse != null) {
-        regionConfig = RegionConfig.fromJson(
-          regionResponse as Map<String, dynamic>,
-        );
+        regionConfig = RegionConfig.fromJson(regionResponse);
       } else {
         regionConfig = _getHardcodedRegionConfig(countryCode);
       }

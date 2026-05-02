@@ -15,9 +15,7 @@ import 'package:flutter_app/presentation/widget/common/price_display.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_places_flutter/google_places_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../../core/services/payments/payment_models.dart';
 import '../../../../core/services/payments/bold_payment_service.dart';
 
@@ -430,7 +428,6 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
   }
 
   Widget _buildDeliverySection() {
-    final apiKey = dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '';
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -449,50 +446,10 @@ class _CheckoutPageModalState extends ConsumerState<CheckoutPageModal> {
           Row(
             children: [
               Expanded(
-                child: GooglePlaceAutoCompleteTextField(
-                  textEditingController: _addressController,
-                  googleAPIKey: apiKey,
-                  inputDecoration: InputDecoration(
-                    hintText: 'Buscar dirección...',
-                    prefixIcon: const Icon(Icons.location_on_rounded),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: AppColors.primaryColor,
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
-                  debounceTime: 400,
-                  isLatLngRequired: false,
-                  getPlaceDetailWithLatLng: (p) {},
-                  itemClick: (prediction) {
-                    _addressController.text = prediction.description ?? '';
-                    _addressController.selection = TextSelection.fromPosition(
-                      TextPosition(offset: _addressController.text.length),
-                    );
-                    FocusScope.of(context).unfocus();
-                    if (prediction.placeId != null) {
-                      _onPlaceSelected(
-                        prediction.placeId!,
-                        prediction.description ?? '',
-                      );
-                    }
-                  },
+                child: CustomTextField(
+                  controller: _addressController,
+                  hintText: 'Ingresa tu dirección...',
+                  prefixIcon: Icons.location_on_rounded,
                 ),
               ),
               const SizedBox(width: 12),

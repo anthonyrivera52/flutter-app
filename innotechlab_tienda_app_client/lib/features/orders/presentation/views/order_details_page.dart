@@ -5,7 +5,9 @@ import 'package:flutter_app/features/orders/domain/models/order_entity.dart'
     show AppOrder;
 import 'package:flutter_app/features/orders/presentation/viewmodels/order_details_viewmodel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_app/shared/ui/map/osm_map_service.dart';
 import 'package:intl/intl.dart';
 
 class OrderDetailsPage extends ConsumerWidget {
@@ -328,39 +330,64 @@ class _OrderMap extends ConsumerWidget {
     );
     final storeLocation = LatLng(order.storeLatitude, order.storeLongitude);
 
+    final centerLat = (userLocation.latitude + storeLocation.latitude) / 2;
+    final centerLng = (userLocation.longitude + storeLocation.longitude) / 2;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
         height: 220,
-        child: GoogleMap(
-          markers: {
-            Marker(
-              markerId: const MarkerId('userLocation'),
-              position: userLocation,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueBlue,
-              ),
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(centerLat, centerLng),
+            initialZoom: 15,
+            minZoom: 3,
+            maxZoom: 18,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.none,
             ),
-            Marker(
-              markerId: const MarkerId('storeLocation'),
-              position: storeLocation,
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueRed,
-              ),
-            ),
-          },
-          initialCameraPosition: CameraPosition(
-            target: LatLng(
-              (userLocation.latitude + storeLocation.latitude) / 2,
-              (userLocation.longitude + storeLocation.longitude) / 2,
-            ),
-            zoom: 15,
           ),
-          mapToolbarEnabled: false,
-          zoomControlsEnabled: false,
-          scrollGesturesEnabled: false,
-          tiltGesturesEnabled: false,
-          rotateGesturesEnabled: false,
+          children: [
+            OSMMapService().createTileLayer(),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: userLocation,
+                  width: 40,
+                  height: 40,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.home,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                Marker(
+                  point: storeLocation,
+                  width: 40,
+                  height: 40,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.store,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

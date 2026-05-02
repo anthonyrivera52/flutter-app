@@ -8,7 +8,9 @@ import 'package:flutter_app/presentation/widget/common/custom_button.dart';
 import 'package:flutter_app/presentation/widget/common/loading_indicator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_app/shared/ui/map/osm_map_service.dart';
 
 class OrderConfirmationPage extends ConsumerStatefulWidget {
   final double? userLatitude;
@@ -28,11 +30,21 @@ class OrderConfirmationPage extends ConsumerStatefulWidget {
 class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
   LatLng? _userLocation;
   LatLng? _storeLocation;
+  late final OSMMapService _mapService;
+  late final MapController _mapController;
 
   @override
   void initState() {
     super.initState();
+    _mapService = OSMMapService();
+    _mapController = _mapService.mapController;
     _loadLatestOrderAndSetupMap();
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLatestOrderAndSetupMap() async {
@@ -107,38 +119,9 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey.shade300),
                     ),
+                    clipBehavior: Clip.antiAlias,
                     child: _userLocation != null && _storeLocation != null
-                        ? GoogleMap(
-                            initialCameraPosition: CameraPosition(
-                              target: LatLng(
-                                (_userLocation!.latitude +
-                                        _storeLocation!.latitude) /
-                                    2,
-                                (_userLocation!.longitude +
-                                        _storeLocation!.longitude) /
-                                    2,
-                              ),
-                              zoom: 15,
-                            ),
-                            markers: {
-                              Marker(
-                                markerId: MarkerId('userLocation'),
-                                position: _userLocation!,
-                                icon: BitmapDescriptor.defaultMarkerWithHue(
-                                  BitmapDescriptor.hueBlue,
-                                ),
-                              ),
-                              Marker(
-                                markerId: MarkerId('storeLocation'),
-                                position: _storeLocation!,
-                                icon: BitmapDescriptor.defaultMarkerWithHue(
-                                  BitmapDescriptor.hueRed,
-                                ),
-                              ),
-                            },
-                            mapToolbarEnabled: false,
-                            zoomControlsEnabled: false,
-                          )
+                        ? _buildOrderMap()
                         : const Center(child: CircularProgressIndicator()),
                   ),
                   const SizedBox(height: 30),
@@ -545,6 +528,55 @@ class _OrderConfirmationPageState extends ConsumerState<OrderConfirmationPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOrderMap() {
+    final centerLat = (_userLocation!.latitude + _storeLocation!.latitude) / 2;
+    final centerLng =
+        (_userLocation!.longitude + _storeLocation!.longitude) / 2;
+
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: LatLng(centerLat, centerLng),
+        initialZoom: 15,
+        minZoom: 3,
+        maxZoom: 18,
+      ),
+      children: [
+        _mapService.createTileLayer(),
+        MarkerLayer(
+          markers: [
+            Marker(
+              point: _userLocation!,
+              width: 40,
+              height: 40,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(Icons.home, color: Colors.white, size: 20),
+              ),
+            ),
+            Marker(
+              point: _storeLocation!,
+              width: 40,
+              height: 40,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(Icons.store, color: Colors.white, size: 20),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
