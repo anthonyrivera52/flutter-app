@@ -302,7 +302,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
   Future<CatalogResult> _fetchCatalog(Shop shop) async {
     final response = await _supabase.functions.invoke(
       'get-catalog',
-      body: {'slug': shop.slug},
+      body: {'locationId': shop.id},
     );
 
     final productsJson =
@@ -326,9 +326,10 @@ class HomeNotifier extends StateNotifier<HomeState> {
         name: (map['name'] ?? '') as String,
         description: (map['description'] ?? '') as String,
         price: (map['price'] as num?)?.toDouble() ?? 0,
-        imageUrl: (map['imageUrl'] ?? '') as String,
-        unit: 'unidad',
-        categoryId: (map['categoryId'] ?? '') as String,
+        imageUrl: (map['image_url'] ?? '') as String,
+        unit: (map['unit'] ?? 'unidad') as String,
+        categoryId: (map['category_id'] ?? '') as String,
+        discountedPrice: (map['discounted_price'] as num?)?.toDouble(),
       );
     }).toList();
 

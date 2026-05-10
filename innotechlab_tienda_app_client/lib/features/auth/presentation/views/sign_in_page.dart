@@ -19,24 +19,16 @@ class SignInPage extends ConsumerStatefulWidget {
 
 class _SignInPageState extends ConsumerState<SignInPage> {
   final _formKey = GlobalKey<FormState>();
-  // Stores the function to remove the listener for authentication state
-  late VoidCallback _removeAuthListener;
-  // Stores the function to remove the listener for error messages
-  late VoidCallback _removeErrorListener;
+  late VoidCallback _removeListener;
+  String? _previousLoggedInEmail;
 
   @override
   void initState() {
     super.initState();
 
-    // Get the notifier instance for authViewModelProvider
     final authVM = ref.read(authViewModelProvider.notifier);
 
-    // Listen to changes in the authentication state
-    _removeAuthListener = authVM.addListener((state) {
-      // previousState is not directly available with addListener,
-      // so we check if isAuthenticated just became true.
-      // This relies on the ViewModel correctly setting isAuthenticated to false initially
-      // and then true only on success.
+    _removeListener = authVM.addListener((state) {
       if (state.isAuthenticated) {
         if (mounted) {
           final l10n = AppLocalizations.of(context)!;
@@ -49,28 +41,36 @@ class _SignInPageState extends ConsumerState<SignInPage> {
           );
           context.go('/');
         }
+        return;
       }
-    });
 
-    // Listen to changes in the error message state
-    _removeErrorListener = authVM.addListener((state) {
-      // Check if there's a new error message
-      // We need to compare with the previous state to avoid showing the same error repeatedly
-      // This is a common pattern when using addListener for SnackBar messages.
-      // For a more robust comparison, you might need to store the previous error message
-      // in the state of _SignInPageState or rely on clearErrorMessage.
+      if (state.loggedInEmail != null &&
+          state.loggedInEmail!.isNotEmpty &&
+          state.loggedInEmail != _previousLoggedInEmail &&
+          state.errorMessage == null) {
+        _previousLoggedInEmail = state.loggedInEmail;
+        if (mounted) {
+          showInfoToast(
+            context,
+            message: 'Código enviado a ${state.loggedInEmail}',
+            backgroundColor: Colors.blue,
+            icon: Icons.mark_email_read_outlined,
+            isDismissible: true,
+          );
+          context.go('/otp-verification', extra: state.loggedInEmail);
+        }
+        return;
+      }
+
       if (state.errorMessage != null) {
         if (mounted) {
-          // Show the error message using InfoToast
           showInfoToast(
-            // Usando InfoToast para el mensaje de éxito
             context,
             message: state.errorMessage!,
             backgroundColor: Colors.red,
             icon: Icons.error_outline,
             isDismissible: true,
           );
-          // Clear the error message in the ViewModel after displaying it
           authVM.clearErrorMessage();
         }
       }
@@ -79,19 +79,27 @@ class _SignInPageState extends ConsumerState<SignInPage> {
 
   @override
   void dispose() {
-    // Close the listeners when the widget is disposed
-    _removeAuthListener();
-    _removeErrorListener();
-    // Text controllers are managed and disposed by the ViewModel.
-    // No need to dispose them here.
+    _removeListener();
     super.dispose();
   }
 
   void _onSignInButtonPressed() {
     if (_formKey.currentState?.validate() ?? false) {
-      // Call the login method of the ViewModel
       ref.read(authViewModelProvider.notifier).login();
     }
+  }
+
+  void _onOtpSignInPressed() {
+    final email = ref.read(authViewModelProvider.notifier).emailController.text.trim();
+    if (email.isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      showInfoToast(
+        context,
+        message: 'Ingresa un correo válido',
+        backgroundColor: Colors.red,
+      );
+      return;
+    }
+    ref.read(authViewModelProvider.notifier).signInWithOtp(email);
   }
 
   @override

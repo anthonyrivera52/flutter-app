@@ -31,24 +31,29 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     String? cursor,
     int limit = 10,
   }) async {
+    final page = cursor != null ? int.parse(cursor) : 1;
     final response = await _supabase.functions.invoke(
       'get-user-orders',
-      body: {'cursor': cursor, 'limit': limit},
+      body: {'page': page, 'limit': limit},
     );
     final rawOrders = response.data['orders'] as List<dynamic>? ?? [];
+    final pagination =
+        response.data['pagination'] as Map<String, dynamic>? ?? {};
+    final currentPage = pagination['page'] as int? ?? page;
+    final totalPages = pagination['totalPages'] as int? ?? 0;
     return PaginatedOrders(
       orders: rawOrders
           .map((j) => OrderModel.fromJson(j as Map<String, dynamic>).toEntity())
           .toList(),
-      nextCursor: response.data['nextCursor'] as String?,
-      hasMore: response.data['hasMore'] as bool? ?? false,
+      nextCursor: currentPage < totalPages ? '${currentPage + 1}' : null,
+      hasMore: currentPage < totalPages,
     );
   }
 
   @override
   Future<AppOrder> getOrderById(String orderId) async {
     final response = await _supabase.functions.invoke(
-      'get-order',
+      'track-order',
       body: {'orderId': orderId},
     );
     final raw = response.data['order'] as Map<String, dynamic>?;

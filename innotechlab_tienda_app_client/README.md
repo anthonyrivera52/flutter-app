@@ -14,3 +14,8 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+
+flutter clean
+   rm -rf ios/Pods ios/.symlinks
+   cd ios && pod deintegrate && pod install && cd ..
+   flutter run -d 00008101-00184D1C1450001E

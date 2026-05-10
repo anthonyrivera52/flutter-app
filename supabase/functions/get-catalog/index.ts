@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     // 2. Get all products for this organization
     let query = adminClient
       .from('products')
-      .select('id, name, description, price, image_url')
+      .select('id, name, description, price, image_url, unit, discounted_price')
       .eq('organization_id', orgId)
       .eq('is_available', true)
       .limit(limit);
@@ -66,11 +66,11 @@ Deno.serve(async (req) => {
       : { data: [] };
 
     const categoryMap = new Map((categories ?? []).map((c) => [c.id, c]));
-    const productCatMap = new Map<string, { slug: string; name: string }>();
+    const productCatMap = new Map<string, { id: string; slug: string; name: string }>();
     for (const link of catLinks ?? []) {
       const cat = categoryMap.get(link.category_id);
       if (cat && !productCatMap.has(link.product_id)) {
-        productCatMap.set(link.product_id, { slug: cat.slug, name: cat.name });
+        productCatMap.set(link.product_id, { id: cat.id, slug: cat.slug, name: cat.name });
       }
     }
 
@@ -89,11 +89,11 @@ Deno.serve(async (req) => {
     }
 
     // 6. Build unique categories list for the UI
-    const uniqueCategories = new Map<string, { slug: string; name: string }>();
+    const uniqueCategories = new Map<string, { id: string; slug: string; name: string }>();
     for (const link of catLinks ?? []) {
       const cat = categoryMap.get(link.category_id);
       if (cat) {
-        uniqueCategories.set(cat.slug, { slug: cat.slug, name: cat.name });
+        uniqueCategories.set(cat.slug, { id: cat.id, slug: cat.slug, name: cat.name });
       }
     }
 
@@ -106,7 +106,9 @@ Deno.serve(async (req) => {
         description: p.description,
         price: p.price,
         image_url: p.image_url,
-        category_id: cat?.slug ?? '',
+        unit: p.unit,
+        discounted_price: p.discounted_price,
+        category_id: cat?.id ?? '',
       };
     });
 

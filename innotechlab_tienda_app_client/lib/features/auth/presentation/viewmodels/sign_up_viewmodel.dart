@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart'; // Necesario para TextEditingController
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'package:flutter_app/core/errors/failures.dart';
 import 'package:flutter_app/features/auth/data/models/auth_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -162,7 +162,8 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
         // Si emailAutoConfirm está habilitado en Supabase, el usuario ya está confirmado.
         // Si no, necesitamos que verifique el código.
 
-        // Guardamos el email para la página de verificación
+        _setOtpTypeByConfig();
+
         state = state.copyWith(
           isLoading: false,
           errorMessage: null,
@@ -222,10 +223,8 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
     }
 
     try {
-      // Determinar el tipo de OTP según el método configurado
-      final otpType = AppConstants.otpMethod == 'twilio'
-          ? OtpType.sms
-          : OtpType.signup;
+      final otpType = state.otpType ??
+          (AppConstants.otpMethod == 'twilio' ? OtpType.sms : OtpType.signup);
 
       final response = await Supabase.instance.client.auth.verifyOTP(
         email: email,
@@ -260,16 +259,41 @@ class AuthViewModel extends StateNotifier<AuthStateModel> {
     }
   }
 
+  void _setOtpTypeByConfig() {
+    final otpType = AppConstants.otpMethod == 'twilio'
+        ? OtpType.sms
+        : OtpType.signup;
+    state = state.copyWith(otpType: otpType);
+  }
+
+  /// Envía un código OTP al email para inicio de sesión sin contraseña (passwordless).
+  /// Usa `signInWithOtp` de Supabase que siempre envía un OTP numérico.
+  Future<void> signInWithOtp(String email) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(email: email);
+      state = state.copyWith(
+        isLoading: false,
+        loggedInEmail: email,
+        otpType: OtpType.email,
+      );
+    } on AuthException catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.message);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Error al enviar OTP: ${e.toString()}',
+      );
+    }
+  }
+
   /// Reenvía el código OTP.
-  /// Usa Supabase email OTP para dev/QA
-  /// Usa Twilio SMS OTP para producción
+  /// Usa el tipo de OTP almacenado en el estado (si existe) o el configurado en el entorno.
   Future<void> resendOtp(String email) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      // Determinar el tipo de OTP según el método configurado
-      final otpType = AppConstants.otpMethod == 'twilio'
-          ? OtpType.sms
-          : OtpType.signup;
+      final otpType = state.otpType ??
+          (AppConstants.otpMethod == 'twilio' ? OtpType.sms : OtpType.signup);
 
       await Supabase.instance.client.auth.resend(type: otpType, email: email);
       state = state.copyWith(isLoading: false);

@@ -7,10 +7,17 @@ Deno.serve(async (req) => {
   try {
     const userId = await getAuthenticatedUserId(req);
 
-    // Parse pagination parameters
+    // Parse pagination parameters (request body takes precedence over URL params)
     const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '10'), 50);
+    let bodyPage: number | undefined;
+    let bodyLimit: number | undefined;
+    try {
+      const body = await req.json();
+      bodyPage = body.page;
+      bodyLimit = body.limit;
+    } catch { /* body not JSON, fall back to URL params */ }
+    const page = bodyPage ?? parseInt(url.searchParams.get('page') || '1');
+    const limit = Math.min(bodyLimit ?? parseInt(url.searchParams.get('limit') || '10'), 50);
     const offset = (page - 1) * limit;
 
     // Get total count

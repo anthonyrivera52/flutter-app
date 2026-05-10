@@ -1,9 +1,12 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 class AuthState {
   final bool isLoading;
   final String? errorMessage;
   final bool isPasswordObscured;
-  final bool isAuthenticated; // Para indicar si la autenticación fue exitosa
-  final bool otpSent; // Indica si el código OTP fue enviado exitosamente
+  final bool isAuthenticated;
+  final bool otpSent;
+  final OtpType? otpType;
 
   AuthState({
     this.isLoading = false,
@@ -11,5 +14,6 @@ class AuthState {
     this.isPasswordObscured = true,
     this.isAuthenticated = false,
     this.otpSent = false,
+    this.otpType,
   });
 }

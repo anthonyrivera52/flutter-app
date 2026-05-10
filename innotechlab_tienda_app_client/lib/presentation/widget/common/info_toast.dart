@@ -1,13 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Un widget de tipo SnackBar personalizado para mostrar mensajes informativos.
-///
-/// [context] El BuildContext actual para mostrar el SnackBar.
-/// [message] El texto principal del mensaje a mostrar.
-/// [backgroundColor] El color de fondo del SnackBar (por defecto, gris oscuro).
-/// [textColor] El color del texto del mensaje (por defecto, blanco).
-/// [icon] Un icono opcional para mostrar junto al mensaje.
-/// [duration] La duración que el SnackBar estará visible (por defecto, 4 segundos).
 void showInfoToast(
   BuildContext context, {
   required String message,
@@ -18,6 +10,13 @@ void showInfoToast(
   bool? isDismissible,
 }) {
   if (!context.mounted) return;
+
+  void dismiss() {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+  }
+
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Column(
@@ -57,19 +56,16 @@ void showInfoToast(
       ),
       backgroundColor: backgroundColor,
       duration: duration,
-      behavior: SnackBarBehavior
-          .floating, // Opcional: para que flote sobre el contenido
+      behavior: SnackBarBehavior.floating,
       action: isDismissible == true
           ? SnackBarAction(
               label: 'Cerrar',
               textColor: textColor,
-              onPressed: () {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                }
-              },
+              onPressed: dismiss,
             )
-          : null, // Si isDismissible es true, muestra un botón de cerrar
+          : null,
     ),
   );
+
+  Future.delayed(duration, dismiss);
 }
