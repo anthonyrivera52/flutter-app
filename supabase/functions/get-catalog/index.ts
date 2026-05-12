@@ -25,13 +25,15 @@ Deno.serve(async (req) => {
 
     const orgId = location.organization_id;
 
-    // 2. Get all products for this organization
-    let query = adminClient
-      .from('products')
-      .select('id, name, description, price, image_url, unit, discounted_price')
-      .eq('organization_id', orgId)
-      .eq('is_available', true)
-      .limit(limit);
+// 2. Get all products for this organization
+     // NOTE: category_id NO existe en products — se resuelve vía junction table abajo
+     // NOTE: discounted_price NO existe en products — se computa aparte si es necesario
+     let query = adminClient
+       .from('products')
+       .select('id, name, description, price, image_url, measurement_unit')
+       .eq('organization_id', orgId)
+       .eq('is_available', true)
+       .limit(limit);
 
     if (search && typeof search === 'string') {
       query = query.ilike('name', `%${search}%`);
@@ -50,14 +52,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Get categories for these products via junction table
-    const { data: catLinks } = await adminClient
+    // 3. Get category-product links (junction table first, then fallback to direct category_id)
+    let catLinks: { product_id: string; category_id: string }[] = [];
+
+    // Try junction table first
+    const { data: junctionLinks } = await adminClient
       .from('product_category_products')
       .select('product_id, category_id')
       .in('product_id', allProductIds);
 
+    catLinks = junctionLinks ?? [];
+
     // 4. Get category details
-    const catIds = [...new Set((catLinks ?? []).map((cl) => cl.category_id))];
+    const catIds = [...new Set(catLinks.map((cl) => cl.category_id))];
     const { data: categories } = catIds.length > 0
       ? await adminClient
           .from('product_categories')
@@ -67,7 +74,7 @@ Deno.serve(async (req) => {
 
     const categoryMap = new Map((categories ?? []).map((c) => [c.id, c]));
     const productCatMap = new Map<string, { id: string; slug: string; name: string }>();
-    for (const link of catLinks ?? []) {
+    for (const link of catLinks) {
       const cat = categoryMap.get(link.category_id);
       if (cat && !productCatMap.has(link.product_id)) {
         productCatMap.set(link.product_id, { id: cat.id, slug: cat.slug, name: cat.name });
@@ -78,7 +85,7 @@ Deno.serve(async (req) => {
     let filtered = products ?? [];
     if (categoryId && typeof categoryId === 'string') {
       const matchingProductIds = new Set(
-        (catLinks ?? [])
+        catLinks
           .filter((cl) => {
             const cat = categoryMap.get(cl.category_id);
             return cat?.slug === categoryId;
@@ -90,27 +97,27 @@ Deno.serve(async (req) => {
 
     // 6. Build unique categories list for the UI
     const uniqueCategories = new Map<string, { id: string; slug: string; name: string }>();
-    for (const link of catLinks ?? []) {
+    for (const link of catLinks) {
       const cat = categoryMap.get(link.category_id);
       if (cat) {
         uniqueCategories.set(cat.slug, { id: cat.id, slug: cat.slug, name: cat.name });
       }
     }
 
-    // 7. Build response
-    const result = filtered.map((p) => {
-      const cat = productCatMap.get(p.id);
-      return {
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        image_url: p.image_url,
-        unit: p.unit,
-        discounted_price: p.discounted_price,
-        category_id: cat?.id ?? '',
-      };
-    });
+// 7. Build response (sin category_id ni discounted_price — no existen en products)
+     const result = filtered.map((p) => {
+       const cat = productCatMap.get(p.id);
+       return {
+         'id': p.id,
+         'name': p.name,
+         'description': p.description,
+         'price': p.price,
+         'image_url': p.image_url,
+         // measurement_unit viene del select como string o null
+         'unit': p['measurement_unit'] ?? 'unidad',
+         'category_id': cat?.id ?? '',
+       };
+     });
 
     return jsonResponse({
       products: result,

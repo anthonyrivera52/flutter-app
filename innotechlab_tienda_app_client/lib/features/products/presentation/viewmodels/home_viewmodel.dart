@@ -315,23 +315,23 @@ class HomeNotifier extends StateNotifier<HomeState> {
       return Category(
         id: map['id'] as String,
         name: map['name'] as String,
-        imageUrl: map['imageUrl'] as String?,
+        imageUrl: map['image_url'] as String?,
       );
     }).toList();
 
-    final products = productsJson.map((raw) {
-      final map = raw as Map<String, dynamic>;
-      return Product(
-        id: map['id'] as String,
-        name: (map['name'] ?? '') as String,
-        description: (map['description'] ?? '') as String,
-        price: (map['price'] as num?)?.toDouble() ?? 0,
-        imageUrl: (map['image_url'] ?? '') as String,
-        unit: (map['unit'] ?? 'unidad') as String,
-        categoryId: (map['category_id'] ?? '') as String,
-        discountedPrice: (map['discounted_price'] as num?)?.toDouble(),
-      );
-    }).toList();
+final products = productsJson.map((raw) {
+       final map = raw as Map<String, dynamic>;
+       return Product(
+         id: map['id'] as String,
+         name: (map['name'] ?? '') as String,
+         description: (map['description'] ?? '') as String,
+         price: (map['price'] as num?)?.toDouble() ?? 0,
+         imageUrl: (map['image_url'] ?? '') as String,
+         unit: (map['unit'] ?? 'unidad') as String,
+         categoryId: (map['category_id'] ?? '') as String,
+         discountedPrice: null, // discounted_price NO existe en products — se calcula aparte
+       );
+     }).toList();
 
     return CatalogResult(products: products, categories: categories);
   }

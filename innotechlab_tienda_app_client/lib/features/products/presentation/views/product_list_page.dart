@@ -26,6 +26,8 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
   late ValueNotifier<String> _searchTermNotifier;
   List<Product> _products = [];
   List<Category> _categories = [];
+  // Mapa producto→todas sus categorías (vía junction table)
+  Map<String, List<String>> _productCategoryMap = {};
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -53,33 +55,57 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     try {
       final supabase = Supabase.instance.client;
 
+      // 1. Products (is_available filter)
       final productsResponse = await supabase
           .from('products')
           .select()
           .eq('is_available', true);
 
+      // 2. Categories activas
       final categoriesResponse = await supabase
-          .from('categories')
+          .from('product_categories')
           .select()
-          .order('name');
+          .eq('is_active', true)
+          .order('position');
 
-      final products = (productsResponse as List)
-          .map(
-            (p) => Product(
-              id: p['id'] as String,
-              name: p['name'] as String,
-              description: p['description'] as String,
-              price: (p['price'] as num).toDouble(),
-              imageUrl: p['image_url'] as String,
-              categoryId: p['category_id'] as String,
-              unit: p['unit'] as String,
-              discountedPrice: p['discounted_price'] != null
-                  ? (p['discounted_price'] as num).toDouble()
-                  : null,
-            ),
-          )
+      // 3. Junction table: product_id → category_id
+      final productIds = (productsResponse as List)
+          .map((p) => p['id'] as String)
           .toList();
 
+      final Map<String, List<String>> productCategoryMap = {};
+      if (productIds.isNotEmpty) {
+        final junctionResponse = await supabase
+            .from('product_category_products')
+            .select('product_id, category_id')
+            .inFilter('product_id', productIds);
+
+        for (final link in (junctionResponse as List)) {
+          final productId = link['product_id'] as String;
+          final catId = link['category_id'] as String;
+          productCategoryMap
+              .putIfAbsent(productId, () => [])
+              .add(catId);
+        }
+      }
+
+      // 4. Mapear productos con categoría desde junction table
+      final products = (productsResponse as List).map((p) {
+        final catIds =
+            productCategoryMap[p['id'] as String] ?? const [];
+        return Product(
+          id: p['id'] as String,
+          name: p['name'] as String,
+          description: (p['description'] as String?) ?? '',
+          price: (p['price'] as num).toDouble(),
+          imageUrl: (p['image_url'] as String?) ?? '',
+          categoryId: catIds.isNotEmpty ? catIds.first : '',
+          unit: (p['measurement_unit'] as String?) ?? 'unidad',
+          discountedPrice: null,
+        );
+      }).toList();
+
+      // 5. Mapear categorías
       final categories = (categoriesResponse as List)
           .map(
             (c) => Category(
@@ -95,6 +121,7 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
       setState(() {
         _products = products;
         _categories = categories;
+        _productCategoryMap = productCategoryMap;
         _isLoading = false;
       });
     } catch (e) {
@@ -178,17 +205,20 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
     if (widget.categoryId == 'all') {
       productsToFilter = _products;
     } else if (widget.categoryId == 'discounted') {
-      productsToFilter = _products
-          .where((p) => p.discountedPrice != null)
-          .toList();
+      // Sin soporte de discountedPrice en el esquema actual
+      productsToFilter = _products;
     } else {
       final applicableIds = _getApplicableCategoryIds(
         widget.categoryId,
         _categories,
       );
-      productsToFilter = _products
-          .where((product) => applicableIds.contains(product.categoryId))
-          .toList();
+      productsToFilter = _products.where((product) {
+        // Usar junction map para verificar todas las categorías del producto
+        final productCatIds =
+            _productCategoryMap[product.id] ?? const [];
+        return productCatIds
+            .any((catId) => applicableIds.contains(catId));
+      }).toList();
     }
 
     final String currentSearchTerm = _searchTermNotifier.value.toLowerCase();

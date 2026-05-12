@@ -37,18 +37,18 @@ class ProductDetailsNotifier extends StateNotifier<AsyncValue<Product?>> {
         return;
       }
 
-      final product = Product(
-        id: response['id'] as String,
-        name: response['name'] as String,
-        description: response['description'] as String,
-        price: (response['price'] as num).toDouble(),
-        imageUrl: response['image_url'] as String,
-        categoryId: response['category_id'] as String,
-        unit: response['unit'] as String,
-        discountedPrice: response['discounted_price'] != null
-            ? (response['discounted_price'] as num).toDouble()
-            : null,
-      );
+final product = Product(
+         id: response['id'] as String,
+         name: response['name'] as String,
+         description: response['description'] as String,
+         price: (response['price'] as num).toDouble(),
+         imageUrl: response['image_url'] as String,
+         // products no tiene category_id directo — se obtiene vía junction table
+         categoryId: response['category_id'] as String? ?? '',
+         // unit no existe en products → measurement_unit es la columna real
+         unit: (response['measurement_unit'] as String?) ?? 'unidad',
+         discountedPrice: null, // discounted_price NO existe en products
+       );
 
       state = AsyncValue.data(product);
     } catch (e, st) {
